@@ -4,115 +4,9 @@ import { AudioEngine } from './services/AudioEngine';
 import Knob from './components/Knob';
 import VUMeter from './components/VUMeter';
 import WaveformPlayer from './components/WaveformPlayer';
-import BiteyLogo from './components/BiteyLogo';
 import { ChannelState, MasterState } from './types';
 
 const INIT_CH = (lbl: string): ChannelState => ({ label: lbl, effectsSend: 5, monitorSend: 0, high: 0, low: 0, level: 5 });
-
-const Installer = ({ onComplete }: { onComplete: () => void }) => {
-    const [progress, setProgress] = useState(0);
-    const [log, setLog] = useState<string[]>([]);
-    const logRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const steps = [
-            { t: 0, msg: "Initializing installer core...", p: 5 },
-            { t: 600, msg: "Checking system compatibility...", p: 15 },
-            { t: 1200, msg: "Allocating DSP resources...", p: 25 },
-            { t: 1800, msg: "Found Host: Universal Audio Luna...", p: 35 },
-            { t: 2600, msg: "Copying component: Bitey_PA600.vst3", p: 45 },
-            { t: 3000, msg: "Copying component: Bitey_PA600.aax", p: 50 },
-            { t: 3400, msg: "Copying component: Bitey_PA600.component", p: 55 },
-            { t: 4000, msg: "Modeling tape saturation curves...", p: 65 },
-            { t: 4800, msg: "Calibrating spring reverb tensors...", p: 75 },
-            { t: 5600, msg: "Linking to analog summing bus...", p: 85 },
-            { t: 6200, msg: "Registering plugin license...", p: 95 },
-            { t: 7000, msg: "Installation complete.", p: 100 },
-        ];
-
-        let timeouts: NodeJS.Timeout[] = [];
-
-        steps.forEach((step, i) => {
-            const tm = setTimeout(() => {
-                setLog(prev => [...prev, `> ${step.msg}`]);
-                setProgress(step.p);
-                if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-                
-                if (step.p === 100) {
-                    setTimeout(onComplete, 800);
-                }
-            }, step.t);
-            timeouts.push(tm);
-        });
-
-        return () => timeouts.forEach(clearTimeout);
-    }, [onComplete]);
-
-    return (
-        <div className="fixed inset-0 bg-[#050505] flex items-center justify-center z-[100] font-sans select-none">
-            {/* Background blurred elements */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-900/10 rounded-full blur-[100px]"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-900/10 rounded-full blur-[100px]"></div>
-            </div>
-
-            <div className="w-[480px] bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl relative z-10 flex flex-col overflow-hidden">
-                {/* Header */}
-                <div className="bg-[#222] px-4 py-3 border-b border-[#333] flex justify-between items-center">
-                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-[#444]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#444]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#444]"></div>
-                     </div>
-                     <div className="text-[#888] text-xs font-bold tracking-wider">PLUGIN INSTALLER</div>
-                </div>
-
-                {/* Body */}
-                <div className="p-8 flex flex-col gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-[#333] to-[#111] rounded border border-[#444] flex items-center justify-center shadow-inner">
-                             <div className="text-3xl">🎛️</div>
-                        </div>
-                        <div>
-                            <h2 className="text-white text-lg font-bold">Bitey PA-600</h2>
-                            <p className="text-[#666] text-xs mt-1">Version 1.0.4 • Analog Emulation Series</p>
-                        </div>
-                    </div>
-
-                    {/* Progress */}
-                    <div className="flex flex-col gap-2">
-                        <div className="w-full h-1.5 bg-[#000] rounded-full overflow-hidden border border-[#333]">
-                            <div 
-                                className="h-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-300 ease-out" 
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                        <div className="flex justify-between text-[10px] text-[#555] font-mono">
-                            <span>{Math.round(progress)}%</span>
-                            <span>{progress < 100 ? 'INSTALLING...' : 'DONE'}</span>
-                        </div>
-                    </div>
-
-                    {/* Log */}
-                    <div 
-                        ref={logRef}
-                        className="h-32 bg-[#0a0a0a] border border-[#222] rounded p-3 text-[10px] font-mono text-[#4ade80] overflow-y-auto shadow-inner"
-                    >
-                        {log.map((l, i) => (
-                            <div key={i} className="mb-1 opacity-80">{l}</div>
-                        ))}
-                        <div className="animate-pulse">_</div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="bg-[#151515] px-4 py-3 border-t border-[#222] flex justify-end">
-                    <button className="bg-[#333] text-[#555] text-xs px-4 py-1.5 rounded font-medium cursor-not-allowed border border-[#222]">Cancel</button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 const MetalToggleSwitch = ({ values, current, onChange, label }: { values: string[], current: string, onChange: (v: string) => void, label: string }) => {
      const idx = values.indexOf(current);
@@ -190,7 +84,6 @@ const ToggleSwitch = ({ isOn, onToggle, label = "IN / OUT" }: { isOn: boolean, o
   );
 
 const App: React.FC = () => {
-  const [isInstalled, setIsInstalled] = useState(false);
   const [channels, setChannels] = useState<ChannelState[]>([INIT_CH('1'), INIT_CH('2')]);
   const [master, setMaster] = useState<MasterState>({
     auxMonitor: 5, auxMain: 5,
@@ -214,9 +107,6 @@ const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only initialize engine if installed
-    if (!isInstalled) return;
-
     if (!engineRef.current) engineRef.current = new AudioEngine();
     const engine = engineRef.current;
     
@@ -232,7 +122,7 @@ const App: React.FC = () => {
     }
     
     setPlayback({ isPlaying: engine.isPlaying });
-  }, [channels, master, power, tapeSpeed, tapeMix, tapeSize, reverbStereo, isInstalled]);
+  }, [channels, master, power, tapeSpeed, tapeMix, tapeSize, reverbStereo]);
 
   useLayoutEffect(() => {
     const resize = () => {
@@ -247,7 +137,7 @@ const App: React.FC = () => {
     window.addEventListener('resize', resize);
     resize();
     return () => window.removeEventListener('resize', resize);
-  }, [isInstalled]); // Re-run resize when installer finishes and container appears
+  }, []);
 
   const getReverbLevel = useCallback(() => {
      if (!engineRef.current || !power) return 0;
@@ -295,10 +185,6 @@ const App: React.FC = () => {
           engineRef.current.ctx.resume().catch(() => {});
       }
   };
-
-  if (!isInstalled) {
-      return <Installer onComplete={() => setIsInstalled(true)} />;
-  }
 
   // --- Visual Components ---
 
@@ -426,4 +312,174 @@ const App: React.FC = () => {
            <KnobContainer label="MID">
                <Knob value={master.masterMid} onChange={v => updateMs('masterMid', v)} min={-15} max={15} size={50} scaleType="eq" />
            </KnobContainer>
-           <Knob
+           <KnobContainer label="LOW">
+               <Knob value={master.masterLow} onChange={v => updateMs('masterLow', v)} min={-15} max={15} size={50} scaleType="eq" />
+           </KnobContainer>
+       </div>
+       <div className="mt-auto flex flex-col items-center w-full">
+            <ScreenLine />
+            <div className="mb-2 relative z-40">
+                 <Knob value={master.masterMain} onChange={v => updateMs('masterMain', v)} min={0} max={10} size={90} variant="skirted" scaleType="0-10" />
+            </div>
+            <div className="w-full flex justify-center pb-4">
+                 <span className="text-[22px] text-white font-['Michroma'] font-bold leading-none tracking-tight drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">MAIN</span>
+            </div>
+       </div>
+    </PanelBox>
+  );
+
+  const ReverbStrip = ({ disabled }: { disabled?: boolean }) => (
+    <PanelBox className={`w-[145px] flex flex-col items-center py-2 h-full bg-[#181818] transition-all duration-300 ${disabled ? 'opacity-60 grayscale-[0.5]' : ''}`} title="REVERB">
+       <div className="flex flex-col w-full mt-4 gap-1">
+           <KnobContainer label="DRIVE">
+               <Knob value={master.reverbDrive} onChange={v => updateMs('reverbDrive', v)} min={0} max={10} size={50} scaleType="0-10" />
+           </KnobContainer>
+           <KnobContainer label="CONTOUR">
+                <Knob value={master.reverbContour} onChange={v => updateMs('reverbContour', v)} min={0} max={10} size={50} scaleType="0-10" />
+           </KnobContainer>
+           <KnobContainer label="TIME">
+               <Knob value={master.reverbTime} onChange={v => updateMs('reverbTime', v)} min={0} max={10} size={50} scaleType="0-10" />
+           </KnobContainer>
+       </div>
+       <div className="mt-auto flex flex-col items-center w-full">
+            <ScreenLine />
+            <div className="mb-2 relative z-40">
+                <Knob value={master.masterReverb} onChange={v => updateMs('masterReverb', v)} min={0} max={10} size={90} variant="skirted" scaleType="0-10" />
+            </div>
+            <div className="w-full flex justify-center pb-4">
+                 <span className="text-[22px] text-white font-['Michroma'] font-bold leading-none tracking-tighter drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">REVERB</span>
+            </div>
+       </div>
+    </PanelBox>
+  );
+
+  return (
+    <div 
+      className="fixed inset-0 flex items-center justify-center bg-[#050505]" 
+      onPointerDown={handleInteraction} 
+    >
+      <div 
+        ref={containerRef}
+        style={{ width: 1050, height: 650, transform: `scale(${scale})` }}
+        className="flex flex-col items-center justify-center p-2"
+      >
+        {/* === MIXER UNIT === */}
+        <div className="w-full h-[520px] flex gap-2 relative shadow-[0_50px_100px_black] z-10">
+            <DistressOverlay />
+            <div className="w-[30px] h-full wood-pattern border-r border-black/80 rounded-l-md relative z-10 shadow-[5px_0_15px_rgba(0,0,0,0.5)]">
+                <div className="absolute top-0 bottom-0 right-0 w-[2px] bg-black/30"></div>
+            </div>
+
+            {/* Main Controls Container */}
+            <div className="flex-1 h-full bg-[#161616] flex flex-col p-2 relative z-20">
+            <div className="w-full flex gap-3 h-full justify-between">
+                <ChannelStrip index={0} data={channels[0]} label="1" topLabel="LEFT" disabled={!power} />
+                <ChannelStrip index={1} data={channels[1]} label="2" topLabel="RIGHT" disabled={!power} />
+
+                {/* Center Section */}
+                <PanelBox className="w-[240px] flex-none flex flex-col items-center py-4 bg-[#222] shadow-inner">
+                        <div className="flex-1 w-full flex flex-col items-center justify-start gap-1">
+                            
+                            {/* Control Cluster */}
+                            <div className="w-full flex items-center justify-between px-3 h-[100px] bg-[#000] border-y border-[#333] shadow-inner relative">
+                                {/* Left: Tape Controls */}
+                                <div className="flex-1 flex flex-row justify-center items-center gap-6 h-full pr-2">
+                                    <MetalToggleSwitch 
+                                        label="IPS" 
+                                        values={['7.5', '15', '30']} 
+                                        current={tapeSpeed} 
+                                        onChange={(v) => setTapeSpeed(v as any)} 
+                                    />
+                                    {/* Aligned Echo Knob */}
+                                    <div className="flex flex-col items-center justify-start h-full">
+                                        <div className="text-[7px] text-white font-bold tracking-wider font-['Michroma'] mb-0.5 mt-[1px] opacity-90 drop-shadow-md">ECHO</div>
+                                        <div className="mt-3 relative">
+                                            <Knob value={tapeMix} onChange={setTapeMix} min={0} max={10} size={40} scaleType="0-10" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Right: Tape Size */}
+                                <div className="flex-1 flex flex-row justify-center items-center gap-6 h-full pl-2">
+                                     <MetalToggleSwitch 
+                                        label="TAPE" 
+                                        values={['1/4', '1/2', '1']} 
+                                        current={tapeSize} 
+                                        onChange={(v) => setTapeSize(v as any)} 
+                                    />
+                                </div>
+                            </div>
+
+                            {/* VU Meters - Moved Up into Reclaimed Space */}
+                            <div className="flex flex-col items-center w-full mt-2">
+                                <div className={`transition-opacity duration-500 ${!power ? 'opacity-40' : 'opacity-100'}`}>
+                                    <VUMeter getValue={getReverbLevel} width={200} height={85} />
+                                </div>
+                                <span className="text-[10px] text-white font-bold tracking-[0.2em] mt-0.5 mb-1 font-['Michroma'] drop-shadow-[0_0_2px_rgba(255,255,255,0.6)]">REVERB</span>
+                            </div>
+
+                            <div className="flex flex-col items-center w-full">
+                                <div className={`transition-opacity duration-500 ${!power ? 'opacity-40' : 'opacity-100'}`}>
+                                    <VUMeter getValue={getMainLevel} width={200} height={85} />
+                                </div>
+                                <span className="text-[10px] text-white font-bold tracking-[0.2em] mt-0.5 font-['Michroma'] drop-shadow-[0_0_2px_rgba(255,255,255,0.6)]">MAIN</span>
+                            </div>
+                        </div>
+                        
+                        <BoardTape />
+
+                        {/* Centered Power Section */}
+                        <div className="w-full border-t-[2px] border-[#444] pt-2 grid grid-cols-3 items-end pb-4 relative z-50">
+                            {/* Left: Power Switch */}
+                            <div className="flex justify-center">
+                                <ToggleSwitch isOn={power} onToggle={() => setPower(!power)} label="POWER" />
+                            </div>
+
+                            {/* Center: Jewel */}
+                            <div className="flex flex-col items-center mb-1">
+                                <div className="text-[9px] text-white font-bold tracking-widest mb-1 font-['Michroma'] drop-shadow-[0_0_2px_rgba(255,255,255,0.6)]">ON</div>
+                                <PowerJewel isOn={power} />
+                            </div>
+
+                            {/* Right: Reverb Stereo Switch */}
+                            <div className="flex justify-center relative flex-col items-center">
+                                <ToggleSwitch isOn={!reverbStereo} onToggle={() => setReverbStereo(!reverbStereo)} label="MONO" />
+                                <div className="absolute top-[100%] -mt-1 text-[7px] text-white font-bold tracking-widest select-none opacity-90 font-['Michroma'] drop-shadow-[0_0_2px_rgba(255,255,255,0.5)]">STEREO</div>
+                            </div>
+                        </div>
+                </PanelBox>
+
+                <MasterStrip disabled={!power} />
+                <ReverbStrip disabled={!power} />
+            </div>
+            </div>
+            
+            <div className="w-[30px] h-full wood-pattern border-l border-black/80 rounded-r-md relative z-10 shadow-[-5px_0_15px_rgba(0,0,0,0.5)]">
+                <div className="absolute top-0 bottom-0 left-0 w-[2px] bg-black/30"></div>
+            </div>
+        </div>
+
+        <div className="relative z-50 w-full">
+             <WaveformPlayer 
+                engine={engineRef.current}
+                buffer={audioBuffer}
+                onLoadFile={() => fileInputRef.current?.click()}
+                isPlaying={playback.isPlaying}
+                onTogglePlay={handleTogglePlay}
+            />
+        </div>
+        
+        <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="audio/*" 
+            onClick={(e) => (e.currentTarget.value = '')}
+            onChange={e => e.target.files?.[0] && handleLoadFile(e.target.files[0])} 
+        />
+      </div>
+    </div>
+  );
+};
+
+export default App;
