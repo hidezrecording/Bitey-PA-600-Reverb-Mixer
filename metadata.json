@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Bitey PA-600 Emulator",
+  "description": "A photorealistic vintage Bitey (Peavey-style) PA-600 Mixer/Amplifier emulator with real-time analog modeling and spring reverb.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
