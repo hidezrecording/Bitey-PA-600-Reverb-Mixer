@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# C++ plugin build
+build/
+*.o
+*.a
+test_dsp

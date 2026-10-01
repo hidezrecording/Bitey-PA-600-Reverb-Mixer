@@ -1,0 +1,55 @@
+# Builds Bitey on every push and uploads downloadable plugin files.
+#
+# Drop this into the Bitey repo at .github/workflows/build.yml
+# (GitHub web UI: Add file -> Create new file, paste, commit).
+# Then: Actions tab -> pick a run -> download the Bitey-macOS /
+# Bitey-Windows artifacts. Those contain the actual VST3/AU files.
+#
+# NOTE: prepared 2026-10-01, not yet run. First green run may need
+# small fixes (JUCE version pin, artifact paths) — that is normal.
+
+name: Build Bitey
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS (VST3 + AU, Apple Silicon + Intel)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+                 -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+                 -S juce
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Upload plugins
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-macOS
+          path: build/Bitey_artefacts/Release/
+
+  windows:
+    name: Windows (VST3)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022" -S juce
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Upload plugins
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-Windows
+          path: build/Bitey_artefacts/Release/
