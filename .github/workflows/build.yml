@@ -38,7 +38,10 @@ jobs:
 
   windows:
     name: Windows (VST3)
-    runs-on: windows-latest
+    # windows-latest now ships Visual Studio 2026 only, so the
+    # "Visual Studio 17 2022" generator fails at configure time there.
+    # windows-2022 still carries VS2022, which JUCE 8.0.6 targets.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 

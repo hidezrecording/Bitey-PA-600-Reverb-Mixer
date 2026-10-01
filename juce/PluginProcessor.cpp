@@ -85,7 +85,7 @@ BiteyProcessor::createLayout() {
 }
 
 BiteyProcessor::BiteyProcessor()
-    : AudioProcessor(juce::BusesProperties()
+    : AudioProcessor(juce::AudioProcessor::BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "BiteyPA600", createLayout()) {
@@ -238,11 +238,11 @@ void BiteyProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
 void BiteyProcessor::getStateInformation(juce::MemoryBlock& destData) {
     if (auto xml = apvts.copyState().createXml())
-        juce::copyXmlToBinary(*xml, destData);
+        AudioProcessor::copyXmlToBinary(*xml, destData);
 }
 
 void BiteyProcessor::setStateInformation(const void* data, int sizeInBytes) {
-    if (auto xml = juce::getXmlFromBinary(data, sizeInBytes))
+    if (auto xml = AudioProcessor::getXmlFromBinary(data, sizeInBytes))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
 }
 
