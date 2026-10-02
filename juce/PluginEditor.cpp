@@ -538,19 +538,68 @@ void VUMeterComp::timerCallback() {
 }
 
 void VUMeterComp::paint(juce::Graphics& g) {
-    // Face geometry: 200x85 (prototype VUMeter w/h), offset inside the
-    // 220x110 component so the drop shadow has room.
-    const float fx = 10.0f, fy = 8.0f;
-    const float w = 200.0f, h = 85.0f;
+    // UAD-style VU meter: metal bezel with screws, backlit face filling the bezel,
+    // realistic needle with pivot cap. Component is 220x110.
+    const float bx = 2.0f, by = 2.0f;          // bezel outer
+    const float bw = 216.0f, bh = 106.0f;
+    const float bezelThick = 8.0f;             // bezel frame thickness
+    const float fx = bx + bezelThick, fy = by + bezelThick;
+    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 200x90
     const float s = w / 300.0f;
+    juce::Rectangle<float> bezel(bx, by, bw, bh);
     juce::Rectangle<float> face(fx, fy, w, h);
 
-    // Drop shadow
+    // Drop shadow under bezel
     {
-        juce::Path sp;
-        sp.addRectangle(face);
-        juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 10, juce::Point<int>(0, 5))
+        juce::Path sp; sp.addRectangle(bezel);
+        juce::DropShadow(juce::Colours::black.withAlpha(0.8f), 12, juce::Point<int>(0, 6))
             .drawForPath(g, sp);
+    }
+
+    // Bezel: dark metallic frame with top highlight (like UAD hardware)
+    {
+        juce::ColourGradient mg(col(0xff3a3a3a), bx, by, col(0xff111111), bx, by + bh, false);
+        mg.addColour(0.5, col(0xff222222));
+        g.setGradientFill(mg);
+        g.fillRect(bezel);
+        // Top edge highlight
+        g.setColour(col(0x66ffffff));
+        g.fillRect(juce::Rectangle<float>(bx + 1, by + 1, bw - 2, 2));
+        // Inner edge shadow (face sits recessed)
+        g.setColour(col(0xdd000000));
+        g.drawRect(face.expanded(1.0f), 2.0f);
+    }
+
+    // Corner screws
+    {
+        const float sr = 4.0f;
+        const juce::Point<float> corners[] = {
+            {bx + bezelThick * 0.5f, by + bezelThick * 0.5f},
+            {bx + bw - bezelThick * 0.5f, by + bezelThick * 0.5f},
+            {bx + bezelThick * 0.5f, by + bh - bezelThick * 0.5f},
+            {bx + bw - bezelThick * 0.5f, by + bh - bezelThick * 0.5f}
+        };
+        for (int i = 0; i < 4; ++i) {
+            // Screw head: dark metallic circle
+            juce::ColourGradient sg(col(0xff555555), corners[i].x - sr, corners[i].y - sr,
+                                    col(0xff1a1a1a), corners[i].x + sr, corners[i].y + sr, false);
+            g.setGradientFill(sg);
+            g.fillEllipse(corners[i].x - sr, corners[i].y - sr, sr * 2, sr * 2);
+            // Slot (rotated per screw for realism)
+            const float ang = (i * 0.7f) + 0.3f;
+            const float sl = sr * 0.75f;
+            g.setColour(col(0xff0a0a0a));
+            g.drawLine(corners[i].x - std::cos(ang) * sl, corners[i].y - std::sin(ang) * sl,
+                       corners[i].x + std::cos(ang) * sl, corners[i].y + std::sin(ang) * sl, 1.5f);
+        }
+    }
+
+    // Backlight glow behind face (warm, like incandescent VU backlight)
+    {
+        juce::ColourGradient glow(col(0x33ffdd88), fx + w/2, fy + h/2,
+                                   col(0x00000000), fx + w/2, fy + h/2 + h, true);
+        g.setGradientFill(glow);
+        g.fillRect(face);
     }
 
     // Clip everything below to the face
@@ -723,11 +772,12 @@ void VUMeterComp::paint(juce::Graphics& g) {
     }
 
     g.restoreState(); // unclip face
-
-    // Frame: solid black border like the original PA-600
+    // Bezel already drawn; add glass reflection over the face
     {
-        g.setColour(col(0xff000000));
-        g.drawRect(face, 3.0f);
+        juce::ColourGradient glass(col(0x22ffffff), fx, fy,
+                                    col(0x00ffffff), fx + w * 0.3f, fy + h, false);
+        g.setGradientFill(glass);
+        g.fillRect(face);
     }
 }
 
@@ -809,6 +859,23 @@ void PanelBox::resized() {}
 // ---------------------------------------------------------------------------
 
 namespace {
+// Nathan's hand-drawn BITEY logo (shared helper)
+void drawBiteyLogo(juce::Graphics& g, float x, float y, float w, float h) {
+    static juce::Image logoImg;
+    if (!logoImg.isValid()) {
+        logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogopng,
+                                                  BinaryData::biteylogopngSize);
+    }
+    if (logoImg.isValid()) {
+        const float imgAspect = (float)logoImg.getWidth() / (float)logoImg.getHeight();
+        float dw = w, dh = dw / imgAspect;
+        if (dh > h) { dh = h; dw = dh * imgAspect; }
+        const float dx = x + (w - dw) * 0.5f;
+        const float dy = y + (h - dh) * 0.5f;
+        g.drawImage(logoImg, juce::Rectangle<float>(dx, dy, dw, dh));
+    }
+}
+
 void drawKnobLabel(juce::Graphics& g, const juce::String& text, int x, int y, int w) {
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0x80000000));
@@ -837,7 +904,7 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
     kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 50, false, BiteyKnob::Scale::ZeroToTen);
     kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 50, false, BiteyKnob::Scale::Eq);
     kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 50, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 90, true, BiteyKnob::Scale::ZeroToTen);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 110, true, BiteyKnob::Scale::ZeroToTen);
     lowCut_ = std::make_unique<MetalToggle>(proc, p + "lowcut", "96Hz", true,
                                             std::vector<juce::String>{"", ""},
                                             true, 1 /* icons */);
@@ -857,22 +924,24 @@ void ChannelStrip::syncToggles() {
 void ChannelStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
+    // BITEY logo at top of channel strip (below title)
+    drawBiteyLogo(g, 42, 28, 61, 20);
     // Labels sit right under each pot, between the bottom scale markers
     drawKnobLabel(g, "REVERB", 0, 118, W);
     drawKnobLabel(g, "HIGH", 0, 212, W);
     drawKnobLabel(g, "LOW", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    // Channel number
+    // Channel number (moved down for larger LEVEL knob)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText(number_, 58, 452, 29, 48, juce::Justification::centred);
+    g.drawText(number_, 58, 458, 29, 40, juce::Justification::centred);
 }
 
 void ChannelStrip::resized() {
     kReverb_->setCentrePosition(72, 40 + 40);
     kHigh_->setCentrePosition(72, 134 + 40);
     kLow_->setCentrePosition(72, 228 + 40);
-    kLevel_->setCentrePosition(72, 330 + 69);
+    kLevel_->setCentrePosition(72, 330 + 50);
     lowCut_->setTopLeftPosition(4, 448);
     pad_->setTopLeftPosition(81, 434);
 }
@@ -889,7 +958,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "FREQ", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 90, true, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 110, true, BiteyKnob::Scale::ZeroToTen);
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
     addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_);
 }
@@ -903,7 +972,10 @@ void MasterStrip::paint(juce::Graphics& g) {
     drawKnobLabel(g, "MID", 0, 212, W);
     drawKnobLabel(g, "LOW", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    drawKnobLabel(g, "MAIN", 0, 468, W);
+    // Large MAIN label at bottom (like channel numbers)
+    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    g.setColour(col(0xe6ffffff));
+    g.drawText("MAIN", 0, 458, W, 40, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
@@ -911,7 +983,7 @@ void MasterStrip::resized() {
     kMid_->setCentrePosition(72, 134 + 40);
     kLow_->setCentrePosition(72, 228 + 40);
     midFreq_->setTopLeftPosition(79, 158);
-    kMain_->setCentrePosition(72, 330 + 69);
+    kMain_->setCentrePosition(72, 330 + 50);
 }
 
 // ---------------------------------------------------------------------------
@@ -923,7 +995,7 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 50, false, BiteyKnob::Scale::ZeroToTen);
     kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 50, false, BiteyKnob::Scale::ZeroToTen);
     kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 50, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 90, true, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 110, true, BiteyKnob::Scale::ZeroToTen);
     addAndMakeVisible(*kDrive_); addAndMakeVisible(*kContour_);
     addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_);
 }
@@ -935,14 +1007,17 @@ void ReverbStrip::paint(juce::Graphics& g) {
     drawKnobLabel(g, "CONTOUR", 0, 212, W);
     drawKnobLabel(g, "TIME", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    drawKnobLabel(g, "REVERB", 0, 468, W);
+    // Large REVERB label at bottom (like channel numbers)
+    g.setFont(BiteyFonts::robotoCondensed(16.0f));
+    g.setColour(col(0xe6ffffff));
+    g.drawText("REVERB", 0, 458, W, 40, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
     kDrive_->setCentrePosition(72, 40 + 40);
     kContour_->setCentrePosition(72, 134 + 40);
     kTime_->setCentrePosition(72, 228 + 40);
-    kReturn_->setCentrePosition(72, 330 + 69);
+    kReturn_->setCentrePosition(72, 330 + 50);
 }
 
 // ---------------------------------------------------------------------------
@@ -1002,17 +1077,17 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.fillRect(6, 16, W - 12, 1);
     g.fillRect(6, 115, W - 12, 1);
 
-    // ECHO caption to the right of the echo knob
+    // ECHO caption below the echo knob (centered at 60,80)
     g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("ECHO", 68, 76, 60, 14, juce::Justification::centredLeft);
+    g.drawText("ECHO", 30, 108, 60, 14, juce::Justification::centred);
 
     // VU meter captions (below each meter)
-    g.drawText("REVERB", 0, 230, W, 14, juce::Justification::centred);
-    g.drawText("MAIN", 0, 360, W, 14, juce::Justification::centred);
+    g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
+    g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
 
-    // DRY/WET caption above the small knob
-    g.drawText("DRY/WET", 180, 384, 56, 12, juce::Justification::centred);
+    // DRY/WET caption below the small knob (centered at 180,80)
+    g.drawText("DRY/WET", 150, 104, 60, 12, juce::Justification::centred);
 
     // Power section divider
     g.setColour(col(0x0dffffff)); // white/5
@@ -1027,11 +1102,14 @@ void CenterPanel::paint(juce::Graphics& g) {
 void CenterPanel::resized() {
     ips_->setTopLeftPosition(12, 20);
     tapeSize_->setTopLeftPosition(158, 20);
-    echo_->setTopLeftPosition(10, 60);
-    vuReverb_->setTopLeftPosition(10, 118); // face at (20,126) inside 220x110
-    vuMain_->setTopLeftPosition(10, 248);   // face at (20,256) inside 220x110
+    // Row 1: ECHO and DRY/WET side by side, aligned with REVERB/HIGH/DRIVE pots (y=80)
+    // ECHO (40px, None): component 56x56, center (60,80) -> top-left (32,52)
+    echo_->setTopLeftPosition(32, 52);
+    // DRY/WET (28px, None): component 44x44, center (180,80) -> top-left (158,58)
+    dryWet_->setTopLeftPosition(158, 58);
+    vuReverb_->setTopLeftPosition(10, 130);
+    vuMain_->setTopLeftPosition(10, 252);
     tape_->setTopLeftPosition(14, 376);
-    dryWet_->setTopLeftPosition(186, 380);
     power_->setTopLeftPosition(8, 432);
     jewel_->setTopLeftPosition(92, 436);
     phase_->setTopLeftPosition(168, 432);
