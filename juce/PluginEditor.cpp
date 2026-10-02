@@ -872,10 +872,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Hot pink neon (green center was too much, now pink)
+                        // Amber glow (matching the power jewel light)
                         const float b = px.getBrightness();
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(1.0f * b, 0.15f * b, 0.55f * b,
+                            juce::Colour::fromFloatRGBA(1.0f * b, 0.62f * b, 0.12f * b,
                                                         px.getAlpha()));
                     }
                 }
@@ -891,10 +891,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
             const float dy = fy + h * 0.58f;
             juce::Rectangle<float> dest(dx, dy, dw, dh);
 
-            // Soft hot pink glow behind (neon look)
-            g.setColour(col(0x66ff1493));
+            // Soft amber glow behind (matching power jewel)
+            g.setColour(col(0x66ff9500));
             g.drawImage(greenLogoImg, dest.expanded(10.0f));
-            g.setColour(col(0x44ff69b4));
+            g.setColour(col(0x44ffaa00));
             g.drawImage(greenLogoImg, dest.expanded(5.0f));
             // Green logo
             g.drawImage(greenLogoImg, dest);
@@ -1217,7 +1217,7 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(72, 265 + 40);
     midFreq_->setTopLeftPosition(85, 165);
     kMain_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 432);
+    clipBulb_->setCentrePosition(45, 445);
     clipBulb_->setSize(52, 52);
 }
 
@@ -1266,7 +1266,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(72, 145 + 40);
     kTime_->setCentrePosition(72, 265 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 432);
+    clipBulb_->setCentrePosition(45, 445);
     clipBulb_->setSize(52, 52);
 }
 
