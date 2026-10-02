@@ -872,10 +872,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Amber glow (matching the power jewel light)
+                        // Amber, exact match to power jewel (warm orange-yellow, not pink)
                         const float b = px.getBrightness();
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(1.0f * b, 0.62f * b, 0.12f * b,
+                            juce::Colour::fromFloatRGBA(1.0f * b, 0.72f * b, 0.18f * b,
                                                         px.getAlpha()));
                     }
                 }
@@ -1203,7 +1203,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     drawScreenLine(g, 10, 325, W - 20);
     // CLIP label next to the bulb (bulb at 45,432) - green
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xff39ff14));
+    g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large MAIN label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
@@ -1217,7 +1217,7 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(72, 265 + 40);
     midFreq_->setTopLeftPosition(85, 165);
     kMain_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 445);
+    clipBulb_->setCentrePosition(45, 460);
     clipBulb_->setSize(52, 52);
 }
 
@@ -1253,7 +1253,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     drawScreenLine(g, 10, 325, W - 20);
     // CLIP label next to the bulb (bulb at 45,432) - green
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xff39ff14));
+    g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large REVERB label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
@@ -1266,7 +1266,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(72, 145 + 40);
     kTime_->setCentrePosition(72, 265 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 445);
+    clipBulb_->setCentrePosition(45, 460);
     clipBulb_->setSize(52, 52);
 }
 
