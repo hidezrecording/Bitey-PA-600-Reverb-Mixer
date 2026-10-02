@@ -709,7 +709,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.fillRect(face);
     }
 
-    const float cx = fx + w / 2, cy = fy + h * 1.50f, r = h * 1.42f;
+    const float cx = fx + w / 2, cy = fy + h * 1.35f, r = h * 1.42f;
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
@@ -771,7 +771,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
             float dw = maxW, dh = dw / imgAspect;
             if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
             const float dx = fx + (w - dw) * 0.5f;
-            const float dy = fy + h * 0.68f;
+            const float dy = fy + h * 0.58f;
             g.drawImage(logoImg, juce::Rectangle<float>(dx, dy, dw, dh));
         }
     }
