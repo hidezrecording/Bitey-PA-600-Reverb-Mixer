@@ -140,7 +140,7 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
         g.setColour(col(0x33ffffff));
         juce::Path arc;
         arc.addArc(cx - size * 0.46f, cy - size * 0.46f, size * 0.92f, size * 0.92f,
-                   3.6f, 5.2f);
+                   3.6f, 5.2f, true);
         g.strokePath(arc, juce::PathStrokeType(2.0f));
         g.setColour(col(0xff111111));
         g.fillEllipse(cx - size * 0.45f, cy - size * 0.45f, size * 0.9f, size * 0.9f);
@@ -595,14 +595,14 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // Red zone arc
     {
         juce::Path p;
-        p.addArc(cx - r, cy - r, r * 2, r * 2, redStartAngle, endAngle);
+        p.addArc(cx - r, cy - r, r * 2, r * 2, redStartAngle, endAngle, true);
         g.setColour(col(0xe6dc3232));
         g.strokePath(p, juce::PathStrokeType(6.0f * s));
     }
     // Black arc
     {
         juce::Path p;
-        p.addArc(cx - r, cy - r, r * 2, r * 2, startAngle, redStartAngle);
+        p.addArc(cx - r, cy - r, r * 2, r * 2, startAngle, redStartAngle, true);
         g.setColour(col(0xe6141414));
         g.strokePath(p, juce::PathStrokeType(2.0f * s));
     }
@@ -672,7 +672,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
     {
         juce::Path dome;
         dome.addArc(cx - 40.0f * s, fy + h + 10.0f - 40.0f * s, 80.0f * s, 80.0f * s,
-                    3.14159265f, 6.2831853f);
+                    3.14159265f, 6.2831853f, true);
         dome.closeSubPath();
         g.setColour(col(0xff111111));
         g.fillPath(dome);
