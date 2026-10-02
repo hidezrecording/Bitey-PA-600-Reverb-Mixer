@@ -851,10 +851,11 @@ void ChannelStrip::syncToggles() {
 void ChannelStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    drawKnobLabel(g, "REVERB", 0, 26, W);
-    drawKnobLabel(g, "HIGH", 0, 120, W);
-    drawKnobLabel(g, "LOW", 0, 214, W);
-    drawScreenLine(g, 10, 320, W - 20);
+    // Labels sit right under each pot, between the bottom scale markers
+    drawKnobLabel(g, "REVERB", 0, 118, W);
+    drawKnobLabel(g, "HIGH", 0, 212, W);
+    drawKnobLabel(g, "LOW", 0, 306, W);
+    drawScreenLine(g, 10, 325, W - 20);
     // Channel number
     g.setFont(BiteyFonts::michroma(22.0f));
     g.setColour(col(0xe6ffffff));
@@ -862,9 +863,9 @@ void ChannelStrip::paint(juce::Graphics& g) {
 }
 
 void ChannelStrip::resized() {
-    kReverb_->setCentrePosition(72, 40 + 47);
-    kHigh_->setCentrePosition(72, 134 + 47);
-    kLow_->setCentrePosition(72, 228 + 47);
+    kReverb_->setCentrePosition(72, 40 + 40);
+    kHigh_->setCentrePosition(72, 134 + 40);
+    kLow_->setCentrePosition(72, 228 + 40);
     kLevel_->setCentrePosition(72, 330 + 69);
     lowCut_->setTopLeftPosition(4, 448);
     pad_->setTopLeftPosition(81, 434);
@@ -892,17 +893,17 @@ void MasterStrip::syncToggles() { midFreq_->syncFromParam(); }
 void MasterStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    drawKnobLabel(g, "HIGH", 0, 26, W);
-    drawKnobLabel(g, "MID", 0, 120, W);
-    drawKnobLabel(g, "LOW", 0, 214, W);
-    drawScreenLine(g, 10, 320, W - 20);
+    drawKnobLabel(g, "HIGH", 0, 118, W);
+    drawKnobLabel(g, "MID", 0, 212, W);
+    drawKnobLabel(g, "LOW", 0, 306, W);
+    drawScreenLine(g, 10, 325, W - 20);
     drawKnobLabel(g, "MAIN", 0, 468, W);
 }
 
 void MasterStrip::resized() {
-    kHigh_->setCentrePosition(72, 40 + 47);
-    kMid_->setCentrePosition(72, 134 + 47);
-    kLow_->setCentrePosition(72, 228 + 47);
+    kHigh_->setCentrePosition(72, 40 + 40);
+    kMid_->setCentrePosition(72, 134 + 40);
+    kLow_->setCentrePosition(72, 228 + 40);
     midFreq_->setTopLeftPosition(79, 158);
     kMain_->setCentrePosition(72, 330 + 69);
 }
@@ -924,17 +925,17 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
 void ReverbStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    drawKnobLabel(g, "DRIVE", 0, 26, W);
-    drawKnobLabel(g, "CONTOUR", 0, 120, W);
-    drawKnobLabel(g, "TIME", 0, 214, W);
-    drawScreenLine(g, 10, 320, W - 20);
+    drawKnobLabel(g, "DRIVE", 0, 118, W);
+    drawKnobLabel(g, "CONTOUR", 0, 212, W);
+    drawKnobLabel(g, "TIME", 0, 306, W);
+    drawScreenLine(g, 10, 325, W - 20);
     drawKnobLabel(g, "REVERB", 0, 468, W);
 }
 
 void ReverbStrip::resized() {
-    kDrive_->setCentrePosition(72, 40 + 47);
-    kContour_->setCentrePosition(72, 134 + 47);
-    kTime_->setCentrePosition(72, 228 + 47);
+    kDrive_->setCentrePosition(72, 40 + 40);
+    kContour_->setCentrePosition(72, 134 + 40);
+    kTime_->setCentrePosition(72, 228 + 40);
     kReturn_->setCentrePosition(72, 330 + 69);
 }
 
@@ -1000,21 +1001,21 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("ECHO", 68, 76, 60, 14, juce::Justification::centredLeft);
 
-    // VU meter captions
-    g.drawText("REVERB", 0, 213, W, 14, juce::Justification::centred);
-    g.drawText("MAIN", 0, 315, W, 14, juce::Justification::centred);
+    // VU meter captions (below each meter)
+    g.drawText("REVERB", 0, 230, W, 14, juce::Justification::centred);
+    g.drawText("MAIN", 0, 360, W, 14, juce::Justification::centred);
 
     // DRY/WET caption above the small knob
-    g.drawText("DRY/WET", 180, 326, 56, 12, juce::Justification::centred);
+    g.drawText("DRY/WET", 180, 384, 56, 12, juce::Justification::centred);
 
     // Power section divider
     g.setColour(col(0x0dffffff)); // white/5
-    g.fillRect(6, 400, W - 12, 1);
+    g.fillRect(6, 440, W - 12, 1);
 
     // ON caption above the jewel
     g.setFont(BiteyFonts::michroma(7.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("ON", 92, 404, 56, 12, juce::Justification::centred);
+    g.drawText("ON", 92, 444, 56, 12, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
@@ -1022,12 +1023,12 @@ void CenterPanel::resized() {
     tapeSize_->setTopLeftPosition(158, 20);
     echo_->setTopLeftPosition(10, 60);
     vuReverb_->setTopLeftPosition(10, 118); // face at (20,126) inside 220x110
-    vuMain_->setTopLeftPosition(10, 220);   // face at (20,228) inside 220x110
-    tape_->setTopLeftPosition(14, 336);
-    dryWet_->setTopLeftPosition(186, 340);
-    power_->setTopLeftPosition(8, 416);
-    jewel_->setTopLeftPosition(92, 420);
-    phase_->setTopLeftPosition(168, 416);
+    vuMain_->setTopLeftPosition(10, 248);   // face at (20,256) inside 220x110
+    tape_->setTopLeftPosition(14, 376);
+    dryWet_->setTopLeftPosition(186, 380);
+    power_->setTopLeftPosition(8, 456);
+    jewel_->setTopLeftPosition(92, 460);
+    phase_->setTopLeftPosition(168, 456);
 }
 
 void CenterPanel::syncPower(bool on) {
