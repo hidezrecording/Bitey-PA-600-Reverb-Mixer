@@ -36,7 +36,7 @@ public:
         stopButton.setEnabled(false);
         addAndMakeVisible(stopButton);
 
-        fileLabel.setText("No file loaded - click "Load Audio File..."",
+        fileLabel.setText("No file loaded - click 'Load Audio File...'",
                           juce::dontSendNotification);
         fileLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         addAndMakeVisible(fileLabel);
