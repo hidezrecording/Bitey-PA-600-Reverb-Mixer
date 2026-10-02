@@ -41,6 +41,10 @@ jobs:
           if [ -d "build/Bitey_artefacts/Release/Standalone/Bitey.app" ]; then
             cp -R "build/Bitey_artefacts/Release/Standalone/Bitey.app" "$PKGROOT/Applications/"
           fi
+          # Include the Test Host app (has "Load Audio File..." for testing)
+          if [ -d "build/BiteyTestHost_artefacts/Release/Bitey Test Host.app" ]; then
+            cp -R "build/BiteyTestHost_artefacts/Release/Bitey Test Host.app" "$PKGROOT/Applications/"
+          fi
           pkgbuild --root "$PKGROOT" \
             --identifier com.sabatinoaudio.bitey \
             --version 0.1.0 \

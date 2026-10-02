@@ -24,7 +24,10 @@ PrivilegesRequired=admin
 Source: "..\build\Bitey_artefacts\Release\VST3\Bitey.vst3\*"; DestDir: "{commoncf64}\VST3\Bitey.vst3"; Flags: recursesubdirs ignoreversion
 ; Standalone app -> program folder
 Source: "..\build\Bitey_artefacts\Release\Standalone\Bitey.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Test Host app (has "Load Audio File..." for testing) -> program folder
+Source: "..\build\BiteyTestHost_artefacts\Release\Bitey Test Host.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Bitey Standalone"; Filename: "{app}\Bitey.exe"
+Name: "{group}\Bitey Test Host"; Filename: "{app}\Bitey Test Host.exe"
 Name: "{group}\Uninstall Bitey"; Filename: "{uninstallexe}"
