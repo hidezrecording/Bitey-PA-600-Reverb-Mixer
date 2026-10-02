@@ -53,12 +53,14 @@ target_sources(Bitey PRIVATE
     ../dsp/BiteyDsp.cpp
 )
 
-# Embedded panel fonts (all OFL-licensed): Michroma for panel lettering,
-# Metal Mania for the VU meter branding, Permanent Marker for the board tape.
+# Embedded panel fonts (all OFL-licensed): Roboto Condensed for panel lettering
+# (Peavey PA-600 style), Michroma for accents, Metal Mania for VU branding,
+# Permanent Marker for the board tape.
 juce_add_binary_data(BiteyAssets SOURCES
     assets/fonts/Michroma-Regular.ttf
     assets/fonts/MetalMania-Regular.ttf
     assets/fonts/PermanentMarker-Regular.ttf
+    assets/fonts/RobotoCondensed.ttf
 )
 
 target_include_directories(Bitey PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)

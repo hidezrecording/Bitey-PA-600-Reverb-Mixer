@@ -26,6 +26,7 @@
 // via BinaryData (see CMakeLists juce_add_binary_data).
 
 namespace BiteyFonts {
+juce::Font robotoCondensed(float sizePx, bool bold = true);
 juce::Font michroma(float sizePx);
 juce::Font metalMania(float sizePx);
 juce::Font permanentMarker(float sizePx);

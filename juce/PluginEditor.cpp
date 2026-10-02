@@ -22,6 +22,13 @@ juce::Colour col(uint32_t argb) { return juce::Colour(argb); }
 
 namespace BiteyFonts {
 
+juce::Font robotoCondensed(float sizePx, bool bold = true) {
+    static juce::Typeface::Ptr tf =
+        loadEmbedded(BinaryData::RobotoCondensed_ttf, BinaryData::RobotoCondensed_ttfSize);
+    auto opts = juce::FontOptions(tf).withHeight(sizePx);
+    if (bold) opts = opts.withStyle("Bold");
+    return juce::Font(opts);
+}
 juce::Font michroma(float sizePx) {
     static juce::Typeface::Ptr tf =
         loadEmbedded(BinaryData::MichromaRegular_ttf, BinaryData::MichromaRegular_ttfSize);
@@ -86,7 +93,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float tickR = radius * (skirted_ ? 1.15f : 1.25f);
     const float textR = radius * (skirted_ ? 1.30f : 1.45f);
 
-    g.setFont(BiteyFonts::michroma(7.0f));
+    g.setFont(BiteyFonts::robotoCondensed(7.0f));
 
     for (int i = 0; i <= 10; ++i) {
         const float angleDeg = -135.0f + (i / 10.0f) * 270.0f;
@@ -202,7 +209,7 @@ MetalToggle::MetalToggle(BiteyProcessor& proc, const juce::String& paramID,
         isBool_ = (dynamic_cast<juce::AudioParameterBool*>(p) != nullptr);
 
     // Measure the label column
-    auto font = BiteyFonts::michroma(8.0f);
+    auto font = BiteyFonts::robotoCondensed(8.0f);
     float labelW = 0.0f;
     for (auto& l : labels_)
         labelW = juce::jmax(labelW, juce::GlyphArrangement::getStringWidth(font, l));
@@ -271,7 +278,7 @@ void MetalToggle::drawLabelColumn(juce::Graphics& g, juce::Rectangle<float> area
                 g.strokePath(bode, juce::PathStrokeType(1.5f));
             }
         } else {
-            g.setFont(BiteyFonts::michroma(8.0f));
+            g.setFont(BiteyFonts::robotoCondensed(8.0f));
             auto just = labelsOnRight_ ? juce::Justification::centredLeft
                                        : juce::Justification::centredRight;
             g.drawText(labels_[i], row, just);
@@ -285,7 +292,7 @@ void MetalToggle::paint(juce::Graphics& g) {
 
     // Caption above (IPS / TAPE / FREQ style)
     if (caption_.isNotEmpty() && !captionBelow_) {
-        g.setFont(BiteyFonts::michroma(7.0f));
+        g.setFont(BiteyFonts::robotoCondensed(7.0f));
         g.setColour(col(0xe6ffffff));
         g.drawText(caption_, 0, 0, int(W), 12, juce::Justification::centred);
         y += 12.0f;
@@ -295,7 +302,7 @@ void MetalToggle::paint(juce::Graphics& g) {
     const float labelColH = juce::jmax(body_, float(n) * 11.0f);
     const float bodyY = y + (labelColH - body_) * 0.5f;
 
-    auto font = BiteyFonts::michroma(8.0f);
+    auto font = BiteyFonts::robotoCondensed(8.0f);
     float labelW = 0.0f;
     for (auto& l : labels_)
         labelW = juce::jmax(labelW, juce::GlyphArrangement::getStringWidth(font, l));
@@ -332,7 +339,7 @@ void MetalToggle::paint(juce::Graphics& g) {
 
     // Caption below (PAD / 96Hz style)
     if (caption_.isNotEmpty() && captionBelow_) {
-        g.setFont(BiteyFonts::michroma(7.0f));
+        g.setFont(BiteyFonts::robotoCondensed(7.0f));
         g.setColour(col(0xe6ffffff));
         g.drawText(caption_, 0, int(y + labelColH), int(W), 12,
                    juce::Justification::centred);
@@ -382,7 +389,7 @@ void BatToggle::mouseDown(const juce::MouseEvent&) {
 
 void BatToggle::paint(juce::Graphics& g) {
     const int W = getWidth();
-    g.setFont(BiteyFonts::michroma(7.0f));
+    g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText(title_, 0, 0, W, 12, juce::Justification::centred);
 
@@ -536,22 +543,21 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float fx = 10.0f, fy = 8.0f;
     const float w = 200.0f, h = 85.0f;
     const float s = w / 300.0f;
-    const float corner = 4.0f;
     juce::Rectangle<float> face(fx, fy, w, h);
 
-    // Drop shadow (prototype: 0 10px 20px rgba(0,0,0,0.8))
+    // Drop shadow
     {
         juce::Path sp;
-        sp.addRoundedRectangle(face, corner);
+        sp.addRectangle(face);
         juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 10, juce::Point<int>(0, 5))
             .drawForPath(g, sp);
     }
 
-    // Clip everything below to the rounded face
+    // Clip everything below to the face
     g.saveState();
     {
         juce::Path clip;
-        clip.addRoundedRectangle(face, corner);
+        clip.addRectangle(face);
         g.reduceClipRegion(clip);
     }
 
@@ -618,7 +624,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         {0.79f, "", false, true}, {0.86f, "", false, true},
         {1.00f, "3", true, true},
     };
-    g.setFont(BiteyFonts::michroma(12.0f * s));
+    g.setFont(BiteyFonts::robotoCondensed(12.0f * s));
     for (const auto& t : ticks) {
         const float a = startAngle + t.pos * totalAngle;
         const float ca = std::cos(a), sa = std::sin(a);
@@ -634,18 +640,25 @@ void VUMeterComp::paint(juce::Graphics& g) {
         }
     }
 
-    // Branding (prototype: Michroma 900 "BITEY", 500 "MOD. 600")
-    g.setFont(BiteyFonts::michroma(22.0f * s));
-    g.setColour(col(0xf2ffffff));
-    g.drawText("BITEY", int(fx), int(fy + h * 0.65f) - 14, int(w), 28,
-               juce::Justification::centred);
-    g.setFont(BiteyFonts::michroma(8.0f * s));
+    // Branding: angular Peavey-logo style "BITEY" (italic shear on condensed bold)
+    {
+        juce::Graphics::ScopedSaveState ss(g);
+        // Shear transform for aggressive italic slant (like Peavey logo)
+        auto shear = juce::AffineTransform::shear(-0.25f, 0.0f);
+        g.addTransform(shear);
+        g.setFont(BiteyFonts::robotoCondensed(22.0f * s));
+        g.setColour(col(0xf2ffffff));
+        // Offset x to compensate for shear shift
+        g.drawText("BITEY", int(fx + 8 * s), int(fy + h * 0.65f) - 14, int(w), 28,
+                   juce::Justification::centred);
+    }
+    g.setFont(BiteyFonts::robotoCondensed(8.0f * s));
     g.setColour(col(0xcc000000));
     g.drawText("MOD. 600", int(fx), int(fy + h * 0.65f + 15 * s) - 8, int(w), 16,
                juce::Justification::centred);
 
     // Prototype draws VU left-aligned-ish and dB right-aligned at the top.
-    g.setFont(BiteyFonts::michroma(11.0f * s));
+    g.setFont(BiteyFonts::robotoCondensed(11.0f * s));
     g.setColour(col(0xff111111));
     g.drawText("VU", int(fx + w * 0.12f) - 20, int(fy + h * 0.25f) - 10, 40, 20,
                juce::Justification::centred);
@@ -693,7 +706,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
                                    col(0xe6000000), fx, fy + 14.0f, false);
         g.setGradientFill(inner);
         juce::Path ip;
-        ip.addRoundedRectangle(face, corner);
+        ip.addRectangle(face);
         g.saveState();
         g.reduceClipRegion(ip);
         g.fillRect(juce::Rectangle<float>(fx, fy, w, 14.0f));
@@ -703,23 +716,12 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.restoreState();
     }
 
-    g.restoreState(); // unclip rounded face
+    g.restoreState(); // unclip face
 
-    // Frame: 2px border, lighter top/left (prototype per-edge colors:
-    // top #555, left #444, bottom/right #222 over a #333 base)
+    // Frame: solid black border like the original PA-600
     {
-        juce::Path bp;
-        bp.addRoundedRectangle(face, corner);
-        juce::ColourGradient borderGrad(col(0xff555555), fx, fy,
-                                        col(0xff222222), fx, fy + h, false);
-        borderGrad.addColour(0.5, col(0xff333333));
-        g.setGradientFill(borderGrad);
-        g.strokePath(bp, juce::PathStrokeType(2.0f));
-        // crisp 1px inner keyline
-        juce::Path kp;
-        kp.addRoundedRectangle(face.reduced(2.0f), corner * 0.5f);
-        g.setColour(col(0x66333333));
-        g.strokePath(kp, juce::PathStrokeType(1.0f));
+        g.setColour(col(0xff000000));
+        g.drawRect(face, 3.0f);
     }
 }
 
@@ -774,15 +776,13 @@ PanelBox::PanelBox(const juce::String& title, juce::Colour bg)
 void PanelBox::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
     g.setColour(bg_);
-    g.fillRoundedRectangle(r, 16.0f);
-    g.setColour(col(0xfff2f2f2));
-    g.drawRoundedRectangle(r.reduced(3.0f), 13.0f, 6.0f);
-    // inner shading
-    g.setColour(col(0x40000000));
-    g.drawRoundedRectangle(r.reduced(7.0f), 11.0f, 1.5f);
+    g.fillRoundedRectangle(r, 4.0f);
+    // Thin crisp white outline like the original PA-600
+    g.setColour(col(0xffe8e8e8));
+    g.drawRoundedRectangle(r.reduced(1.5f), 3.0f, 1.5f);
 
     if (title_.isNotEmpty()) {
-        auto font = BiteyFonts::michroma(10.0f);
+        auto font = BiteyFonts::robotoCondensed(10.0f);
         g.setFont(font);
         const float tw = juce::GlyphArrangement::getStringWidth(font, title_) + 18.0f;
         const float cx = r.getCentreX();
@@ -804,7 +804,7 @@ void PanelBox::resized() {}
 
 namespace {
 void drawKnobLabel(juce::Graphics& g, const juce::String& text, int x, int y, int w) {
-    g.setFont(BiteyFonts::michroma(10.0f));
+    g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0x80000000));
     g.drawText(text, x, y + 1, w, 14, juce::Justification::centred);
     g.setColour(col(0xffffffff));
@@ -857,7 +857,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     drawKnobLabel(g, "LOW", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
     // Channel number
-    g.setFont(BiteyFonts::michroma(22.0f));
+    g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText(number_, 58, 452, 29, 48, juce::Justification::centred);
 }
@@ -997,7 +997,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.fillRect(6, 115, W - 12, 1);
 
     // ECHO caption to the right of the echo knob
-    g.setFont(BiteyFonts::michroma(7.0f));
+    g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("ECHO", 68, 76, 60, 14, juce::Justification::centredLeft);
 
@@ -1010,12 +1010,12 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     // Power section divider
     g.setColour(col(0x0dffffff)); // white/5
-    g.fillRect(6, 440, W - 12, 1);
+    g.fillRect(6, 416, W - 12, 1);
 
     // ON caption above the jewel
-    g.setFont(BiteyFonts::michroma(7.0f));
+    g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("ON", 92, 444, 56, 12, juce::Justification::centred);
+    g.drawText("ON", 92, 420, 56, 12, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
@@ -1026,9 +1026,9 @@ void CenterPanel::resized() {
     vuMain_->setTopLeftPosition(10, 248);   // face at (20,256) inside 220x110
     tape_->setTopLeftPosition(14, 376);
     dryWet_->setTopLeftPosition(186, 380);
-    power_->setTopLeftPosition(8, 456);
-    jewel_->setTopLeftPosition(92, 460);
-    phase_->setTopLeftPosition(168, 456);
+    power_->setTopLeftPosition(8, 432);
+    jewel_->setTopLeftPosition(92, 436);
+    phase_->setTopLeftPosition(168, 432);
 }
 
 void CenterPanel::syncPower(bool on) {
