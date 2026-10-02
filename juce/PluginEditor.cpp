@@ -641,7 +641,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.fillRect(face);
     }
 
-    const float cx = fx + w / 2, cy = fy + h * 1.8f, r = h * 1.55f;
+    const float cx = fx + w / 2, cy = fy + h * 1.36f, r = h * 1.36f;
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
@@ -924,14 +924,12 @@ void ChannelStrip::syncToggles() {
 void ChannelStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    // BITEY logo at top of channel strip (below title)
-    drawBiteyLogo(g, 42, 28, 61, 20);
     // Labels sit right under each pot, between the bottom scale markers
     drawKnobLabel(g, "REVERB", 0, 118, W);
     drawKnobLabel(g, "HIGH", 0, 212, W);
     drawKnobLabel(g, "LOW", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    // Channel number (moved down for larger LEVEL knob)
+    // Channel number
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText(number_, 58, 458, 29, 40, juce::Justification::centred);
@@ -972,8 +970,8 @@ void MasterStrip::paint(juce::Graphics& g) {
     drawKnobLabel(g, "MID", 0, 212, W);
     drawKnobLabel(g, "LOW", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    // Large MAIN label at bottom (like channel numbers)
-    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    // Large MAIN label at bottom (same height as channel numbers: 22pt)
+    g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, 458, W, 40, juce::Justification::centred);
 }
@@ -1007,8 +1005,8 @@ void ReverbStrip::paint(juce::Graphics& g) {
     drawKnobLabel(g, "CONTOUR", 0, 212, W);
     drawKnobLabel(g, "TIME", 0, 306, W);
     drawScreenLine(g, 10, 325, W - 20);
-    // Large REVERB label at bottom (like channel numbers)
-    g.setFont(BiteyFonts::robotoCondensed(16.0f));
+    // Large REVERB label at bottom (same height as channel numbers: 22pt)
+    g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, 458, W, 40, juce::Justification::centred);
 }
