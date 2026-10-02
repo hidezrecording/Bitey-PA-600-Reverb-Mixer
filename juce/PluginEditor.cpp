@@ -572,6 +572,90 @@ void PowerJewel::paint(juce::Graphics& g) {
 }
 
 // ---------------------------------------------------------------------------
+// ClipBulb — UA 1108 style: single round bulb, green -> yellow -> red.
+// ---------------------------------------------------------------------------
+ClipBulb::ClipBulb() {
+    startTimerHz(30);
+}
+
+void ClipBulb::setLevel(float level) {
+    level_.store(level);
+}
+
+void ClipBulb::timerCallback() {
+    // Smooth the level for a nice bulb response
+    const float target = level_.load();
+    displayLevel_ += (target - displayLevel_) * 0.3f;
+    if (std::abs(target - displayLevel_) > 0.001f)
+        repaint();
+}
+
+void ClipBulb::paint(juce::Graphics& g) {
+    const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
+    const float r = 18.0f;  // Smaller than power bulb
+
+    const float lvl = juce::jlimit(0.0f, 1.2f, displayLevel_);
+
+    // Color: green (0.0-0.6) -> yellow (0.6-0.85) -> red (0.85+)
+    juce::Colour bulbCol;
+    if (lvl < 0.6f) {
+        const float b = 0.35f + 0.65f * (lvl / 0.6f);
+        bulbCol = juce::Colour::fromFloatRGBA(0.2f * b, 1.0f * b, 0.25f * b, 0.85f);
+    } else if (lvl < 0.85f) {
+        const float t = (lvl - 0.6f) / 0.25f;
+        bulbCol = juce::Colour::fromFloatRGBA(0.35f + 0.65f * t, 1.0f, 0.2f * (1.0f - t), 0.9f);
+    } else {
+        const float t = juce::jmin(1.0f, (lvl - 0.85f) / 0.35f);
+        const float pulse = 0.85f + 0.15f * std::sin(juce::Time::getMillisecondCounter() * 0.012f);
+        bulbCol = juce::Colour::fromFloatRGBA(1.0f * pulse, 0.2f * (1.0f - t * 0.5f), 0.12f, 0.95f);
+    }
+
+    // Hexagonal outer (same as toggle screws)
+    const float hexR = r + 8.0f;
+    juce::Path hex;
+    for (int i = 0; i < 6; ++i) {
+        const float a = i * juce::MathConstants<float>::twoPi / 6.0f + juce::MathConstants<float>::pi / 6.0f;
+        const float px = cx + std::cos(a) * hexR;
+        const float py = cy + std::sin(a) * hexR;
+        if (i == 0) hex.startNewSubPath(px, py);
+        else hex.lineTo(px, py);
+    }
+    hex.closeSubPath();
+    juce::ColourGradient hexG(col(0xffc8c8c8), cx - hexR, cy - hexR,
+                              col(0xff555555), cx + hexR, cy + hexR, true);
+    g.setGradientFill(hexG);
+    g.fillPath(hex);
+    g.setColour(col(0xff333333));
+    g.strokePath(hex, juce::PathStrokeType(1.5f));
+
+    // Dark recess inside hex
+    g.setColour(col(0xff0a0a0a));
+    g.fillEllipse(cx - r - 2, cy - r - 2, (r + 2) * 2, (r + 2) * 2);
+
+    // Translucent bulb (smaller, glowing from within)
+    // Outer glow
+    const float glowA = 0.2f + 0.5f * juce::jmin(1.0f, lvl);
+    juce::ColourGradient glow(bulbCol.withAlpha(glowA * 0.6f), cx, cy,
+                              col(0x00000000), cx, cy + r * 1.8f, true);
+    g.setGradientFill(glow);
+    g.fillEllipse(cx - r * 1.8f, cy - r * 1.8f, r * 3.6f, r * 3.6f);
+
+    // Bulb glass (translucent)
+    juce::ColourGradient glass(bulbCol.brighter(0.5f).withAlpha(0.9f), cx - r * 0.4f, cy - r * 0.5f,
+                               bulbCol.darker(0.4f).withAlpha(0.75f), cx + r * 0.3f, cy + r * 0.4f, true);
+    g.setGradientFill(glass);
+    g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
+
+    // Inner bright core
+    g.setColour(bulbCol.brighter(0.6f).withAlpha(0.5f));
+    g.fillEllipse(cx - r * 0.45f, cy - r * 0.45f, r * 0.9f, r * 0.9f);
+
+    // Specular
+    g.setColour(col(0x99ffffff));
+    g.fillEllipse(cx - r * 0.4f, cy - r * 0.55f, r * 0.3f, r * 0.15f);
+}
+
+// ---------------------------------------------------------------------------
 // VUMeterComp — direct port of VUMeter.tsx canvas rendering.
 // ---------------------------------------------------------------------------
 
@@ -787,18 +871,21 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Yellow-green neon glow (not flat spray paint)
+                        // Green center, yellow edges (neon tube look)
+                        // Use brightness for core intensity
                         const float b = px.getBrightness();
+                        // Center: pure green, edges: yellow-green
+                        // We'll do a simple version: green with yellow tint
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(0.45f * b, 1.0f * b, 0.15f * b,
+                            juce::Colour::fromFloatRGBA(0.35f * b + 0.25f * b, 1.0f * b, 0.12f * b,
                                                         px.getAlpha()));
                     }
                 }
             }
         }
         if (greenLogoImg.isValid()) {
-            const float maxW = w * 0.55f;
-            const float maxH = h * 0.42f;
+            const float maxW = w * 0.72f;  // Bigger logo
+            const float maxH = h * 0.55f;
             const float imgAspect = (float)greenLogoImg.getWidth() / (float)greenLogoImg.getHeight();
             float dw = maxW, dh = dw / imgAspect;
             if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
@@ -1065,10 +1152,11 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     drawScreenLine(g, 10, 325, W - 20);
-    // Channel number
-    g.setFont(BiteyFonts::robotoCondensed(22.0f));
+    // Channel label: "1 / LEFT" or "2 / RIGHT", centered
+    g.setFont(BiteyFonts::robotoCondensed(18.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText(number_, 58, 458, 29, 40, juce::Justification::centred);
+    juce::String label = (number_ == "1") ? "1 / LEFT" : "2 / RIGHT";
+    g.drawText(label, 0, 458, W, 40, juce::Justification::centred);
 }
 
 void ChannelStrip::resized() {
@@ -1076,8 +1164,8 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(72, 145 + 40);
     kLow_->setCentrePosition(72, 265 + 40);
     kLevel_->setCentrePosition(72, 330 + 50);
-    lowCut_->setTopLeftPosition(4, 432);
-    pad_->setTopLeftPosition(81, 432);
+    lowCut_->setTopLeftPosition(20, 432);
+    pad_->setTopLeftPosition(75, 432);
 }
 
 // ---------------------------------------------------------------------------
@@ -1097,8 +1185,15 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
                                              false /* labels left */);
     kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 120, true, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
+    clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
-    addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_);
+    addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_); addAndMakeVisible(*clipBulb_);
+    startTimerHz(30);
+}
+
+void MasterStrip::timerCallback() {
+    if (clipBulb_)
+        clipBulb_->setLevel(proc_.getMainMeter());
 }
 
 void MasterStrip::syncToggles() { midFreq_->syncFromParam(); }
@@ -1120,6 +1215,8 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(72, 265 + 40);
     midFreq_->setTopLeftPosition(85, 165);
     kMain_->setCentrePosition(72, 330 + 50);
+    clipBulb_->setCentrePosition(72, 445);
+    clipBulb_->setSize(52, 52);
 }
 
 // ---------------------------------------------------------------------------
@@ -1136,8 +1233,15 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
     kReturn_->setKnobLabel("LEVEL");
+    clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kDrive_); addAndMakeVisible(*kContour_);
-    addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_);
+    addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_); addAndMakeVisible(*clipBulb_);
+    startTimerHz(30);
+}
+
+void ReverbStrip::timerCallback() {
+    if (clipBulb_)
+        clipBulb_->setLevel(proc_.getReverbMeter());
 }
 
 void ReverbStrip::paint(juce::Graphics& g) {
@@ -1156,6 +1260,8 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(72, 145 + 40);
     kTime_->setCentrePosition(72, 265 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
+    clipBulb_->setCentrePosition(72, 445);
+    clipBulb_->setSize(52, 52);
 }
 
 // ---------------------------------------------------------------------------

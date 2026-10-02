@@ -148,6 +148,24 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// ClipBulb — UA 1108 style round level indicator. Single bulb transitions
+// green -> yellow -> red based on signal level (0.0 to 1.0+).
+// ---------------------------------------------------------------------------
+class ClipBulb : public juce::Component, private juce::Timer {
+public:
+    ClipBulb();
+    void paint(juce::Graphics& g) override;
+    void setLevel(float level);  // 0.0 (silent) to 1.0+ (clipping)
+
+private:
+    void timerCallback() override;
+    std::atomic<float> level_{0.0f};
+    float displayLevel_ = 0.0f;  // smoothed for the bulb
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ClipBulb)
+};
+
+// ---------------------------------------------------------------------------
 // VUMeterComp — port of VUMeter.tsx: teal face, scale arc with red zone,
 // BITEY / MOD. 600 branding, VU/dB corner labels, glass reflection,
 // ballistics-matched needle.
@@ -223,7 +241,7 @@ private:
 // MasterStrip — HIGH / MID / LOW + mid-freq switch + skirted MAIN.
 // ReverbStrip — DRIVE / CONTOUR / TIME + skirted REVERB return.
 // ---------------------------------------------------------------------------
-class MasterStrip : public PanelBox {
+class MasterStrip : public PanelBox, private juce::Timer {
 public:
     explicit MasterStrip(BiteyProcessor& proc);
     void paint(juce::Graphics& g) override;
@@ -231,22 +249,26 @@ public:
     void syncToggles();
 
 private:
+    void timerCallback() override;
     BiteyProcessor& proc_;
     std::unique_ptr<BiteyKnob> kHigh_, kMid_, kLow_, kMain_;
     std::unique_ptr<MetalToggle> midFreq_;
+    std::unique_ptr<ClipBulb> clipBulb_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterStrip)
 };
 
-class ReverbStrip : public PanelBox {
+class ReverbStrip : public PanelBox, private juce::Timer {
 public:
     explicit ReverbStrip(BiteyProcessor& proc);
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
+    void timerCallback() override;
     BiteyProcessor& proc_;
     std::unique_ptr<BiteyKnob> kDrive_, kContour_, kTime_, kReturn_;
+    std::unique_ptr<ClipBulb> clipBulb_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ReverbStrip)
 };
