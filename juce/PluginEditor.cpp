@@ -872,10 +872,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Amber, exact match to power jewel (warm orange-yellow, not pink)
+                        // Green (matching toggle indicator green)
                         const float b = px.getBrightness();
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(1.0f * b, 0.72f * b, 0.18f * b,
+                            juce::Colour::fromFloatRGBA(0.25f * b, 1.0f * b, 0.3f * b,
                                                         px.getAlpha()));
                     }
                 }
@@ -891,10 +891,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
             const float dy = fy + h * 0.58f;
             juce::Rectangle<float> dest(dx, dy, dw, dh);
 
-            // Soft amber glow behind (matching power jewel)
-            g.setColour(col(0x66ff9500));
+            // Soft green glow behind
+            g.setColour(col(0x6644ff66));
             g.drawImage(greenLogoImg, dest.expanded(10.0f));
-            g.setColour(col(0x44ffaa00));
+            g.setColour(col(0x4433dd44));
             g.drawImage(greenLogoImg, dest.expanded(5.0f));
             // Green logo
             g.drawImage(greenLogoImg, dest);
