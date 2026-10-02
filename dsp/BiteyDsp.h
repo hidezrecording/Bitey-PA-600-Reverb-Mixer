@@ -24,6 +24,9 @@
 #include <complex>
 #include <cstdint>
 #include <cmath>
+#include <thread>
+#include <atomic>
+#include <chrono>
 
 namespace bitey {
 
@@ -110,8 +113,9 @@ struct Curves {
 };
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x zero-stuff + 65-tap windowed-sinc FIR.
-// Exact latency: 16 samples at the base rate per instance.
+// OversampledShaper — 4x zero-stuff + 193-tap Kaiser FIR.
+// Exact latency: 192 samples at the base rate per instance, matching
+// Chromium's measured 4x WaveShaperNode latency.
 // ---------------------------------------------------------------------------
 
 class OversampledShaper {
@@ -119,12 +123,16 @@ public:
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void reset();
-    float process(float x);          // 16 samples latency
-    static constexpr int latency() { return 16; }
+    float process(float x);          // 192 samples latency
+    static constexpr int latency() { return 192; }
 private:
-    std::vector<float> fir_;         // 65 taps
+    static constexpr int kTaps = 193;
+    // FIR group delay per filter: (193-1)/2 @4x = 24 @1x; two filters = 48.
+    static constexpr int kPureDelay = 192 - 2 * ((kTaps - 1) / 8);
+    std::vector<float> fir_;         // 193 taps
     std::vector<float> upBuf_, dnBuf_;
-    int upPos_ = 0, dnPos_ = 0;
+    std::vector<float> delayBuf_;    // pure delay padding to 192
+    int upPos_ = 0, dnPos_ = 0, delayPos_ = 0;
     const Curve* curve_ = nullptr;
 };
 
@@ -159,6 +167,32 @@ private:
     std::vector<float> inBuf_, outBuf_;
     int inPos_ = 0, outPos_ = 0, histPos_ = 0, numParts_ = 0;
     std::vector<std::complex<float>> tmp_, acc_;
+};
+
+// ---------------------------------------------------------------------------
+// Zero-latency hybrid convolver.
+//
+// Chromium's ConvolverNode measures 0 samples of latency. A uniform
+// partitioned convolver inherently delays by one partition, so we split the
+// IR: the first partition is convolved directly in the time domain (0
+// latency) and the remainder runs through the partitioned FFT engine whose
+// block delay is mathematically correct for IR[512..]. The sum is a true
+// zero-latency convolution.
+// ---------------------------------------------------------------------------
+
+class ZeroLatencyConvolver {
+public:
+    static constexpr int kPartition = PartitionedConvolver::kPartition;
+    void prepare(double sampleRate);
+    void setIR(const float* ir, int len); // copies + partitions
+    void reset();
+    float process(float x);
+    static constexpr int latency() { return 0; }
+private:
+    std::vector<float> headIR_;   // first kPartition taps
+    std::vector<float> headBuf_;  // input history for the direct head
+    int headPos_ = 0;
+    PartitionedConvolver tail_;   // IR[kPartition..]
 };
 
 // ---------------------------------------------------------------------------
@@ -245,12 +279,27 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// Spring reverb — port of the reverb network
-// ---------------------------------------------------------------------------
+// Spring reverb — port of the reverb network.
+//
+// The spring IR is synthesized + partitioned OFF the audio thread: the audio
+// thread only ever posts a lock-free regeneration request (atomics) and picks
+// up the finished convolver at a block boundary. The browser original rebuilt
+// its ConvolverNode on the main thread; this is the native equivalent.
+//
+// The tank is always stereo, exactly like the browser original (which builds
+// a 2-channel impulse buffer and has no mono switch).
 
 struct SpringReverb {
+    SpringReverb() = default;
+    ~SpringReverb();
+    SpringReverb(const SpringReverb&) = delete;
+    SpringReverb& operator=(const SpringReverb&) = delete;
+
     void prepare(double sampleRate, const Curves& curves);
     void reset();
+    // Audio thread, once per block before process(): adopts a finished worker
+    // IR and posts a regen request if the time knob moved (lock-free).
+    void beginBlock();
     // Stereo in (already merged L/R sends) -> stereo out
     void process(float inL, float inR, float& outL, float& outR);
     float timeParam = 5.0f;    // 0..10 -> 0.5..4.5 s
@@ -259,19 +308,28 @@ struct SpringReverb {
     float returnGain = 5.0f;   // 0..10 master reverb return
     void touch() { dirty_ = true; }
 private:
-    void maybeRegenIR();
     void updateFromParams();
+    void workerMain();
     double sr_ = 44100;
     const Curves* curves_ = nullptr;
     Biquad hp_[2];
     Smoothed drvGain_, toneFreq_, retGain_;
     OversampledShaper driver_[2];
-    PartitionedConvolver convL_, convR_;
+    // Double-buffered convolvers: the worker builds the inactive slot.
+    ZeroLatencyConvolver convL_[2], convR_[2];
+    std::atomic<int> active_{ 0 };
+    int cachedActive_ = 0; // audio thread's per-block view of active_
     Biquad tone_[2];
     Biquad a1108In_[2], a1108Out_[2];
     OversampledShaper a1108_[2];
     float makeup_ = 6.0f;
-    float currentTime_ = -1.0f;
+    float requestedTime_ = -1.0f; // audio thread's last regen request
+    // Worker handoff (all atomics; no locks on the audio thread)
+    std::thread worker_;
+    std::atomic<bool> quit_{ false };
+    std::atomic<bool> reqPending_{ false };
+    std::atomic<float> reqTime_{ -1.0f };
+    std::atomic<bool> swapReady_{ false };
     bool dirty_ = true;
 };
 
@@ -336,6 +394,11 @@ public:
     void process(float* left, float* right, int numSamples);
     // Total I/O latency in samples (for the host).
     int getLatencySamples() const;
+    // Meter taps (not part of the sound): per-block RMS of the reverb bus
+    // and the final output, scaled exactly like the browser prototype's
+    // calculateRMS() so the VU meters behave identically.
+    float getReverbMeter() const { return revMeter_; }
+    float getMainMeter() const { return mainMeter_; }
 private:
     double sr_ = 44100;
     Curves curves_;
@@ -347,6 +410,7 @@ private:
     std::vector<float> dryDelayL_, dryDelayR_;
     int dryPos_ = 0;
     BiteyParams params_;
+    float revMeter_ = 0.0f, mainMeter_ = 0.0f; // VU meter taps
 };
 
 } // namespace bitey

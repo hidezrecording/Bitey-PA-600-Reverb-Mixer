@@ -147,11 +147,11 @@ int main() {
         runThrough(dsp, L, R);
         // NB: bypass engages with a ~50 ms glide (click-free); compare after it settles.
         double err = 0; int cnt = 0;
-        for (size_t i = 70000; i + 64 < L.size() && i < 110000; ++i) {
-            err += std::fabs(L[i + 64] - dryL[i]); ++cnt;
+        for (size_t i = 70000; i + 768 < L.size() && i < 110000; ++i) {
+            err += std::fabs(L[i + 768] - dryL[i]); ++cnt;
         }
         err /= cnt;
-        CHECK(err < 1e-4, "bypass: output == dry delayed 64 samples");
+        CHECK(err < 1e-4, "bypass: output == dry delayed 768 samples");
         printf("  (bypass mean abs err %.2e)\n", err);
     }
 
@@ -162,8 +162,8 @@ int main() {
         std::vector<float> L = dryL, R = dryR;
         runThrough(dsp, L, R);
         double err = 0; int cnt = 0;
-        for (size_t i = 70000; i + 64 < L.size() && i < 110000; ++i) {
-            err += std::fabs(L[i + 64] - dryL[i]); ++cnt;
+        for (size_t i = 70000; i + 768 < L.size() && i < 110000; ++i) {
+            err += std::fabs(L[i + 768] - dryL[i]); ++cnt;
         }
         err /= cnt;
         CHECK(err < 1e-4, "mix=0: output == dry");
@@ -193,6 +193,8 @@ int main() {
     }
 
     // 6. Tape slap: with tapeMix up, a repeat appears near the ips delay.
+    //    Measured relative to the direct-path peak so shaper/filter latency
+    //    cancels and we isolate the delay LINE (134 ms @7.5ips).
     {
         BiteyDsp dsp; dsp.prepare(sr);
         BiteyParams p; p.tapeMix = 10; p.revReturn = 0; dsp.setParams(p);
@@ -211,9 +213,14 @@ int main() {
             float v = std::fabs(L[i] - L0[i]);
             if (v > peakV) { peakV = v; peakIdx = i; }
         }
-        float slapMs = (peakIdx - 1000) / float(sr) * 1000.0f;
+        int dirIdx = 0; float dirV = 0;
+        for (int i = 1000; i < n; ++i) {
+            float v = std::fabs(L0[i]);
+            if (v > dirV) { dirV = v; dirIdx = i; }
+        }
+        float slapMs = (peakIdx - dirIdx) / float(sr) * 1000.0f;
         printf("  (tape slap at %.1f ms, expected ~134 ms @7.5ips)\n", slapMs);
-        CHECK(std::fabs(slapMs - 134.0f) < 40.0f, "tape slap timing ~= 134 ms");
+        CHECK(std::fabs(slapMs - 134.0f) < 15.0f, "tape slap timing ~= 134 ms");
     }
 
     // 7. Level knob actually drives the preamp.
@@ -252,10 +259,10 @@ int main() {
         CHECK(!hasNonFinite(L2) && peakAbs(L2) <= 1.05f, "revTime change: stable");
     }
 
-    // 10. Reported latency == dry/direct path (4 OS stages = 64).
+    // 10. Reported latency == dry/direct path (4 OS stages = 768).
     {
         BiteyDsp dsp; dsp.prepare(sr);
-        CHECK(dsp.getLatencySamples() == 64, "getLatencySamples() == 64");
+        CHECK(dsp.getLatencySamples() == 768, "getLatencySamples() == 768");
     }
 
     printf(failures ? "\n%d FAILURES\n" : "\nALL TESTS PASSED\n", failures);

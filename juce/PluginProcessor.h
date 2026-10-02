@@ -42,6 +42,10 @@ public:
     // Push a full BiteyParams set into the hosted parameters (presets, etc.).
     void applyParamsToHost(const bitey::BiteyParams& p);
 
+    // VU meter feeds for the editor (0..~1.4, browser calculateRMS scaling).
+    float getReverbMeter() const { return reverbMeter_.load(); }
+    float getMainMeter() const { return mainMeter_.load(); }
+
     // Named starting points, after Nathan Sabatino records.
     static bitey::BiteyParams presetBeTheVoid();
     static bitey::BiteyParams presetPsychedelicSwamp();
@@ -81,6 +85,10 @@ private:
 
     bitey::BiteyDsp dsp_;
     juce::AudioBuffer<float> scratch_; // stereo working buffer for bus juggling
+
+    // VU meter levels, written on the audio thread, read by the editor.
+    std::atomic<float> reverbMeter_{ 0.0f };
+    std::atomic<float> mainMeter_{ 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BiteyProcessor)
 };

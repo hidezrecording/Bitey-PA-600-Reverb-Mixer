@@ -1,5 +1,9 @@
 #include "PluginProcessor.h"
+// BITEY_HEADLESS: compile the DSP + parameter path without any GUI modules,
+// so the real processBlock() can be exercised in a console test.
+#ifndef BITEY_HEADLESS
 #include "PluginEditor.h"
+#endif
 
 namespace {
 
@@ -217,23 +221,31 @@ void BiteyProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const int numIn  = juce::jmin(getTotalNumInputChannels(), 2);
     const int numOut = juce::jmin(getTotalNumOutputChannels(), 2);
 
-    if (scratch_.getNumSamples() < numSamples)
-        scratch_.setSize(2, numSamples, false, false, true);
+    // scratch_ is sized in prepareToPlay; if a host hands us a larger block
+    // than prepared for, process in chunks instead of allocating here.
+    const int cap = juce::jmax(scratch_.getNumSamples(), 64);
 
     // Gather: mono input feeds both channel strips (dual mono).
     const float* in0 = buffer.getReadPointer(0);
     const float* in1 = numIn > 1 ? buffer.getReadPointer(1) : in0;
-    scratch_.copyFrom(0, 0, in0, numSamples);
-    scratch_.copyFrom(1, 0, in1, numSamples);
 
-    dsp_.process(scratch_.getWritePointer(0), scratch_.getWritePointer(1),
-                 numSamples);
+    int done = 0;
+    while (done < numSamples) {
+        const int n = juce::jmin(cap, numSamples - done);
+        scratch_.copyFrom(0, 0, in0 + done, n);
+        scratch_.copyFrom(1, 0, in1 + done, n);
 
-    // Scatter.
-    for (int c = 0; c < numOut; ++c)
-        buffer.copyFrom(c, 0, scratch_.getReadPointer(c), numSamples);
+        dsp_.process(scratch_.getWritePointer(0), scratch_.getWritePointer(1), n);
+
+        for (int c = 0; c < numOut; ++c)
+            buffer.copyFrom(c, done, scratch_.getReadPointer(c), n);
+        done += n;
+    }
     for (int c = numOut; c < buffer.getNumChannels(); ++c)
         buffer.clear(c, 0, numSamples);
+
+    reverbMeter_.store(dsp_.getReverbMeter());
+    mainMeter_.store(dsp_.getMainMeter());
 }
 
 void BiteyProcessor::getStateInformation(juce::MemoryBlock& destData) {
@@ -247,7 +259,11 @@ void BiteyProcessor::setStateInformation(const void* data, int sizeInBytes) {
 }
 
 juce::AudioProcessorEditor* BiteyProcessor::createEditor() {
+#ifdef BITEY_HEADLESS
+    return nullptr;
+#else
     return new BiteyEditor(*this);
+#endif
 }
 
 // ---------------------------------------------------------------------------

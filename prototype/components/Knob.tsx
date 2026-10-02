@@ -22,6 +22,10 @@ const Knob: React.FC<KnobProps> = ({ value, min, max, onChange, size = 60, varia
     e.preventDefault();
     e.stopPropagation(); 
     
+    // Capture pointer to ensure tracking continues outside element/window
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    
     startY.current = e.clientY;
     startVal.current = value;
     document.body.style.cursor = 'ns-resize';
@@ -38,20 +42,32 @@ const Knob: React.FC<KnobProps> = ({ value, min, max, onChange, size = 60, varia
       onChangeRef.current(newVal);
     };
 
-    const handleUp = () => {
+    const handleUp = (ev: PointerEvent) => {
       document.body.style.cursor = '';
+      
+      // Release capture
+      try {
+        if (target.hasPointerCapture(ev.pointerId)) {
+           target.releasePointerCapture(ev.pointerId);
+        }
+      } catch (e) {}
+
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
       window.removeEventListener('pointercancel', handleUp);
-      document.removeEventListener('mouseleave', handleUp);
     };
 
     // Attach robust listeners
     window.addEventListener('pointermove', handleMove, { passive: false });
     window.addEventListener('pointerup', handleUp);
-    // Safety valves for lost capture or iframe exits
     window.addEventListener('pointercancel', handleUp);
-    document.addEventListener('mouseleave', handleUp);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const midpoint = (min + max) / 2;
+    onChange(midpoint);
   };
 
   const pct = (value - min) / (max - min);
@@ -163,6 +179,7 @@ const Knob: React.FC<KnobProps> = ({ value, min, max, onChange, size = 60, varia
         <div 
             className="absolute z-50 rounded-full"
             onPointerDown={handlePointerDown}
+            onDoubleClick={handleDoubleClick}
             style={{
                 width: size,
                 height: size,

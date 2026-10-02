@@ -26,6 +26,23 @@ const VUMeter: React.FC<VUMeterProps> = memo(({ level = 0, getValue, width = 300
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // --- HIGH DPI SCALING FIX FOR SAFARI/RETINA ---
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set display size (CSS pixels)
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    
+    // Set actual size in memory (scaled to account for pixel density)
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    
+    // Normalize coordinate system to use CSS pixels
+    // Reset transform first to prevent accumulation
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    // ----------------------------------------------
+
     // Pre-generate noise texture once
     if (!noiseCanvasRef.current) {
         const nc = document.createElement('canvas');
@@ -88,7 +105,8 @@ const VUMeter: React.FC<VUMeterProps> = memo(({ level = 0, getValue, width = 300
         ctx.save();
         ctx.globalCompositeOperation = 'overlay';
         ctx.globalAlpha = 0.5;
-        ctx.drawImage(noiseCanvasRef.current, 0, 0);
+        // Draw noise scaled to fit logic dimensions
+        ctx.drawImage(noiseCanvasRef.current, 0, 0, w, h);
         ctx.restore();
       }
 
@@ -242,7 +260,7 @@ const VUMeter: React.FC<VUMeterProps> = memo(({ level = 0, getValue, width = 300
           boxShadow: `0 10px 20px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.5), inset 0 0 20px rgba(0,0,0,0.9)`
       }}
     >
-       <canvas ref={canvasRef} width={width} height={height} className="relative z-10" />
+       <canvas ref={canvasRef} className="relative z-10" />
        <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden rounded-[3px]">
            <div className="absolute top-0 left-0 right-0 h-[45%] bg-gradient-to-b from-white/10 to-transparent"></div>
            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/dust.png')] mix-blend-overlay"></div>

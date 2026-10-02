@@ -122,34 +122,59 @@ Curves Curves::build() {
 }
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x, 65-tap windowed-sinc FIR, 16-sample latency
+// OversampledShaper — 4x zero-stuff + 193-tap Kaiser-windowed-sinc FIR.
+//
+// Matches Chromium's 4x WaveShaperNode, measured directly:
+//   1/2/3/4 cascaded stages -> 192/384/576/768 samples latency.
+// The resampling filter itself is nearly transparent (flat to ~20 kHz,
+// gentle rolloff to Nyquist); the 193-tap FIR contributes 48 samples of
+// group delay and a pure delay line makes up the remaining 144, for an
+// exact total of 192 samples at the base rate per instance.
 // ---------------------------------------------------------------------------
+
+// Modified Bessel I0 (Kaiser window).
+static double besselI0(double x) {
+    double sum = 1.0, term = 1.0;
+    const double x2 = x * x / 4.0;
+    for (int k = 1; k < 40; ++k) {
+        term *= x2 / (k * k);
+        sum += term;
+        if (term < 1e-16 * sum) break;
+    }
+    return sum;
+}
 
 void OversampledShaper::prepare(double sampleRate) {
     (void)sampleRate;
-    const int N = 65;
+    const int N = kTaps;
     fir_.assign(N, 0);
-    // Cutoff: pass the baseband (up to ~0.5*fs_base) at the 4x rate.
-    const double fc = 0.115; // cycles/sample at 4x rate
+    // Cutoff at the 4x Nyquist: gentle lowpass, flat through the audio band
+    // (mirrors the measured Chromium response: +0 dB to ~20 kHz).
+    const double fc = 0.125; // cycles/sample at 4x rate
+    const double beta = 8.0;
+    const double i0beta = besselI0(beta);
     const int M = N - 1;
     double sum = 0;
     for (int n = 0; n < N; ++n) {
         double m = n - M / 2.0;
         double sinc = (m == 0) ? 2 * kPi * fc : std::sin(2 * kPi * fc * m) / m;
-        double w = 0.54 - 0.46 * std::cos(2 * kPi * n / M); // Hamming
+        double r = (2.0 * n / M) - 1.0;
+        double w = besselI0(beta * std::sqrt(std::max(0.0, 1.0 - r * r))) / i0beta;
         fir_[n] = float(sinc * w);
         sum += fir_[n];
     }
     for (auto& v : fir_) v = float(v / sum * 4.0); // x4 compensates zero-stuff
     upBuf_.assign(N, 0);
     dnBuf_.assign(N, 0);
+    delayBuf_.assign(kPureDelay + 1, 0);
     reset();
 }
 
 void OversampledShaper::reset() {
     std::fill(upBuf_.begin(), upBuf_.end(), 0);
     std::fill(dnBuf_.begin(), dnBuf_.end(), 0);
-    upPos_ = dnPos_ = 0;
+    std::fill(delayBuf_.begin(), delayBuf_.end(), 0);
+    upPos_ = dnPos_ = delayPos_ = 0;
 }
 
 float OversampledShaper::process(float x) {
@@ -167,8 +192,7 @@ float OversampledShaper::process(float x) {
         if (++upPos_ >= N) upPos_ = 0;
         out4[k] = curve_ ? curve_->process(acc) : acc;
     }
-    // Decimate: filter each shaped sample; tap phase k=0 so the
-    // end-to-end latency is exactly 16 samples at the base rate.
+    // Decimate: filter each shaped sample; take phase k=0.
     float y = 0;
     for (int k = 0; k < 4; ++k) {
         dnBuf_[dnPos_] = out4[k];
@@ -181,7 +205,14 @@ float OversampledShaper::process(float x) {
         if (++dnPos_ >= N) dnPos_ = 0;
         if (k == 0) y = acc * 0.25f; // x0.25 compensates the x4 up-filter gain
     }
-    return y;
+    // Pure delay line: the two FIRs contribute 2*24 = 48 samples; pad to the
+    // measured 192 so transients land exactly where the browser puts them.
+    delayBuf_[delayPos_] = y;
+    int rp = delayPos_ + 1;
+    if (rp >= int(delayBuf_.size())) rp = 0;
+    float out = delayBuf_[rp];
+    if (++delayPos_ >= int(delayBuf_.size())) delayPos_ = 0;
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +257,52 @@ void FFT::inverse(std::vector<std::complex<float>>& d) const {
     forward(d);
     float inv = 1.0f / n_;
     for (auto& v : d) v = std::conj(v) * inv;
+}
+
+// ---------------------------------------------------------------------------
+// ZeroLatencyConvolver — direct head + partitioned tail
+// ---------------------------------------------------------------------------
+
+void ZeroLatencyConvolver::prepare(double sampleRate) {
+    headIR_.assign(kPartition, 0.0f);
+    headBuf_.assign(kPartition, 0.0f);
+    headPos_ = 0;
+    tail_.prepare(sampleRate);
+    reset();
+}
+
+void ZeroLatencyConvolver::setIR(const float* ir, int len) {
+    const int headLen = std::min(len, kPartition);
+    headIR_.assign(kPartition, 0.0f);
+    for (int i = 0; i < headLen; ++i) headIR_[i] = ir[i];
+    // Tail covers IR[kPartition..]; its block delay is exactly correct for
+    // these later taps (see header note).
+    if (len > kPartition)
+        tail_.setIR(ir + kPartition, len - kPartition);
+    else
+        tail_.setIR(headIR_.data(), 0); // empty tail
+    reset();
+}
+
+void ZeroLatencyConvolver::reset() {
+    std::fill(headBuf_.begin(), headBuf_.end(), 0.0f);
+    headPos_ = 0;
+    tail_.reset();
+}
+
+float ZeroLatencyConvolver::process(float x) {
+    // Direct-form head (0 latency).
+    headBuf_[headPos_] = x;
+    float yHead = 0.0f;
+    int idx = headPos_;
+    for (int i = 0; i < kPartition; ++i) {
+        yHead += headIR_[i] * headBuf_[idx];
+        if (--idx < 0) idx += kPartition;
+    }
+    if (++headPos_ >= kPartition) headPos_ = 0;
+    // Partitioned tail (its block delay aligns with IR[kPartition..]).
+    float yTail = tail_.process(x);
+    return yHead + yTail;
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +556,11 @@ float TapeSlap::process(float x) {
 // SpringReverb
 // ---------------------------------------------------------------------------
 
+SpringReverb::~SpringReverb() {
+    quit_.store(true);
+    if (worker_.joinable()) worker_.join();
+}
+
 void SpringReverb::prepare(double sampleRate, const Curves& curves) {
     sr_ = sampleRate;
     curves_ = &curves;
@@ -492,13 +574,46 @@ void SpringReverb::prepare(double sampleRate, const Curves& curves) {
     driver_[1].prepare(sr_); driver_[1].setCurve(&curves_->driver);
     a1108_[0].prepare(sr_);  a1108_[0].setCurve(&curves_->c1108);
     a1108_[1].prepare(sr_);  a1108_[1].setCurve(&curves_->c1108);
-    convL_.prepare(sr_); convR_.prepare(sr_);
+    for (int s = 0; s < 2; ++s) { convL_[s].prepare(sr_); convR_[s].prepare(sr_); }
     drvGain_.prepare(sr_, 0.175f);
     toneFreq_.prepare(sr_, 3250.0f);
     retGain_.prepare(sr_, 0.7f);
-    currentTime_ = -1.0f;
+    // Build the initial IR synchronously: prepare() never runs on the audio
+    // thread, so this keeps the first blocks deterministic and silent-free.
+    const float t0 = 0.5f + (timeParam / 10.0f) * 4.0f;
+    std::vector<float> irL, irR;
+    SpringIR::generate(t0, sr_, irL, irR);
+    convL_[0].setIR(irL.data(), int(irL.size()));
+    convR_[0].setIR(irR.data(), int(irR.size()));
+    active_.store(0);
+    cachedActive_ = 0;
+    requestedTime_ = t0;
+    swapReady_.store(false);
+    reqPending_.store(false);
+    if (!worker_.joinable()) {
+        quit_.store(false);
+        worker_ = std::thread(&SpringReverb::workerMain, this);
+    }
     dirty_ = true;
     reset();
+}
+
+void SpringReverb::workerMain() {
+    // Background synthesis + partitioning of the spring IR. Never touches the
+    // live convolver slot; the audio thread adopts it via beginBlock().
+    while (!quit_.load(std::memory_order_relaxed)) {
+        if (reqPending_.exchange(false, std::memory_order_acq_rel)) {
+            const float t = reqTime_.load(std::memory_order_relaxed);
+            const int inactive = 1 - active_.load(std::memory_order_acquire);
+            std::vector<float> irL, irR;
+            SpringIR::generate(t, sr_, irL, irR);
+            convL_[inactive].setIR(irL.data(), int(irL.size()));
+            convR_[inactive].setIR(irR.data(), int(irR.size()));
+            swapReady_.store(true, std::memory_order_release);
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    }
 }
 
 void SpringReverb::reset() {
@@ -507,23 +622,28 @@ void SpringReverb::reset() {
         a1108In_[c].reset(); a1108Out_[c].reset();
         driver_[c].reset(); a1108_[c].reset();
     }
-    convL_.reset(); convR_.reset();
+    for (int s = 0; s < 2; ++s) { convL_[s].reset(); convR_[s].reset(); }
 }
 
-void SpringReverb::maybeRegenIR() {
-    float targetTime = 0.5f + (timeParam / 10.0f) * 4.0f;
-    if (std::fabs(targetTime - currentTime_) > 0.2f) {
-        std::vector<float> irL, irR;
-        SpringIR::generate(targetTime, sr_, irL, irR);
-        // makeup 6.0 is applied as a gain after the convolver (see process)
-        convL_.setIR(irL.data(), int(irL.size()));
-        convR_.setIR(irR.data(), int(irR.size()));
-        currentTime_ = targetTime;
+void SpringReverb::beginBlock() {
+    // Adopt a worker-finished IR at a block boundary (no allocation here:
+    // both slots are pre-partitioned; this just flips the active index).
+    if (swapReady_.exchange(false, std::memory_order_acq_rel)) {
+        cachedActive_ = 1 - cachedActive_;
+        active_.store(cachedActive_, std::memory_order_release);
+    }
+    // Post a regen request if the time knob moved. Same 0.2 s hysteresis as
+    // the browser (which rebuilt its ConvolverNode when |dt| > 0.2); the
+    // worker synthesizes + partitions off-thread, no audio-thread allocation.
+    const float targetTime = 0.5f + (timeParam / 10.0f) * 4.0f;
+    if (std::fabs(targetTime - requestedTime_) > 0.2f) {
+        requestedTime_ = targetTime;
+        reqTime_.store(targetTime, std::memory_order_relaxed);
+        reqPending_.store(true, std::memory_order_release);
     }
 }
 
 void SpringReverb::updateFromParams() {
-    maybeRegenIR();
     drvGain_.set(0.05f + (drive / 10.0f) * 0.25f);
     toneFreq_.set(500.0f + (contour / 10.0f) * 5500.0f);
     for (int c = 0; c < 2; ++c)
@@ -534,14 +654,18 @@ void SpringReverb::updateFromParams() {
 
 void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
     if (dirty_) updateFromParams();
-    else maybeRegenIR(); // time knob can move without other changes
+    const int a = cachedActive_;
     float m[2] = { hp_[0].process(inL * 0.4f), hp_[1].process(inR * 0.4f) };
     float dg = drvGain_.next();
-    float cL = convL_.process(driver_[0].process(m[0] * dg)) * makeup_;
-    float cR = convR_.process(driver_[1].process(m[1] * dg)) * makeup_;
+    float cL = convL_[a].process(driver_[0].process(m[0] * dg)) * makeup_;
+    float cR = convR_[a].process(driver_[1].process(m[1] * dg)) * makeup_;
     float rg = retGain_.next();
-    outL = a1108Out_[0].process(a1108_[0].process(a1108In_[0].process(tone_[0].process(cL)))) * rg;
-    outR = a1108Out_[1].process(a1108_[1].process(a1108In_[1].process(tone_[1].process(cR)))) * rg;
+    // Browser order: makeup -> tone -> returnGain -> 1108 chain. The gain
+    // sits BEFORE the saturator, so the 1108 is driven 0.7x, not 1.0x.
+    float tL = tone_[0].process(cL) * rg;
+    float tR = tone_[1].process(cR) * rg;
+    outL = a1108Out_[0].process(a1108_[0].process(a1108In_[0].process(tL)));
+    outR = a1108Out_[1].process(a1108_[1].process(a1108In_[1].process(tR)));
 }
 
 // ---------------------------------------------------------------------------
@@ -637,12 +761,13 @@ void BiteyDsp::prepare(double sampleRate) {
     master_.prepare(sr_, curves_);
     wetGain_.prepare(sr_, 1.0f);
     dryGain_.prepare(sr_, 0.0f);
-    // Dry path: 4 identity 4x stages = 64 samples, exactly like the original's
-    // four dryFix waveshapers. This aligns dry with the DIRECT path
-    // (ch/scully/bus/limiter = 4 stages). The tape path runs 16 samples late
-    // and the reverb tail carries the uncompensated convolver latency, both
-    // exactly as in the browser original.
-    int dryLat = 4 * OversampledShaper::latency(); // 64
+    // Dry path: 4 identity 4x stages = 768 samples, exactly like the original's
+    // four dryFix waveshapers (each measures 192 samples in Chromium).
+    // This aligns dry with the DIRECT path (ch/scully/bus/limiter = 4 stages).
+    // The tape path carries one shaper (192) plus its delay line, and the
+    // reverb tail carries the uncompensated convolver latency, both exactly
+    // as in the browser original.
+    int dryLat = 4 * OversampledShaper::latency(); // 768
     // NOTE: the delay lines below are written then read one slot ahead,
     // so a buffer of N slots gives exactly N-1 samples of delay.
     dryDelayL_.assign(dryLat + 1, 0);
@@ -660,6 +785,7 @@ void BiteyDsp::reset() {
     std::fill(dryDelayL_.begin(), dryDelayL_.end(), 0);
     std::fill(dryDelayR_.begin(), dryDelayR_.end(), 0);
     dryPos_ = 0;
+    revMeter_ = mainMeter_ = 0.0f;
 }
 
 void BiteyDsp::setParams(const BiteyParams& p) {
@@ -701,18 +827,21 @@ void BiteyDsp::setParams(const BiteyParams& p) {
 }
 
 int BiteyDsp::getLatencySamples() const {
-    // Report the direct/dry path latency (4 OS stages). The DAW compensates
-    // other tracks by this amount, keeping our dry and direct signals
-    // sample-aligned. The tape path's extra 16 samples and the reverb tail's
-    // convolver latency are musically irrelevant (ambience, no transients),
-    // exactly as in the browser original which never compensated them.
+    // Report the direct/dry path latency (4 OS stages = 768). The DAW
+    // compensates other tracks by this amount, keeping our dry and direct
+    // signals sample-aligned. The reverb tail's convolver latency is
+    // musically irrelevant (ambience, no transients), exactly as in the
+    // browser original which never compensated it.
     return 4 * OversampledShaper::latency();
 }
 
 void BiteyDsp::process(float* left, float* right, int numSamples) {
+    reverb_.beginBlock(); // adopt any worker-finished spring IR (block boundary)
     const float srcPad = 0.025f;
     const float mainG = master_.mainGain();
     const int dryN = int(dryDelayL_.size());
+
+    double revSum = 0.0, outSum = 0.0; // VU meter taps (sound-neutral)
 
     for (int n = 0; n < numSamples; ++n) {
         float inL = left[n], inR = right[n];
@@ -759,8 +888,19 @@ void BiteyDsp::process(float* left, float* right, int numSamples) {
 
         float w = wetGain_.next();
         float d = dryGain_.next();
-        left[n] = wetL * w + dryL * d;
-        right[n] = wetR * w + dryR * d;
+        float oL = wetL * w + dryL * d;
+        float oR = wetR * w + dryR * d;
+        left[n] = oL;
+        right[n] = oR;
+        revSum += double(revL) * revL + double(revR) * revR;
+        outSum += double(oL) * oL + double(oR) * oR;
+    }
+
+    // Browser calculateRMS() scaling: min(rms * 4.0, 1.4).
+    if (numSamples > 0) {
+        const float inv = 1.0f / float(2 * numSamples);
+        revMeter_  = std::min(std::sqrt(float(revSum * inv)) * 4.0f, 1.4f);
+        mainMeter_ = std::min(std::sqrt(float(outSum * inv)) * 4.0f, 1.4f);
     }
 }
 
