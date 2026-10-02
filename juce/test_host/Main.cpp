@@ -1,16 +1,16 @@
-// BiteyTestHost — standalone listening rig for the Bitey PA-600.
+// BiteyTestHost - standalone listening rig for the Bitey PA-600.
 // Not part of the shipped plugin: a dev/test host that loads an audio file,
 // runs it through the real BiteyProcessor + editor, and plays it out.
 //
 // Build: added as a juce_add_gui_app target in juce/CMakeLists.txt (macOS CI).
-// Usage: launch, click "Load Audio File…", then Play.
+// Usage: launch, click "Load Audio File...", then Play.
 
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "../PluginProcessor.h"
 
 // ---------------------------------------------------------------------------
-// HostComponent — transport bar on top, live Bitey editor below.
+// HostComponent - transport bar on top, live Bitey editor below.
 // Audio path: file -> AudioTransportSource -> BiteyProcessor -> output.
 // ---------------------------------------------------------------------------
 class HostComponent : public juce::Component,
@@ -22,7 +22,7 @@ public:
     {
         formatManager.registerBasicFormats();
 
-        loadButton.setButtonText("Load Audio File…");
+        loadButton.setButtonText("Load Audio File...");
         loadButton.addListener(this);
         addAndMakeVisible(loadButton);
 
@@ -36,7 +36,7 @@ public:
         stopButton.setEnabled(false);
         addAndMakeVisible(stopButton);
 
-        fileLabel.setText("No file loaded — click “Load Audio File…”",
+        fileLabel.setText("No file loaded - click "Load Audio File..."",
                           juce::dontSendNotification);
         fileLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         addAndMakeVisible(fileLabel);
@@ -96,10 +96,11 @@ public:
         biteyProc->releaseResources();
     }
 
-    void audioDeviceIOCallback(const float** /*in*/, int /*numIn*/,
-                               float** out, int numOut, int numSamples) override
+    void audioDeviceIOCallbackWithContext(const float* const* /*in*/, int /*numIn*/,
+                                               float* const* out, int numOut, int numSamples,
+                                               const juce::AudioIODeviceCallbackContext&) override
     {
-        juce::AudioBuffer<float> buffer(out, numOut, numSamples);
+        juce::AudioBuffer<float> buffer(const_cast<float**>(out), numOut, numSamples);
         buffer.clear();
         juce::AudioSourceChannelInfo info(buffer);
         transport.getNextAudioBlock(info);   // file audio into buffer
