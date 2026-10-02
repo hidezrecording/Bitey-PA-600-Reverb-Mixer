@@ -30,11 +30,34 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Build installer PKG
+        run: |
+          PKGROOT=pkgroot
+          mkdir -p "$PKGROOT/Library/Audio/Plug-Ins/VST3"
+          mkdir -p "$PKGROOT/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$PKGROOT/Applications"
+          cp -R "build/Bitey_artefacts/Release/VST3/Bitey.vst3" "$PKGROOT/Library/Audio/Plug-Ins/VST3/"
+          cp -R "build/Bitey_artefacts/Release/AU/Bitey.component" "$PKGROOT/Library/Audio/Plug-Ins/Components/"
+          if [ -d "build/Bitey_artefacts/Release/Standalone/Bitey.app" ]; then
+            cp -R "build/Bitey_artefacts/Release/Standalone/Bitey.app" "$PKGROOT/Applications/"
+          fi
+          pkgbuild --root "$PKGROOT" \
+            --identifier com.sabatinoaudio.bitey \
+            --version 0.1.0 \
+            --install-location / \
+            Bitey-0.1.0-macOS.pkg
+
       - name: Upload plugins
         uses: actions/upload-artifact@v4
         with:
           name: Bitey-macOS
           path: build/Bitey_artefacts/Release/
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-Installer-macOS
+          path: Bitey-0.1.0-macOS.pkg
 
   windows:
     name: Windows (VST3)
@@ -51,8 +74,23 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build installer EXE
+        shell: powershell
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\Bitey.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Upload plugins
         uses: actions/upload-artifact@v4
         with:
           name: Bitey-Windows
           path: build/Bitey_artefacts/Release/
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-Installer-Windows
+          path: installer\output\Bitey-0.1.0-Windows-Setup.exe
