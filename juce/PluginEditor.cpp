@@ -659,17 +659,24 @@ void VUMeterComp::paint(juce::Graphics& g) {
         juce::Path logo;
         float cx = bx - 42.0f * s; // start left, logo ~84*s wide
 
+        // Helper: build a filled polygon from points (JUCE 8 has no point-array addPolygon)
+        auto poly = [&](std::initializer_list<juce::Point<float>> pts) {
+            juce::Path p;
+            bool first = true;
+            for (auto& pt : pts) {
+                if (first) { p.startNewSubPath(pt); first = false; }
+                else { p.lineTo(pt); }
+            }
+            p.closeSubPath();
+            return p;
+        };
         auto hBar = [&](float x, float y, float len, float thick) {
             // Horizontal bar with sharp pointed right end (Peavey beak)
-            juce::Path p;
-            p.addPolygon({ {x, y}, {x + len, y}, {x + len + 4.0f * s, y + thick * 0.5f},
-                           {x + len, y + thick}, {x, y + thick} }, 5);
-            logo.addPath(p);
+            logo.addPath(poly({ {x, y}, {x + len, y}, {x + len + 4.0f * s, y + thick * 0.5f},
+                                {x + len, y + thick}, {x, y + thick} }));
         };
         auto vStem = [&](float x) {
-            juce::Path p;
-            p.addPolygon({ {x, top}, {x + sw, top}, {x + sw, by}, {x, by} }, 4);
-            logo.addPath(p);
+            logo.addPath(poly({ {x, top}, {x + sw, top}, {x + sw, by}, {x, by} }));
         };
 
         // ---- B: Peavey P with added lower bowl ----
@@ -678,31 +685,20 @@ void VUMeterComp::paint(juce::Graphics& g) {
             vStem(x); // main stem
             // Upper bowl: top bar with beak, diagonal back to mid stem
             hBar(x, top, 30.0f * s, sw);
-            juce::Path diag;
             float beakX = x + 30.0f * s + 4.0f * s;
-            diag.addPolygon({ {beakX - 4.0f * s, top + sw * 0.5f},
-                              {beakX, top + sw * 0.5f},
-                              {x + sw, top + lh * 0.5f},
-                              {x + sw - 4.0f * s, top + lh * 0.5f} }, 4);
-            logo.addPath(diag);
+            logo.addPath(poly({ {beakX - 4.0f * s, top + sw * 0.5f},
+                                {beakX, top + sw * 0.5f},
+                                {x + sw, top + lh * 0.5f},
+                                {x + sw - 4.0f * s, top + lh * 0.5f} }));
             // Mid bar
             hBar(x, top + lh * 0.5f - sw * 0.5f, 28.0f * s, sw);
-            // Lower bowl: diagonal out, beak, diagonal back to baseline
-            juce::Path low;
+            // Lower bowl
             float midY = top + lh * 0.5f;
-            low.addPolygon({ {x + sw, midY},
-                             {x + 34.0f * s, midY},
-                             {x + 38.0f * s, midY + lh * 0.25f},
-                             {x + 34.0f * s, by - sw},
-                             {x, by} }, 5);
-            // Thicken via second offset polygon for the outer edge
-            juce::Path lowOuter;
-            lowOuter.addPolygon({ {x + sw, midY + sw * 0.5f},
-                                  {x + 30.0f * s, midY + sw * 0.5f},
-                                  {x + 33.0f * s, midY + lh * 0.25f},
-                                  {x + 30.0f * s, by - sw * 0.5f},
-                                  {x + sw, by - sw * 0.5f} }, 5);
-            logo.addPath(low);
+            logo.addPath(poly({ {x + sw, midY},
+                                {x + 34.0f * s, midY},
+                                {x + 38.0f * s, midY + lh * 0.25f},
+                                {x + 34.0f * s, by - sw},
+                                {x, by} }));
             // Bottom bar
             hBar(x, by - sw, 30.0f * s, sw);
             cx += 44.0f * s;
@@ -710,7 +706,6 @@ void VUMeterComp::paint(juce::Graphics& g) {
         // ---- I ----
         {
             vStem(cx);
-            // Sharp angled terminals top and bottom
             cx += 14.0f * s;
         }
         // ---- T ----
@@ -733,24 +728,18 @@ void VUMeterComp::paint(juce::Graphics& g) {
         {
             float x = cx;
             // Left arm: diagonal from top-left down to centre
-            juce::Path left;
-            left.addPolygon({ {x, top}, {x + sw, top},
-                              {x + 14.0f * s, top + lh * 0.45f},
-                              {x + 14.0f * s - sw, top + lh * 0.45f} }, 4);
-            logo.addPath(left);
-            // Right arm: diagonal from top-right down to centre (sharp point at top)
-            juce::Path right;
-            right.addPolygon({ {x + 24.0f * s, top}, {x + 28.0f * s, top + 4.0f * s},
-                               {x + 14.0f * s, top + lh * 0.5f},
-                               {x + 14.0f * s - sw, top + lh * 0.5f} }, 4);
-            logo.addPath(right);
+            logo.addPath(poly({ {x, top}, {x + sw, top},
+                                {x + 14.0f * s, top + lh * 0.45f},
+                                {x + 14.0f * s - sw, top + lh * 0.45f} }));
+            // Right arm: diagonal from top-right down to centre
+            logo.addPath(poly({ {x + 24.0f * s, top}, {x + 28.0f * s, top + 4.0f * s},
+                                {x + 14.0f * s, top + lh * 0.5f},
+                                {x + 14.0f * s - sw, top + lh * 0.5f} }));
             // Stem from fork down to baseline
-            juce::Path stem;
-            stem.addPolygon({ {x + 14.0f * s - sw * 0.5f, top + lh * 0.45f},
-                              {x + 14.0f * s + sw * 0.5f, top + lh * 0.45f},
-                              {x + 14.0f * s + sw * 0.5f, by},
-                              {x + 14.0f * s - sw * 0.5f, by} }, 4);
-            logo.addPath(stem);
+            logo.addPath(poly({ {x + 14.0f * s - sw * 0.5f, top + lh * 0.45f},
+                                {x + 14.0f * s + sw * 0.5f, top + lh * 0.45f},
+                                {x + 14.0f * s + sw * 0.5f, by},
+                                {x + 14.0f * s - sw * 0.5f, by} }));
         }
 
         g.setColour(col(0xf2ffffff));
