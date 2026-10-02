@@ -1,6 +1,6 @@
 // BiteyTestHost — standalone listening rig for the Bitey PA-600.
 // Not part of the shipped plugin: a dev/test host that loads an audio file,
-// runs it through the real BiteyAudioProcessor + editor, and plays it out.
+// runs it through the real BiteyProcessor + editor, and plays it out.
 //
 // Build: added as a juce_add_gui_app target in juce/CMakeLists.txt (macOS CI).
 // Usage: launch, click "Load Audio File…", then Play.
@@ -11,7 +11,7 @@
 
 // ---------------------------------------------------------------------------
 // HostComponent — transport bar on top, live Bitey editor below.
-// Audio path: file -> AudioTransportSource -> BiteyAudioProcessor -> output.
+// Audio path: file -> AudioTransportSource -> BiteyProcessor -> output.
 // ---------------------------------------------------------------------------
 class HostComponent : public juce::Component,
                       public juce::AudioIODeviceCallback,
@@ -42,7 +42,7 @@ public:
         addAndMakeVisible(fileLabel);
 
         // The real plugin processor + editor, exactly as a DAW would host it.
-        biteyProc = std::make_unique<BiteyAudioProcessor>();
+        biteyProc = std::make_unique<BiteyProcessor>();
         biteyEditor.reset(biteyProc->createEditor());
         jassert(biteyEditor != nullptr);
         addAndMakeVisible(biteyEditor.get());
@@ -140,7 +140,7 @@ private:
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     std::unique_ptr<juce::FileChooser> chooser;
 
-    std::unique_ptr<BiteyAudioProcessor> biteyProc;
+    std::unique_ptr<BiteyProcessor> biteyProc;
     std::unique_ptr<juce::AudioProcessorEditor> biteyEditor;
 
     juce::TextButton loadButton, playButton, stopButton;
