@@ -1,13 +1,12 @@
 # Bitey PA-600 — reverb mixer plugin
 
-**The pitch:** the sound of Nathan Sabatino's records — Dr. Dog (*Be the Void*,
-*B-Room*, *The Psychedelic Swamp*), Flaming Lips, Michael Nau, Wild Child —
-in a plugin. A mixer-style insert: two tube channel strips, tape slap, and a
-tube-driven spring reverb, aimed at indie/psych-rock/lo-fi producers who want
-"that" warm, gritty, slightly-unhinged character without a rack of gear.
+**The pitch:** a mixer-style insert plugin with two tube channel strips,
+tape slap, and a tube-driven spring reverb, aimed at indie/psych-rock/lo-fi
+producers who want warm, gritty, slightly-unhinged character without a rack
+of gear.
 
-Ported from Nathan's working browser prototype (Gemini Studio, Web Audio) to
-a framework-free C++17 DSP core, wrapped for VST3/AU/Standalone via JUCE.
+Ported from a working browser prototype (Web Audio) to a framework-free
+C++17 DSP core, wrapped for VST3/AU/Standalone via JUCE.
 
 ## What it is
 
@@ -27,10 +26,10 @@ Signal chain per the prototype: channel strips → tape slap → spring reverb �
 Scully-style line amp → master EQ → bus saturation → brickwall limiter →
 dry/wet mix. 4x-oversampled waveshapers throughout; analog-style noise floor.
 
-Ships with three presets named after the records — **this is the marketing**:
-- **Be the Void** — drums-forward grit
-- **Psychedelic Swamp** — swampy tape + long dark spring
-- **B-Room** — cleaner, roomier glue
+Ships with three presets:
+- **Gritty Drums** — drums-forward grit
+- **Dark Spring** — swampy tape + long dark spring
+- **Room Glue** — cleaner, roomier glue
 
 ## Repository layout
 
@@ -43,8 +42,8 @@ bitey/
 │                   #   build: g++ -std=c++17 -O2 -Wall tests/test_dsp.cpp dsp/BiteyDsp.cpp -o build/test_dsp
 ├── juce/           # VST3/AU/Standalone wrapper (CMake, JUCE 8 via FetchContent)
 ├── demo/           # dry.wav / wet.wav — rendered before/after (synthetic loop)
-├── prototype/     # Nathan's original browser prototype (Gemini Studio / Web
-│                   # Audio) — the reference implementation this port follows.
+├── prototype/     # Original browser prototype (Web Audio) — the reference
+│                   # implementation this port follows.
 ├── .github/workflows/build.yml  # CI: macOS (VST3+AU, arm64+x86_64) + Windows (VST3)
 └── README.md
 ```
@@ -84,7 +83,7 @@ Known limitations:
    in real DAWs (Logic, Ableton, Reaper). Needs repo access (currently 404).
 2. **Visual GUI port** from the browser prototype's App.tsx.
 3. **Presets**: expand to 15–20, tuned on real multitracks, ideally with a
-   couple of Nathan's artist friends beta-testing.
+   couple of beta testers.
 4. **Demo video**: before/after on drums, vocals, full mix — 60–90 seconds.
 5. **Copy protection**: keep it simple (license-key file). Fancy DRM costs more
    than it saves at this scale.
@@ -102,9 +101,7 @@ Known limitations:
   that handles VAT/sales tax — simplest. Marketplaces (Plugin Boutique,
   ADSR) bring discovery but take ~30%+.
 - **Price.** Character plugins typically land $49–$99; intro pricing at $39–49
-  with a launch window works well for a first product from an indie name.
-- **The actual marketing asset** is Nathan: "1B+ streams of credits, now in a
-  box." Artist-quote presets ("Michael Nau's vocal chain") would be gold.
+  with a launch window works well for a first product from an indie developer.
 
 ## Open questions for Nathan
 

@@ -46,10 +46,10 @@ public:
     float getReverbMeter() const { return reverbMeter_.load(); }
     float getMainMeter() const { return mainMeter_.load(); }
 
-    // Named starting points, after Nathan Sabatino records.
-    static bitey::BiteyParams presetBeTheVoid();
-    static bitey::BiteyParams presetPsychedelicSwamp();
-    static bitey::BiteyParams presetBRoom();
+    // Named starting points for common sounds.
+    static bitey::BiteyParams presetGrittyDrums();
+    static bitey::BiteyParams presetDarkSpring();
+    static bitey::BiteyParams presetRoomGlue();
 
 private:
     // Parameter pointers cached once in the constructor so the audio thread

@@ -267,10 +267,10 @@ juce::AudioProcessorEditor* BiteyProcessor::createEditor() {
 }
 
 // ---------------------------------------------------------------------------
-// Factory presets — starting points named after Nathan Sabatino records.
+// Factory presets — starting points for common sounds.
 // ---------------------------------------------------------------------------
 
-bitey::BiteyParams BiteyProcessor::presetBeTheVoid() {
+bitey::BiteyParams BiteyProcessor::presetGrittyDrums() {
     bitey::BiteyParams p; // defaults = browser prototype state
     p.ch[0].level = 7.0f; p.ch[1].level = 7.0f;
     p.ch[0].lowDb = 2.0f; p.ch[1].lowDb = 2.0f;
@@ -280,7 +280,7 @@ bitey::BiteyParams BiteyProcessor::presetBeTheVoid() {
     return p;
 }
 
-bitey::BiteyParams BiteyProcessor::presetPsychedelicSwamp() {
+bitey::BiteyParams BiteyProcessor::presetDarkSpring() {
     bitey::BiteyParams p;
     p.ch[0].level = 6.5f; p.ch[1].level = 6.5f;
     p.ch[0].fxSend = 7.0f; p.ch[1].fxSend = 7.0f;
@@ -290,7 +290,7 @@ bitey::BiteyParams BiteyProcessor::presetPsychedelicSwamp() {
     return p;
 }
 
-bitey::BiteyParams BiteyProcessor::presetBRoom() {
+bitey::BiteyParams BiteyProcessor::presetRoomGlue() {
     bitey::BiteyParams p;
     p.ch[0].level = 5.5f; p.ch[1].level = 5.5f;
     p.tapeSpeed = 2; p.tapeSize = 1; p.tapeMix = 2.0f;
