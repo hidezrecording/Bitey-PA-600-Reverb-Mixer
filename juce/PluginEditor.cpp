@@ -638,28 +638,27 @@ void VUMeterComp::paint(juce::Graphics& g) {
                    face.getRight(), face.getBottom() + 2.0f, 1.5f);
     }
 
-    // Corner screws
+    // Zero-adjust screw: ONE small slotted trim screw centered below the meter
+    // (like a real VU meter's zero adjustment, not a mounting screw)
     {
-        const float sr = 4.0f;
-        const juce::Point<float> corners[] = {
-            {bx + bezelThick * 0.5f, by + bezelThick * 0.5f},
-            {bx + bw - bezelThick * 0.5f, by + bezelThick * 0.5f},
-            {bx + bezelThick * 0.5f, by + bh - bezelThick * 0.5f},
-            {bx + bw - bezelThick * 0.5f, by + bh - bezelThick * 0.5f}
-        };
-        for (int i = 0; i < 4; ++i) {
-            // Screw head: dark metallic circle
-            juce::ColourGradient sg(col(0xff555555), corners[i].x - sr, corners[i].y - sr,
-                                    col(0xff1a1a1a), corners[i].x + sr, corners[i].y + sr, false);
-            g.setGradientFill(sg);
-            g.fillEllipse(corners[i].x - sr, corners[i].y - sr, sr * 2, sr * 2);
-            // Slot (rotated per screw for realism)
-            const float ang = (i * 0.7f) + 0.3f;
-            const float sl = sr * 0.75f;
-            g.setColour(col(0xff0a0a0a));
-            g.drawLine(corners[i].x - std::cos(ang) * sl, corners[i].y - std::sin(ang) * sl,
-                       corners[i].x + std::cos(ang) * sl, corners[i].y + std::sin(ang) * sl, 1.5f);
-        }
+        const float sx = bx + bw * 0.5f;  // center horizontally
+        const float sy = by + bh - bezelThick * 0.5f;  // centered in bottom bezel
+        const float sr = 5.0f;
+
+        // Screw head: small brass/dark metal circle
+        juce::ColourGradient sg(col(0xff8a7a5a), sx - sr, sy - sr,
+                                col(0xff2a241a), sx + sr, sy + sr, false);
+        g.setGradientFill(sg);
+        g.fillEllipse(sx - sr, sy - sr, sr * 2, sr * 2);
+        // Dark ring around screw
+        g.setColour(col(0xff0a0a0a));
+        g.drawEllipse(sx - sr, sy - sr, sr * 2, sr * 2, 1.0f);
+        // Slot (horizontal, like a trim pot)
+        g.setColour(col(0xff0d0b08));
+        g.drawLine(sx - sr * 0.7f, sy, sx + sr * 0.7f, sy, 2.0f);
+        // Highlight on slot edge
+        g.setColour(col(0x44ffffff));
+        g.drawLine(sx - sr * 0.7f, sy + 1.0f, sx + sr * 0.7f, sy + 1.0f, 1.0f);
     }
 
     // Backlight glow behind face (warm, like incandescent VU backlight)
@@ -1045,7 +1044,7 @@ void ChannelStrip::resized() {
 // ---------------------------------------------------------------------------
 
 MasterStrip::MasterStrip(BiteyProcessor& proc)
-    : PanelBox("MASTER", col(0xff1a1a1a)), proc_(proc) {
+    : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
     kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 68, false, BiteyKnob::Scale::Eq);
     kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 68, false, BiteyKnob::Scale::Eq);
     kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 68, false, BiteyKnob::Scale::Eq);
@@ -1087,7 +1086,7 @@ void MasterStrip::resized() {
 // ---------------------------------------------------------------------------
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
-    : PanelBox("REVERB", col(0xff1a1a1a)), proc_(proc) {
+    : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
     kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 68, false, BiteyKnob::Scale::ZeroToTen);
     kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 68, false, BiteyKnob::Scale::ZeroToTen);
     kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 68, false, BiteyKnob::Scale::ZeroToTen);
@@ -1293,8 +1292,8 @@ BiteyEditor::BiteyEditor(BiteyProcessor& p)
     // which dereferences the strips.
     cheekL_ = std::make_unique<WoodCheek>(true);
     cheekR_ = std::make_unique<WoodCheek>(false);
-    chL_ = std::make_unique<ChannelStrip>(p, 0, "LEFT", "1");
-    chR_ = std::make_unique<ChannelStrip>(p, 1, "RIGHT", "2");
+    chL_ = std::make_unique<ChannelStrip>(p, 0, "", "1");
+    chR_ = std::make_unique<ChannelStrip>(p, 1, "", "2");
     center_ = std::make_unique<CenterPanel>(p);
     master_ = std::make_unique<MasterStrip>(p);
     reverb_ = std::make_unique<ReverbStrip>(p);
