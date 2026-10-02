@@ -1053,9 +1053,7 @@ void PanelBox::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
     g.setColour(bg_);
     g.fillRoundedRectangle(r, 12.0f);  // More rounded corners on the plates
-    // Thin crisp white outline like the original PA-600
-    g.setColour(col(0xffe8e8e8));
-    g.drawRoundedRectangle(r.reduced(1.5f), 11.0f, 1.5f);
+    // No white outline — silver chassis shows through as dividers (Peavey style)
 
     if (title_.isNotEmpty()) {
         auto font = BiteyFonts::robotoCondensed(10.0f);
@@ -1150,8 +1148,8 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     drawScreenLine(g, 10, 325, W - 20);
-    // Channel label: "CHANNEL ONE" or "CHANNEL TWO", centered
-    g.setFont(BiteyFonts::robotoCondensed(18.0f));
+    // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
+    g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
     g.drawText(label, 0, 458, W, 40, juce::Justification::centred);
@@ -1206,7 +1204,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large MAIN label at bottom (same height as channel numbers: 22pt)
-    g.setFont(BiteyFonts::robotoCondensed(22.0f));
+    g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, 458, W, 40, juce::Justification::centred);
 }
@@ -1256,7 +1254,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large REVERB label at bottom (same height as channel numbers: 22pt)
-    g.setFont(BiteyFonts::robotoCondensed(22.0f));
+    g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, 458, W, 40, juce::Justification::centred);
 }
@@ -1498,17 +1496,22 @@ void BiteyEditor::timerCallback() {
 }
 
 void BiteyEditor::paint(juce::Graphics& g) {
-    // chassis
-    g.setColour(col(0xff161616));
+    // Chassis: brushed silver metal (Peavey style - black paint on silver)
+    juce::ColourGradient silver(col(0xffb8b8b8), 0, 0,
+                                col(0xff888888), 0, float(getHeight()), false);
+    silver.addColour(0.5, col(0xffa0a0a0));
+    g.setGradientFill(silver);
     g.fillRect(getLocalBounds());
 
-    // distress: film grain + vignette
-    g.setOpacity(0.5f);
-    g.setTiledImageFill(grain_, 0, 0, 0.6f);
-    g.fillRect(getLocalBounds());
-    g.setOpacity(1.0f);
+    // Brushed metal texture (subtle horizontal lines)
+    g.setColour(col(0x1a000000));
+    for (int y = 0; y < getHeight(); y += 3) {
+        g.drawLine(0, float(y), float(getWidth()), float(y), 0.5f);
+    }
+
+    // Vignette (subtle)
     juce::ColourGradient vig(col(0x00000000), 525.0f, 260.0f,
-                             col(0x66000000), 525.0f, 260.0f, true);
+                             col(0x33000000), 525.0f, 260.0f, true);
     g.setGradientFill(vig);
     g.fillRect(getLocalBounds());
 }
