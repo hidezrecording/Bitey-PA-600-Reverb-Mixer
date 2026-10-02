@@ -22,7 +22,7 @@ juce::Colour col(uint32_t argb) { return juce::Colour(argb); }
 
 namespace BiteyFonts {
 
-juce::Font robotoCondensed(float sizePx, bool bold = true) {
+juce::Font robotoCondensed(float sizePx, bool bold) {
     static juce::Typeface::Ptr tf =
         loadEmbedded(BinaryData::RobotoCondensed_ttf, BinaryData::RobotoCondensed_ttfSize);
     auto opts = juce::FontOptions(tf).withHeight(sizePx);
