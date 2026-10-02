@@ -496,9 +496,11 @@ void PowerJewel::paint(juce::Graphics& g) {
 
 VUMeterComp::VUMeterComp(BiteyProcessor& proc, bool reverbMeter)
     : proc_(proc), reverbMeter_(reverbMeter) {
-    setSize(200, 85);
+    // 220x110: 200x85 face + padding for the drop shadow (prototype CSS
+    // box-shadow overflows the 200x85 layout box; JUCE clips to bounds).
+    setSize(220, 110);
 
-    // Pre-generated static noise texture
+    // Pre-generated static noise texture (face-sized)
     noise_ = juce::Image(juce::Image::ARGB, 200, 85, true);
     juce::Random rng(0x600d);
     for (int y = 0; y < 85; ++y)
@@ -529,29 +531,61 @@ void VUMeterComp::timerCallback() {
 }
 
 void VUMeterComp::paint(juce::Graphics& g) {
+    // Face geometry: 200x85 (prototype VUMeter w/h), offset inside the
+    // 220x110 component so the drop shadow has room.
+    const float fx = 10.0f, fy = 8.0f;
     const float w = 200.0f, h = 85.0f;
     const float s = w / 300.0f;
+    const float corner = 4.0f;
+    juce::Rectangle<float> face(fx, fy, w, h);
 
-    // Face background
-    juce::ColourGradient bg(col(0xff0088aa), 0.0f, 0.0f,
-                            col(0xff002233), 0.0f, h, false);
+    // Drop shadow (prototype: 0 10px 20px rgba(0,0,0,0.8))
+    {
+        juce::Path sp;
+        sp.addRoundedRectangle(face, corner);
+        juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 10, juce::Point<int>(0, 5))
+            .drawForPath(g, sp);
+    }
+
+    // Clip everything below to the rounded face
+    g.saveState();
+    {
+        juce::Path clip;
+        clip.addRoundedRectangle(face, corner);
+        g.reduceClipRegion(clip);
+    }
+
+    // Face background: vertical teal gradient
+    juce::ColourGradient bg(col(0xff0088aa), fx, fy,
+                            col(0xff002233), fx, fy + h, false);
     bg.addColour(0.5, col(0xff005577));
     g.setGradientFill(bg);
-    g.fillRect(0.0f, 0.0f, w, h);
+    g.fillRect(face);
 
-    // Static noise
+    // Static noise (prototype: 'overlay' blend at 0.5 alpha; JUCE has no
+    // overlay mode, so pre-darkened speckle at low opacity approximates it)
     g.setOpacity(0.5f);
-    g.drawImageAt(noise_, 0, 0);
+    g.drawImageAt(noise_, int(fx), int(fy));
     g.setOpacity(1.0f);
 
-    // Vignette
-    juce::ColourGradient vig(col(0x4dffffff), w / 2, h / 1.5f,
-                             col(0x80000000), w / 2, h / 1.5f, true);
-    vig.addColour(0.3, col(0x1a64dcff));
-    g.setGradientFill(vig);
-    g.fillRect(0.0f, 0.0f, w, h);
+    // Vignette: prototype is a radial gradient centred at (w/2, h/1.5)
+    // with inner radius w*0.1 and outer radius w*0.95.
+    // Stops: 0 -> rgba(255,255,255,0.3), 0.3 -> rgba(100,220,255,0.1),
+    //        1 -> rgba(0,0,0,0.5).
+    // JUCE radial gradients run centre -> radius, so remap stops:
+    //   0.1/0.95 = 0.105, (0.1+0.3*0.85)/0.95 = 0.374.
+    {
+        const float vcx = fx + w * 0.5f, vcy = fy + h / 1.5f;
+        const float vr = w * 0.95f;
+        juce::ColourGradient vig(col(0x4dffffff), vcx, vcy,
+                                 col(0x80000000), vcx + vr, vcy, true);
+        vig.addColour(0.105, col(0x4dffffff));
+        vig.addColour(0.374, col(0x1a64dcff));
+        g.setGradientFill(vig);
+        g.fillRect(face);
+    }
 
-    const float cx = w / 2, cy = h * 1.8f, r = h * 1.55f;
+    const float cx = fx + w / 2, cy = fy + h * 1.8f, r = h * 1.55f;
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
@@ -602,20 +636,21 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // Branding (prototype: Michroma 900 "BITEY", 500 "MOD. 600")
     g.setFont(BiteyFonts::michroma(22.0f * s));
     g.setColour(col(0xf2ffffff));
-    g.drawText("BITEY", 0, int(h * 0.65f) - 14, int(w), 28,
+    g.drawText("BITEY", int(fx), int(fy + h * 0.65f) - 14, int(w), 28,
                juce::Justification::centred);
     g.setFont(BiteyFonts::michroma(8.0f * s));
     g.setColour(col(0xcc000000));
-    g.drawText("MOD. 600", 0, int(h * 0.65f) + 15 * s - 8, int(w), 16,
+    g.drawText("MOD. 600", int(fx), int(fy + h * 0.65f + 15 * s) - 8, int(w), 16,
                juce::Justification::centred);
 
+    // Prototype draws VU left-aligned-ish and dB right-aligned at the top.
     g.setFont(BiteyFonts::michroma(11.0f * s));
     g.setColour(col(0xff111111));
-    g.drawText("VU", int(w * 0.12f) - 20, int(h * 0.25f) - 10, 40, 20,
+    g.drawText("VU", int(fx + w * 0.12f) - 20, int(fy + h * 0.25f) - 10, 40, 20,
                juce::Justification::centred);
     g.setColour(col(0xffcc3333));
-    g.drawText("dB", int(w * 0.88f) - 20, int(h * 0.25f) - 10, 40, 20,
-               juce::Justification::centred);
+    g.drawText("dB", int(fx + w * 0.88f) - 40, int(fy + h * 0.25f) - 10, 40, 20,
+               juce::Justification::centredRight);
 
     // Needle
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
@@ -636,29 +671,55 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // Pivot cover (dome)
     {
         juce::Path dome;
-        dome.addArc(cx - 40.0f * s, h + 10.0f - 40.0f * s, 80.0f * s, 80.0f * s,
+        dome.addArc(cx - 40.0f * s, fy + h + 10.0f - 40.0f * s, 80.0f * s, 80.0f * s,
                     3.14159265f, 6.2831853f);
         dome.closeSubPath();
         g.setColour(col(0xff111111));
         g.fillPath(dome);
     }
 
-    // Glass: top sheen + inner shadow
-    juce::ColourGradient sheen(col(0x1affffff), 0.0f, 0.0f,
-                               col(0x00ffffff), 0.0f, h * 0.45f, false);
-    g.setGradientFill(sheen);
-    g.fillRect(0.0f, 0.0f, w, h * 0.45f);
+    // Glass: top sheen (prototype: white/10 gradient over top 45%)
+    {
+        juce::ColourGradient sheen(col(0x1affffff), fx, fy,
+                                   col(0x00ffffff), fx, fy + h * 0.45f, false);
+        g.setGradientFill(sheen);
+        g.fillRect(juce::Rectangle<float>(fx, fy, w, h * 0.45f));
+    }
 
-    // Frame: 2px border, lighter top/left
-    g.setColour(col(0xff555555));
-    g.drawRect(0.0f, 0.0f, w, 2.0f);
-    g.setColour(col(0xff444444));
-    g.drawRect(0.0f, 0.0f, 2.0f, h);
-    g.setColour(col(0xff1a1a1a));
-    g.drawRect(0.0f, h - 2.0f, w, 2.0f);
-    g.drawRect(w - 2.0f, 0.0f, 2.0f, h);
-    g.setColour(col(0xff333333));
-    g.drawRect(1.0f, 1.0f, w - 2.0f, h - 2.0f, 1.0f);
+    // Inner dark edge (prototype: inset 0 0 20px rgba(0,0,0,0.9))
+    {
+        juce::ColourGradient inner(col(0x00000000), fx, fy,
+                                   col(0xe6000000), fx, fy + 14.0f, false);
+        g.setGradientFill(inner);
+        juce::Path ip;
+        ip.addRoundedRectangle(face, corner);
+        g.saveState();
+        g.reduceClipRegion(ip);
+        g.fillRect(juce::Rectangle<float>(fx, fy, w, 14.0f));
+        g.fillRect(juce::Rectangle<float>(fx, fy + h - 14.0f, w, 14.0f));
+        g.fillRect(juce::Rectangle<float>(fx, fy, 14.0f, h));
+        g.fillRect(juce::Rectangle<float>(fx + w - 14.0f, fy, 14.0f, h));
+        g.restoreState();
+    }
+
+    g.restoreState(); // unclip rounded face
+
+    // Frame: 2px border, lighter top/left (prototype per-edge colors:
+    // top #555, left #444, bottom/right #222 over a #333 base)
+    {
+        juce::Path bp;
+        bp.addRoundedRectangle(face, corner);
+        juce::ColourGradient borderGrad(col(0xff555555), fx, fy,
+                                        col(0xff222222), fx, fy + h, false);
+        borderGrad.addColour(0.5, col(0xff333333));
+        g.setGradientFill(borderGrad);
+        g.strokePath(bp, juce::PathStrokeType(2.0f));
+        // crisp 1px inner keyline
+        juce::Path kp;
+        kp.addRoundedRectangle(face.reduced(2.0f), corner * 0.5f);
+        g.setColour(col(0x66333333));
+        g.strokePath(kp, juce::PathStrokeType(1.0f));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -959,8 +1020,8 @@ void CenterPanel::resized() {
     ips_->setTopLeftPosition(12, 20);
     tapeSize_->setTopLeftPosition(158, 20);
     echo_->setTopLeftPosition(10, 60);
-    vuReverb_->setTopLeftPosition(20, 126);
-    vuMain_->setTopLeftPosition(20, 228);
+    vuReverb_->setTopLeftPosition(10, 118); // face at (20,126) inside 220x110
+    vuMain_->setTopLeftPosition(10, 220);   // face at (20,228) inside 220x110
     tape_->setTopLeftPosition(14, 336);
     dryWet_->setTopLeftPosition(186, 340);
     power_->setTopLeftPosition(8, 416);

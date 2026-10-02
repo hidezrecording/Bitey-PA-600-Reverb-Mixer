@@ -75,3 +75,36 @@ target_link_libraries(Bitey PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
 )
+
+# ---------------------------------------------------------------------------
+# BiteyTestHost — standalone listening rig (NOT shipped): loads an audio file
+# and runs it through the real BiteyAudioProcessor + editor so the plugin can
+# be heard without a DAW. Built on CI for macOS; uploaded as its own artifact.
+# ---------------------------------------------------------------------------
+juce_add_gui_app(BiteyTestHost
+    PRODUCT_NAME "Bitey Test Host"
+    COMPANY_NAME "Sabatino Audio"
+)
+
+target_sources(BiteyTestHost PRIVATE
+    test_host/Main.cpp
+    PluginProcessor.cpp
+    PluginEditor.cpp
+    ../dsp/BiteyDsp.cpp
+)
+
+target_include_directories(BiteyTestHost PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+target_compile_definitions(BiteyTestHost PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_link_libraries(BiteyTestHost PRIVATE
+    BiteyAssets
+    juce::juce_gui_extra
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_dsp
+)

@@ -59,6 +59,12 @@ jobs:
           name: Bitey-Installer-macOS
           path: Bitey-0.1.0-macOS.pkg
 
+      - name: Upload test host
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-TestHost-macOS
+          path: build/BiteyTestHost_artefacts/Release/
+
   windows:
     name: Windows (VST3)
     # windows-latest now ships Visual Studio 2026 only, so the
