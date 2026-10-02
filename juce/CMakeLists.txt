@@ -61,6 +61,7 @@ juce_add_binary_data(BiteyAssets SOURCES
     assets/fonts/MetalMania-Regular.ttf
     assets/fonts/PermanentMarker-Regular.ttf
     assets/fonts/RobotoCondensed.ttf
+    assets/bitey-logo.png
 )
 
 target_include_directories(Bitey PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)

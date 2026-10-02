@@ -640,102 +640,23 @@ void VUMeterComp::paint(juce::Graphics& g) {
         }
     }
 
-    // Branding: BITEY logo built from triangles like Hartley's original Peavey sketch.
-    // Every shape is a sharp triangle or tapered quadrilateral — zero rounded edges.
-    // The B copies the Peavey P exactly (tall stem, triangular upper bowl with
-    // lightning beak) and adds a matching triangular lower bowl.
+    // Branding: Nathan's hand-drawn BITEY logo (embedded PNG with transparency)
     {
-        juce::Graphics::ScopedSaveState ss(g);
-        auto shear = juce::AffineTransform::shear(-0.30f, 0.0f); // steep italic
-        g.addTransform(shear);
-
-        const float bx = fx + w * 0.5f;
-        const float by = fy + h * 0.62f;
-        const float lh = 20.0f * s;        // normal cap height
-        const float tallH = 26.0f * s;     // P/B overshoot height (taller like Peavey P)
-        const float sw = 6.0f * s;         // heavy stroke
-        const float top = by - lh;
-        const float tallTop = by - tallH;  // B/P top (extends above)
-
-        juce::Path logo;
-        float cx = bx - 46.0f * s;
-
-        auto poly = [&](std::initializer_list<juce::Point<float>> pts) {
-            juce::Path p;
-            bool first = true;
-            for (auto& pt : pts) {
-                if (first) { p.startNewSubPath(pt); first = false; }
-                else { p.lineTo(pt); }
-            }
-            p.closeSubPath();
-            return p;
-        };
-        // Triangular horizontal bar: thick at left, tapering to a needle point at right
-        auto triBar = [&](float x, float y, float len, float thick) {
-            logo.addPath(poly({ {x, y}, {x + len, y - thick * 0.15f},
-                                {x + len + 6.0f * s, y + thick * 0.5f},  // beak tip
-                                {x + len, y + thick + thick * 0.15f}, {x, y + thick} }));
-        };
-        // Tapered vertical stem: slightly wider at bottom, sharp flat top
-        auto triStem = [&](float x, float t, float b) {
-            logo.addPath(poly({ {x, t}, {x + sw, t},
-                                {x + sw + 1.0f * s, b}, {x - 1.0f * s, b} }));
-        };
-
-        // ---- B: exact Peavey P + triangular lower bowl ----
-        {
-            float x = cx;
-            triStem(x, tallTop, by);  // tall stem like P
-            // Upper bowl: tri-bar at top, then lightning diagonal back to stem
-            triBar(x, tallTop, 30.0f * s, sw);
-            float beakX = x + 30.0f * s + 6.0f * s;
-            // Triangular bowl: beak tip -> sharp inner corner -> stem
-            logo.addPath(poly({ {beakX - 2.0f * s, tallTop + sw * 0.4f},
-                                {beakX, tallTop + sw * 0.5f},
-                                {x + sw * 0.5f, tallTop + tallH * 0.45f} }));
-            // Mid tri-bar
-            triBar(x, tallTop + tallH * 0.45f - sw * 0.4f, 28.0f * s, sw);
-            // Lower bowl: triangle from mid stem out to beak and back to baseline
-            float midY = tallTop + tallH * 0.45f;
-            logo.addPath(poly({ {x + sw * 0.5f, midY},
-                                {x + 32.0f * s, midY},
-                                {x + 38.0f * s, midY + (by - midY) * 0.5f},  // beak tip
-                                {x + sw * 0.5f, by} }));
-            // Bottom tri-bar
-            triBar(x, by - sw, 30.0f * s, sw);
-            cx += 46.0f * s;
+        static juce::Image logoImg;
+        if (!logoImg.isValid()) {
+            logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogopng,
+                                                      BinaryData::biteylogopngSize);
         }
-        // ---- I: tapered stem ----
-        { triStem(cx, top, by); cx += 15.0f * s; }
-        // ---- T: stem + tri-bar top ----
-        {
-            triStem(cx, top, by);
-            triBar(cx - 11.0f * s, top, 32.0f * s, sw);
-            cx += 23.0f * s;
+        if (logoImg.isValid()) {
+            const float maxW = w * 0.55f;
+            const float maxH = h * 0.42f;
+            const float imgAspect = (float)logoImg.getWidth() / (float)logoImg.getHeight();
+            float dw = maxW, dh = dw / imgAspect;
+            if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
+            const float dx = fx + (w - dw) * 0.5f;
+            const float dy = fy + h * 0.58f;
+            g.drawImage(logoImg, juce::Rectangle<float>(dx, dy, dw, dh));
         }
-        // ---- E: stem + three tri-bars ----
-        {
-            triStem(cx, top, by);
-            triBar(cx, top, 28.0f * s, sw);
-            triBar(cx, top + lh * 0.5f - sw * 0.4f, 21.0f * s, sw);
-            triBar(cx, by - sw, 28.0f * s, sw);
-            cx += 37.0f * s;
-        }
-        // ---- Y: two lightning arms + tapered stem ----
-        {
-            float x = cx;
-            // Left arm: triangle from top to fork
-            logo.addPath(poly({ {x, top}, {x + sw, top - 1.0f * s},
-                                {x + 13.0f * s, top + lh * 0.48f} }));
-            // Right arm: sharper, longer point
-            logo.addPath(poly({ {x + 22.0f * s, top - 2.0f * s}, {x + 27.0f * s, top + 2.0f * s},
-                                {x + 13.0f * s, top + lh * 0.52f} }));
-            // Stem: tapered triangle down
-            triStem(x + 13.0f * s - sw * 0.5f, top + lh * 0.48f, by);
-        }
-
-        g.setColour(col(0xf2ffffff));
-        g.fillPath(logo);
     }
     g.setFont(BiteyFonts::robotoCondensed(8.0f * s));
     g.setColour(col(0xcc000000));
