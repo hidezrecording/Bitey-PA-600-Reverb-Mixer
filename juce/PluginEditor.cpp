@@ -776,20 +776,43 @@ void VUMeterComp::paint(juce::Graphics& g) {
 
     // Branding: Nathan's hand-drawn BITEY logo (embedded PNG with transparency)
     {
-        static juce::Image logoImg;
-        if (!logoImg.isValid()) {
-            logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
+        static juce::Image greenLogoImg;
+        if (!greenLogoImg.isValid()) {
+            juce::Image whiteLogo = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
                                                       BinaryData::biteylogo_pngSize);
+            if (whiteLogo.isValid()) {
+                // Tint white logo to glowing green (matching mixer indicators)
+                greenLogoImg = juce::Image(juce::Image::ARGB,
+                                           whiteLogo.getWidth(), whiteLogo.getHeight(), true);
+                for (int y = 0; y < whiteLogo.getHeight(); ++y) {
+                    for (int x = 0; x < whiteLogo.getWidth(); ++x) {
+                        juce::Colour px = whiteLogo.getPixelAt(x, y);
+                        // Keep alpha, set RGB to glowing green scaled by original brightness
+                        const float b = px.getBrightness();
+                        greenLogoImg.setPixelAt(x, y,
+                            juce::Colour::fromFloatRGBA(0.22f * b, 1.0f * b, 0.08f * b,
+                                                        px.getAlpha()));
+                    }
+                }
+            }
         }
-        if (logoImg.isValid()) {
+        if (greenLogoImg.isValid()) {
             const float maxW = w * 0.55f;
             const float maxH = h * 0.42f;
-            const float imgAspect = (float)logoImg.getWidth() / (float)logoImg.getHeight();
+            const float imgAspect = (float)greenLogoImg.getWidth() / (float)greenLogoImg.getHeight();
             float dw = maxW, dh = dw / imgAspect;
             if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
             const float dx = fx + (w - dw) * 0.5f;
             const float dy = fy + h * 0.58f;
-            g.drawImage(logoImg, juce::Rectangle<float>(dx, dy, dw, dh));
+            juce::Rectangle<float> dest(dx, dy, dw, dh);
+
+            // Soft green glow behind
+            g.setColour(col(0x5539ff14));
+            g.drawImage(greenLogoImg, dest.expanded(8.0f));
+            g.setColour(col(0x3339ff14));
+            g.drawImage(greenLogoImg, dest.expanded(4.0f));
+            // Green logo
+            g.drawImage(greenLogoImg, dest);
         }
     }
     g.setFont(BiteyFonts::robotoCondensed(8.0f * s));
