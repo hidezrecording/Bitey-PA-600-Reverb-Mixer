@@ -263,7 +263,6 @@ public:
     void syncToggles();
 
 private:
-    void syncPhaseTitle();
 
 private:
     BiteyProcessor& proc_;
@@ -271,7 +270,7 @@ private:
     std::unique_ptr<BiteyKnob> echo_, dryWet_;
     std::unique_ptr<VUMeterComp> vuReverb_, vuMain_;
     std::unique_ptr<BoardTape> tape_;
-    std::unique_ptr<BatToggle> power_, phase_;
+    std::unique_ptr<MetalToggle> power_, phase_;
     std::unique_ptr<PowerJewel> jewel_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CenterPanel)

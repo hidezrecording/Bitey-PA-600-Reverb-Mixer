@@ -1095,7 +1095,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(72, 25 + 40);
     kMid_->setCentrePosition(72, 145 + 40);
     kLow_->setCentrePosition(72, 265 + 40);
-    midFreq_->setTopLeftPosition(79, 158);
+    midFreq_->setTopLeftPosition(65, 165);
     kMain_->setCentrePosition(72, 330 + 50);
 }
 
@@ -1154,31 +1154,23 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
     tape_ = std::make_unique<BoardTape>();
-    power_ = std::make_unique<BatToggle>(proc, "power", "POWER");
-    phase_ = std::make_unique<BatToggle>(proc, "m_phase", "Ø NOR");
-    phase_->setInverted(true); // browser: bat UP = normal phase
+    power_ = std::make_unique<MetalToggle>(proc, "power", "POWER", true,
+                                         std::vector<juce::String>{"ON", "OFF"},
+                                         true /* labels right */);
+    phase_ = std::make_unique<MetalToggle>(proc, "m_phase", "PHASE", true,
+                                          std::vector<juce::String>{"0", "180"},
+                                          true /* labels right */);
     jewel_ = std::make_unique<PowerJewel>();
     addAndMakeVisible(*ips_); addAndMakeVisible(*tapeSize_);
     addAndMakeVisible(*echo_); addAndMakeVisible(*dryWet_);
     addAndMakeVisible(*vuReverb_); addAndMakeVisible(*vuMain_);
     addAndMakeVisible(*tape_); addAndMakeVisible(*power_);
     addAndMakeVisible(*phase_); addAndMakeVisible(*jewel_);
-    syncPhaseTitle();
 }
 
 void CenterPanel::syncToggles() {
     ips_->syncFromParam();
     tapeSize_->syncFromParam();
-    power_->syncFromParam();
-    phase_->syncFromParam();
-    syncPhaseTitle();
-}
-
-void CenterPanel::syncPhaseTitle() {
-    bool inv = false;
-    if (auto* p = proc_.apvts.getParameter("m_phase"))
-        inv = p->getValue() > 0.5f;
-    phase_->setTitle(inv ? "Ø REV" : "Ø NOR");
 }
 
 void CenterPanel::paint(juce::Graphics& g) {
