@@ -787,10 +787,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Keep alpha, set RGB to glowing green scaled by original brightness
+                        // Yellow-green neon glow (not flat spray paint)
                         const float b = px.getBrightness();
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(0.22f * b, 1.0f * b, 0.08f * b,
+                            juce::Colour::fromFloatRGBA(0.45f * b, 1.0f * b, 0.15f * b,
                                                         px.getAlpha()));
                     }
                 }
@@ -806,11 +806,11 @@ void VUMeterComp::paint(juce::Graphics& g) {
             const float dy = fy + h * 0.58f;
             juce::Rectangle<float> dest(dx, dy, dw, dh);
 
-            // Soft green glow behind
-            g.setColour(col(0x5539ff14));
-            g.drawImage(greenLogoImg, dest.expanded(8.0f));
-            g.setColour(col(0x3339ff14));
-            g.drawImage(greenLogoImg, dest.expanded(4.0f));
+            // Soft yellow-green glow behind (neon look)
+            g.setColour(col(0x66aaff22));
+            g.drawImage(greenLogoImg, dest.expanded(10.0f));
+            g.setColour(col(0x44ccff44));
+            g.drawImage(greenLogoImg, dest.expanded(5.0f));
             // Green logo
             g.drawImage(greenLogoImg, dest);
         }
@@ -1076,8 +1076,8 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(72, 145 + 40);
     kLow_->setCentrePosition(72, 265 + 40);
     kLevel_->setCentrePosition(72, 330 + 50);
-    lowCut_->setTopLeftPosition(4, 448);
-    pad_->setTopLeftPosition(81, 434);
+    lowCut_->setTopLeftPosition(4, 432);
+    pad_->setTopLeftPosition(81, 432);
 }
 
 // ---------------------------------------------------------------------------
@@ -1092,7 +1092,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     kHigh_->setKnobLabel("HIGH");
     kMid_->setKnobLabel("MID");
     kLow_->setKnobLabel("LOW");
-    midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "FREQ", false,
+    midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
     kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 120, true, BiteyKnob::Scale::ZeroToTen);
@@ -1118,7 +1118,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(72, 25 + 40);
     kMid_->setCentrePosition(72, 145 + 40);
     kLow_->setCentrePosition(72, 265 + 40);
-    midFreq_->setTopLeftPosition(65, 165);
+    midFreq_->setTopLeftPosition(85, 165);
     kMain_->setCentrePosition(72, 330 + 50);
 }
 
