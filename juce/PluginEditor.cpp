@@ -817,11 +817,11 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float zeroPos = 0.72f;
     const float redStartAngle = startAngle + zeroPos * totalAngle;
 
-    // Red zone arc
+    // Red zone arc (amber, like power light)
     {
         juce::Path p;
         p.addArc(cx - r, cy - r, r * 2, r * 2, redStartAngle, endAngle, true);
-        g.setColour(col(0xe6dc3232));
+        g.setColour(col(0xe6ff9500));
         g.strokePath(p, juce::PathStrokeType(6.0f * s));
     }
     // Black arc
@@ -847,13 +847,13 @@ void VUMeterComp::paint(juce::Graphics& g) {
         const float a = startAngle + t.pos * totalAngle;
         const float ca = std::cos(a), sa = std::sin(a);
         const float tickLen = (t.big ? 12.0f : 7.0f) * s;
-        g.setColour(col(t.red ? 0xffcc3333 : 0xff111111));
+        g.setColour(col(t.red ? 0xffff9500 : 0xff111111));
         g.drawLine(cx + ca * r, cy + sa * r,
                    cx + ca * (r - tickLen), cy + sa * (r - tickLen),
                    (t.big ? 2.5f : 1.5f) * s);
         if (t.label[0] != '\0') {
             const float td = 28.0f * s;
-            g.setColour(col(t.red ? 0xffcc2222 : 0xff111111));
+            g.setColour(col(t.red ? 0xffcc7a00 : 0xff111111));
             g.drawText(t.label, int(cx + ca * (r - td)) - 20, int(cy + sa * (r - td)) - 10,
                        40, 20, juce::Justification::centred);
         }
