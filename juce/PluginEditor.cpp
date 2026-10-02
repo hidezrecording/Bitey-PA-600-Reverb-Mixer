@@ -151,91 +151,57 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setColour(col(0xaa000000));
     g.fillEllipse(cx - size * 0.44f, cy - size * 0.38f + 3.0f, size * 0.88f, size * 0.88f);
 
-    // Skirt (big knobs): dark bakelite ring with chunky scalloped edge
+    // Skirt (big knobs): smooth dark bakelite ring, doorknob style
     if (skirted) {
-        // Bakelite base (dark charcoal, hint of warmth)
-        juce::ColourGradient skirt(col(0xff232022), cx - size * 0.35f, cy - size * 0.35f,
-                                   col(0xff0b0a09), cx + size * 0.4f, cy + size * 0.4f, true);
+        juce::ColourGradient skirt(col(0xff2e2b27), cx - size * 0.35f, cy - size * 0.35f,
+                                   col(0xff0e0d0b), cx + size * 0.4f, cy + size * 0.4f, true);
         g.setGradientFill(skirt);
         g.fillEllipse(cx - size * 0.5f, cy - size * 0.5f, size, size);
 
-        // Chunky scallops: just a few large ridges (vintage RCA style)
-        g.setColour(col(0x50000000));
-        for (int i = 0; i < 8; ++i) {
-            const float a = i * juce::MathConstants<float>::twoPi / 8.0f;
-            const float x1 = cx + std::cos(a) * size * 0.44f;
-            const float y1 = cy + std::sin(a) * size * 0.44f;
-            const float x2 = cx + std::cos(a) * size * 0.50f;
-            const float y2 = cy + std::sin(a) * size * 0.50f;
-            g.drawLine(x1, y1, x2, y2, 4.0f);
-        }
-        // Highlight on scallops (top-left)
-        g.setColour(col(0x28ffffff));
-        for (int i = 4; i < 7; ++i) {
-            const float a = i * juce::MathConstants<float>::twoPi / 8.0f;
-            const float x1 = cx + std::cos(a) * size * 0.44f;
-            const float y1 = cy + std::sin(a) * size * 0.44f;
-            const float x2 = cx + std::cos(a) * size * 0.50f;
-            const float y2 = cy + std::sin(a) * size * 0.50f;
-            g.drawLine(x1, y1, x2, y2, 3.0f);
-        }
+        // Subtle edge highlight (smooth, not fluted)
+        g.setColour(col(0x2a9a8a76));
+        g.drawEllipse(cx - size * 0.48f, cy - size * 0.48f, size * 0.96f, size * 0.96f, 2.0f);
 
-        g.setColour(col(0xff121110));
+        g.setColour(col(0xff151412));
         g.fillEllipse(cx - size * 0.45f, cy - size * 0.45f, size * 0.9f, size * 0.9f);
     }
 
     const float bodyR = (skirted ? 0.35f : 0.425f) * size;
 
-    // Rotating body
+    // Rotating body: smooth rounded doorknob shape (spherical, not industrial)
     g.saveState();
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    // RCA bakelite: dark charcoal with hint of warmth, matte finish
-    juce::ColourGradient body(col(0xff35322e), cx - bodyR * 0.6f, cy - bodyR * 0.75f,
-                              col(0xff141210), cx + bodyR * 0.7f, cy + bodyR * 0.8f, true);
-    body.addColour(0.35, col(0xff242220));
-    body.addColour(0.85, col(0xff0e0c0a));
+    // Doorknob sphere: soft radial gradient, highlight top-left, dark edges
+    // No harsh flutes — smooth bakelite like a real door knob
+    juce::ColourGradient body(col(0xff4a4742), cx - bodyR * 0.4f, cy - bodyR * 0.45f,
+                              col(0xff161413), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
+    body.addColour(0.25, col(0xff35322e));
+    body.addColour(0.75, col(0xff1e1c19));
+    body.addColour(1.0, col(0xff0d0c0a));
     g.setGradientFill(body);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
-    // Chunky scalloped knurling (just a few large ridges, vintage RCA style)
-    g.setColour(col(0x60000000));
-    const int flutes = 8;
-    for (int i = 0; i < flutes; ++i) {
-        const float a = i * juce::MathConstants<float>::twoPi / flutes;
-        const float x1 = cx + std::cos(a) * bodyR * 0.86f;
-        const float y1 = cy + std::sin(a) * bodyR * 0.86f;
-        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
-        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
-        g.drawLine(x1, y1, x2, y2, 5.0f);
-    }
-    // Highlight on upper scallops
-    g.setColour(col(0x3aaaaaaa));
-    for (int i = 2; i < 5; ++i) {
-        const float a = i * juce::MathConstants<float>::twoPi / flutes;
-        const float x1 = cx + std::cos(a) * bodyR * 0.86f;
-        const float y1 = cy + std::sin(a) * bodyR * 0.86f;
-        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
-        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
-        g.drawLine(x1, y1, x2, y2, 3.0f);
-    }
+    // Subtle rim light (bottom-right, like light catching the curve)
+    g.setColour(col(0x1a8a7a66));
+    juce::Path rim;
+    rim.addArc(cx - bodyR * 0.95f, cy - bodyR * 0.95f, bodyR * 1.9f, bodyR * 1.9f,
+               0.6f, 1.8f, true);
+    g.strokePath(rim, juce::PathStrokeType(2.5f));
 
-    // Domed cap (slightly raised center)
-    const float capR = bodyR * 0.68f;
-    juce::ColourGradient cap(col(0xff3d3a35), cx - capR * 0.5f, cy - capR * 0.6f,
-                             col(0xff1a1815), cx + capR * 0.5f, cy + capR * 0.5f, true);
+    // Domed top: smaller, smoother highlight
+    const float capR = bodyR * 0.62f;
+    juce::ColourGradient cap(col(0xff54514b), cx - capR * 0.45f, cy - capR * 0.5f,
+                             col(0xff201d1a), cx + capR * 0.3f, cy + capR * 0.35f, true);
     g.setGradientFill(cap);
     g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
-    // Chunky ivory pointer (RCA broadcast style - wide and visible)
-    g.setColour(col(0xf5e6c8));  // aged ivory
-    const float pw = bodyR * 0.14f;  // pointer width
-    const float pl = bodyR * 0.92f;  // pointer length (almost to edge)
-    g.fillRoundedRectangle(cx - pw * 0.5f, cy - pl, pw, pl * 0.55f, pw * 0.3f);
-    // Pointer shadow for depth
-    g.setColour(col(0x66000000));
-    g.fillRoundedRectangle(cx - pw * 0.5f + 1.5f, cy - pl + 1.5f, pw, pl * 0.55f, pw * 0.3f);
+    // Thin ivory pointer line (much thinner than before)
+    g.setColour(col(0xf0e6d0));
+    const float pw = 2.0f;  // thin line
+    const float pl = bodyR * 0.88f;
+    g.fillRoundedRectangle(cx - pw * 0.5f, cy - pl, pw, pl * 0.5f, pw * 0.5f);
 
     g.restoreState();
 }
