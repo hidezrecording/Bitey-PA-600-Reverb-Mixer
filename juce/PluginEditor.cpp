@@ -871,13 +871,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Green center, yellow edges (neon tube look)
-                        // Use brightness for core intensity
+                        // Hot pink neon (green center was too much, now pink)
                         const float b = px.getBrightness();
-                        // Center: pure green, edges: yellow-green
-                        // We'll do a simple version: green with yellow tint
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(0.35f * b + 0.25f * b, 1.0f * b, 0.12f * b,
+                            juce::Colour::fromFloatRGBA(1.0f * b, 0.15f * b, 0.55f * b,
                                                         px.getAlpha()));
                     }
                 }
@@ -893,10 +890,10 @@ void VUMeterComp::paint(juce::Graphics& g) {
             const float dy = fy + h * 0.58f;
             juce::Rectangle<float> dest(dx, dy, dw, dh);
 
-            // Soft yellow-green glow behind (neon look)
-            g.setColour(col(0x66aaff22));
+            // Soft hot pink glow behind (neon look)
+            g.setColour(col(0x66ff1493));
             g.drawImage(greenLogoImg, dest.expanded(10.0f));
-            g.setColour(col(0x44ccff44));
+            g.setColour(col(0x44ff69b4));
             g.drawImage(greenLogoImg, dest.expanded(5.0f));
             // Green logo
             g.drawImage(greenLogoImg, dest);
@@ -1203,10 +1200,10 @@ void MasterStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     // Knob labels drawn by knobs themselves
     drawScreenLine(g, 10, 325, W - 20);
-    // CLIP label next to the bulb (bulb at 45,452)
+    // CLIP label next to the bulb (bulb at 45,432) - green
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, 442, 50, 20, juce::Justification::centredLeft);
+    g.setColour(col(0xff39ff14));
+    g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large MAIN label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
@@ -1219,7 +1216,7 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(72, 265 + 40);
     midFreq_->setTopLeftPosition(85, 165);
     kMain_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 452);
+    clipBulb_->setCentrePosition(45, 432);
     clipBulb_->setSize(52, 52);
 }
 
@@ -1253,10 +1250,10 @@ void ReverbStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     // Knob labels drawn by knobs themselves
     drawScreenLine(g, 10, 325, W - 20);
-    // CLIP label next to the bulb (bulb at 45,452)
+    // CLIP label next to the bulb (bulb at 45,432) - green
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, 442, 50, 20, juce::Justification::centredLeft);
+    g.setColour(col(0xff39ff14));
+    g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
     // Large REVERB label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
     g.setColour(col(0xe6ffffff));
@@ -1268,7 +1265,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(72, 145 + 40);
     kTime_->setCentrePosition(72, 265 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 452);
+    clipBulb_->setCentrePosition(45, 432);
     clipBulb_->setSize(52, 52);
 }
 
