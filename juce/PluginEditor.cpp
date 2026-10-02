@@ -693,8 +693,8 @@ void VUMeterComp::paint(juce::Graphics& g) {
     {
         static juce::Image logoImg;
         if (!logoImg.isValid()) {
-            logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogopng,
-                                                      BinaryData::biteylogopngSize);
+            logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
+                                                      BinaryData::biteylogo_pngSize);
         }
         if (logoImg.isValid()) {
             const float maxW = w * 0.55f;
@@ -863,8 +863,8 @@ namespace {
 void drawBiteyLogo(juce::Graphics& g, float x, float y, float w, float h) {
     static juce::Image logoImg;
     if (!logoImg.isValid()) {
-        logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogopng,
-                                                  BinaryData::biteylogopngSize);
+        logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
+                                                  BinaryData::biteylogo_pngSize);
     }
     if (logoImg.isValid()) {
         const float imgAspect = (float)logoImg.getWidth() / (float)logoImg.getHeight();
