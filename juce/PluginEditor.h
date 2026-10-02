@@ -45,6 +45,7 @@ public:
               int knobSizePx, bool skirted, Scale scale);
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void setKnobLabel(const juce::String& label) { knobLabel_ = label; }
 
 private:
     struct Look : public juce::LookAndFeel_V4 {
@@ -63,6 +64,7 @@ private:
     Scale scale_;
     float half_ = 0.0f; // half-width of the component (labels included)
     float cy_ = 0.0f;   // y of the knob circle centre
+    juce::String knobLabel_; // label drawn in the bottom scale gap
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BiteyKnob)
 };

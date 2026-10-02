@@ -125,6 +125,19 @@ void BiteyKnob::paint(juce::Graphics& g) {
                        juce::Justification::centred);
         }
     }
+
+    // Knob label in the bottom scale gap (between the end markers, under the pot)
+    if (knobLabel_.isNotEmpty()) {
+        g.setFont(BiteyFonts::robotoCondensed(10.0f));
+        // Shadow
+        g.setColour(col(0x80000000));
+        g.drawText(knobLabel_, 0, int(cy + textR - 2), getWidth(), 14,
+                   juce::Justification::centred);
+        // Main text
+        g.setColour(col(0xffffffff));
+        g.drawText(knobLabel_, 0, int(cy + textR - 3), getWidth(), 14,
+                   juce::Justification::centred);
+    }
 }
 
 void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
@@ -641,7 +654,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.fillRect(face);
     }
 
-    const float cx = fx + w / 2, cy = fy + h * 1.36f, r = h * 1.36f;
+    const float cx = fx + w / 2, cy = fy + h * 1.50f, r = h * 1.42f;
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
@@ -703,7 +716,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
             float dw = maxW, dh = dw / imgAspect;
             if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
             const float dx = fx + (w - dw) * 0.5f;
-            const float dy = fy + h * 0.58f;
+            const float dy = fy + h * 0.68f;
             g.drawImage(logoImg, juce::Rectangle<float>(dx, dy, dw, dh));
         }
     }
@@ -901,10 +914,14 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
                            const juce::String& title, const juce::String& number)
     : PanelBox(title, col(0xff1a1a1a)), proc_(proc), number_(number) {
     const juce::String p = (index == 0) ? "ch1_" : "ch2_";
-    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 50, false, BiteyKnob::Scale::ZeroToTen);
-    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 50, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 50, false, BiteyKnob::Scale::Eq);
+    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 68, false, BiteyKnob::Scale::ZeroToTen);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 68, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 68, false, BiteyKnob::Scale::Eq);
     kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kReverb_->setKnobLabel("REVERB");
+    kHigh_->setKnobLabel("HIGH");
+    kLow_->setKnobLabel("LOW");
+    kLevel_->setKnobLabel("LEVEL");
     lowCut_ = std::make_unique<MetalToggle>(proc, p + "lowcut", "96Hz", true,
                                             std::vector<juce::String>{"", ""},
                                             true, 1 /* icons */);
@@ -924,10 +941,7 @@ void ChannelStrip::syncToggles() {
 void ChannelStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    // Labels sit right under each pot, between the bottom scale markers
-    drawKnobLabel(g, "REVERB", 0, 118, W);
-    drawKnobLabel(g, "HIGH", 0, 212, W);
-    drawKnobLabel(g, "LOW", 0, 306, W);
+    // Knob labels are drawn by the knobs themselves (in the scale gap)
     drawScreenLine(g, 10, 325, W - 20);
     // Channel number
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
@@ -936,9 +950,9 @@ void ChannelStrip::paint(juce::Graphics& g) {
 }
 
 void ChannelStrip::resized() {
-    kReverb_->setCentrePosition(72, 40 + 40);
-    kHigh_->setCentrePosition(72, 134 + 40);
-    kLow_->setCentrePosition(72, 228 + 40);
+    kReverb_->setCentrePosition(72, 30 + 40);
+    kHigh_->setCentrePosition(72, 140 + 40);
+    kLow_->setCentrePosition(72, 250 + 40);
     kLevel_->setCentrePosition(72, 330 + 50);
     lowCut_->setTopLeftPosition(4, 448);
     pad_->setTopLeftPosition(81, 434);
@@ -950,13 +964,17 @@ void ChannelStrip::resized() {
 
 MasterStrip::MasterStrip(BiteyProcessor& proc)
     : PanelBox("MASTER", col(0xff1a1a1a)), proc_(proc) {
-    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 50, false, BiteyKnob::Scale::Eq);
-    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 50, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 50, false, BiteyKnob::Scale::Eq);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 68, false, BiteyKnob::Scale::Eq);
+    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 68, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 68, false, BiteyKnob::Scale::Eq);
+    kHigh_->setKnobLabel("HIGH");
+    kMid_->setKnobLabel("MID");
+    kLow_->setKnobLabel("LOW");
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "FREQ", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
     kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kMain_->setKnobLabel("MAIN");
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
     addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_);
 }
@@ -966,9 +984,7 @@ void MasterStrip::syncToggles() { midFreq_->syncFromParam(); }
 void MasterStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    drawKnobLabel(g, "HIGH", 0, 118, W);
-    drawKnobLabel(g, "MID", 0, 212, W);
-    drawKnobLabel(g, "LOW", 0, 306, W);
+    // Knob labels drawn by knobs themselves
     drawScreenLine(g, 10, 325, W - 20);
     // Large MAIN label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
@@ -977,9 +993,9 @@ void MasterStrip::paint(juce::Graphics& g) {
 }
 
 void MasterStrip::resized() {
-    kHigh_->setCentrePosition(72, 40 + 40);
-    kMid_->setCentrePosition(72, 134 + 40);
-    kLow_->setCentrePosition(72, 228 + 40);
+    kHigh_->setCentrePosition(72, 30 + 40);
+    kMid_->setCentrePosition(72, 140 + 40);
+    kLow_->setCentrePosition(72, 250 + 40);
     midFreq_->setTopLeftPosition(79, 158);
     kMain_->setCentrePosition(72, 330 + 50);
 }
@@ -990,10 +1006,14 @@ void MasterStrip::resized() {
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     : PanelBox("REVERB", col(0xff1a1a1a)), proc_(proc) {
-    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 50, false, BiteyKnob::Scale::ZeroToTen);
-    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 50, false, BiteyKnob::Scale::ZeroToTen);
-    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 50, false, BiteyKnob::Scale::ZeroToTen);
+    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 68, false, BiteyKnob::Scale::ZeroToTen);
+    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 68, false, BiteyKnob::Scale::ZeroToTen);
+    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 68, false, BiteyKnob::Scale::ZeroToTen);
     kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kDrive_->setKnobLabel("DRIVE");
+    kContour_->setKnobLabel("CONTOUR");
+    kTime_->setKnobLabel("TIME");
+    kReturn_->setKnobLabel("RETURN");
     addAndMakeVisible(*kDrive_); addAndMakeVisible(*kContour_);
     addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_);
 }
@@ -1001,9 +1021,7 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
 void ReverbStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
-    drawKnobLabel(g, "DRIVE", 0, 118, W);
-    drawKnobLabel(g, "CONTOUR", 0, 212, W);
-    drawKnobLabel(g, "TIME", 0, 306, W);
+    // Knob labels drawn by knobs themselves
     drawScreenLine(g, 10, 325, W - 20);
     // Large REVERB label at bottom (same height as channel numbers: 22pt)
     g.setFont(BiteyFonts::robotoCondensed(22.0f));
@@ -1012,9 +1030,9 @@ void ReverbStrip::paint(juce::Graphics& g) {
 }
 
 void ReverbStrip::resized() {
-    kDrive_->setCentrePosition(72, 40 + 40);
-    kContour_->setCentrePosition(72, 134 + 40);
-    kTime_->setCentrePosition(72, 228 + 40);
+    kDrive_->setCentrePosition(72, 30 + 40);
+    kContour_->setCentrePosition(72, 140 + 40);
+    kTime_->setCentrePosition(72, 250 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
 }
 
@@ -1075,17 +1093,17 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.fillRect(6, 16, W - 12, 1);
     g.fillRect(6, 115, W - 12, 1);
 
-    // ECHO caption below the echo knob (centered at 60,80)
+    // ECHO caption below the echo knob (centered at 60,70)
     g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("ECHO", 30, 108, 60, 14, juce::Justification::centred);
+    g.drawText("ECHO", 30, 98, 60, 14, juce::Justification::centred);
 
     // VU meter captions (below each meter)
     g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
     g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
 
-    // DRY/WET caption below the small knob (centered at 180,80)
-    g.drawText("DRY/WET", 150, 104, 60, 12, juce::Justification::centred);
+    // DRY/WET caption below the small knob (centered at 180,70)
+    g.drawText("DRY/WET", 150, 94, 60, 12, juce::Justification::centred);
 
     // Power section divider
     g.setColour(col(0x0dffffff)); // white/5
@@ -1100,11 +1118,11 @@ void CenterPanel::paint(juce::Graphics& g) {
 void CenterPanel::resized() {
     ips_->setTopLeftPosition(12, 20);
     tapeSize_->setTopLeftPosition(158, 20);
-    // Row 1: ECHO and DRY/WET side by side, aligned with REVERB/HIGH/DRIVE pots (y=80)
-    // ECHO (40px, None): component 56x56, center (60,80) -> top-left (32,52)
-    echo_->setTopLeftPosition(32, 52);
-    // DRY/WET (28px, None): component 44x44, center (180,80) -> top-left (158,58)
-    dryWet_->setTopLeftPosition(158, 58);
+    // Row 1: ECHO and DRY/WET side by side, aligned with row 1 pots (y=70)
+    // ECHO (40px, None): component 56x56, center (60,70) -> top-left (32,42)
+    echo_->setTopLeftPosition(32, 42);
+    // DRY/WET (28px, None): component 44x44, center (180,70) -> top-left (158,48)
+    dryWet_->setTopLeftPosition(158, 48);
     vuReverb_->setTopLeftPosition(10, 130);
     vuMain_->setTopLeftPosition(10, 252);
     tape_->setTopLeftPosition(14, 376);
