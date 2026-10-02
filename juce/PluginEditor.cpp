@@ -853,6 +853,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
                    (t.big ? 2.5f : 1.5f) * s);
         if (t.label[0] != '\0') {
             const float td = 28.0f * s;
+            g.setColour(col(t.red ? 0xffcc2222 : 0xff111111));
             g.drawText(t.label, int(cx + ca * (r - td)) - 20, int(cy + sa * (r - td)) - 10,
                        40, 20, juce::Justification::centred);
         }
