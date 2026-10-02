@@ -1184,12 +1184,6 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
     addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_); addAndMakeVisible(*clipBulb_);
-    startTimerHz(30);
-}
-
-void MasterStrip::timerCallback() {
-    if (clipBulb_)
-        clipBulb_->setLevel(proc_.getMainMeter());
 }
 
 void MasterStrip::syncToggles() { midFreq_->syncFromParam(); }
@@ -1236,12 +1230,6 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kDrive_); addAndMakeVisible(*kContour_);
     addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_); addAndMakeVisible(*clipBulb_);
-    startTimerHz(30);
-}
-
-void ReverbStrip::timerCallback() {
-    if (clipBulb_)
-        clipBulb_->setLevel(proc_.getReverbMeter());
 }
 
 void ReverbStrip::paint(juce::Graphics& g) {
@@ -1480,6 +1468,8 @@ void BiteyEditor::timerCallback() {
     chR_->syncToggles();
     master_->syncToggles();
     center_->syncToggles();
+    master_->updateBulb();
+    reverb_->updateBulb();
 
     bool on = true;
     if (auto* p = proc_.apvts.getParameter("power"))

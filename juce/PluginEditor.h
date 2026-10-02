@@ -243,15 +243,15 @@ private:
 // MasterStrip — HIGH / MID / LOW + mid-freq switch + skirted MAIN.
 // ReverbStrip — DRIVE / CONTOUR / TIME + skirted REVERB return.
 // ---------------------------------------------------------------------------
-class MasterStrip : public PanelBox, private juce::Timer {
+class MasterStrip : public PanelBox {
 public:
     explicit MasterStrip(BiteyProcessor& proc);
     void paint(juce::Graphics& g) override;
     void resized() override;
     void syncToggles();
+    void updateBulb() { if (clipBulb_) clipBulb_->setLevel(proc_.getMainMeter()); }
 
 private:
-    void timerCallback() override;
     BiteyProcessor& proc_;
     std::unique_ptr<BiteyKnob> kHigh_, kMid_, kLow_, kMain_;
     std::unique_ptr<MetalToggle> midFreq_;
@@ -260,14 +260,14 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterStrip)
 };
 
-class ReverbStrip : public PanelBox, private juce::Timer {
+class ReverbStrip : public PanelBox {
 public:
     explicit ReverbStrip(BiteyProcessor& proc);
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void updateBulb() { if (clipBulb_) clipBulb_->setLevel(proc_.getReverbMeter()); }
 
 private:
-    void timerCallback() override;
     BiteyProcessor& proc_;
     std::unique_ptr<BiteyKnob> kDrive_, kContour_, kTime_, kReturn_;
     std::unique_ptr<ClipBulb> clipBulb_;
