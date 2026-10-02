@@ -76,7 +76,8 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
         half_ = textR + 13.0f; // label anchor + glyph extent + padding
         cy_ = textR + 11.0f;   // room for the top arc labels
     }
-    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + r + 12.0f)));
+    // Height includes room for the knob label below the scale (14px + padding)
+    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 18.0f)));
 }
 
 void BiteyKnob::resized() {
@@ -146,23 +147,40 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     const float cx = x + w * 0.5f, cy = y + h * 0.5f;
     const float size = float(knobSize);
 
-    // Drop shadow
-    g.setColour(col(0x99000000));
-    g.fillEllipse(cx - size * 0.425f, cy - size * 0.325f, size * 0.85f, size * 0.85f);
+    // Drop shadow (soft, offset down-right)
+    g.setColour(col(0xaa000000));
+    g.fillEllipse(cx - size * 0.44f, cy - size * 0.38f + 3.0f, size * 0.88f, size * 0.88f);
 
-    // Skirt (big knobs): brushed-metal ring
+    // Skirt (big knobs): dark bakelite ring with fluted edge
     if (skirted) {
-        juce::ColourGradient skirt(col(0xff3a3a3a), cx - size * 0.35f, cy - size * 0.35f,
-                                   col(0xff000000), cx + size * 0.4f, cy + size * 0.4f, true);
+        // Bakelite base (warm dark brown-black)
+        juce::ColourGradient skirt(col(0xff2a1f14), cx - size * 0.35f, cy - size * 0.35f,
+                                   col(0xff0a0806), cx + size * 0.4f, cy + size * 0.4f, true);
         g.setGradientFill(skirt);
         g.fillEllipse(cx - size * 0.5f, cy - size * 0.5f, size, size);
-        // machined highlight arc
-        g.setColour(col(0x33ffffff));
-        juce::Path arc;
-        arc.addArc(cx - size * 0.46f, cy - size * 0.46f, size * 0.92f, size * 0.92f,
-                   3.6f, 5.2f, true);
-        g.strokePath(arc, juce::PathStrokeType(2.0f));
-        g.setColour(col(0xff111111));
+
+        // Fluted edge: radial ridges around the circumference (RCA broadcast style)
+        g.setColour(col(0x40000000));
+        for (int i = 0; i < 24; ++i) {
+            const float a = i * juce::MathConstants<float>::twoPi / 24.0f;
+            const float x1 = cx + std::cos(a) * size * 0.46f;
+            const float y1 = cy + std::sin(a) * size * 0.46f;
+            const float x2 = cx + std::cos(a) * size * 0.50f;
+            const float y2 = cy + std::sin(a) * size * 0.50f;
+            g.drawLine(x1, y1, x2, y2, 2.0f);
+        }
+        // Highlight on flutes (top-left)
+        g.setColour(col(0x22ffffff));
+        for (int i = 14; i < 20; ++i) {
+            const float a = i * juce::MathConstants<float>::twoPi / 24.0f;
+            const float x1 = cx + std::cos(a) * size * 0.46f;
+            const float y1 = cy + std::sin(a) * size * 0.46f;
+            const float x2 = cx + std::cos(a) * size * 0.50f;
+            const float y2 = cy + std::sin(a) * size * 0.50f;
+            g.drawLine(x1, y1, x2, y2, 1.5f);
+        }
+
+        g.setColour(col(0xff0f0c09));
         g.fillEllipse(cx - size * 0.45f, cy - size * 0.45f, size * 0.9f, size * 0.9f);
     }
 
@@ -173,37 +191,51 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    juce::ColourGradient body(col(0xff777777), cx - bodyR * 0.6f, cy - bodyR * 0.75f,
-                              col(0xff000000), cx + bodyR * 0.7f, cy + bodyR * 0.8f, true);
-    body.addColour(0.35, col(0xff1a1a1a));
-    body.addColour(0.85, col(0xff050505));
+    // RCA bakelite: warm dark brown with matte finish, subtle top highlight
+    juce::ColourGradient body(col(0xff4a3421), cx - bodyR * 0.6f, cy - bodyR * 0.75f,
+                              col(0xff1a120c), cx + bodyR * 0.7f, cy + bodyR * 0.8f, true);
+    body.addColour(0.35, col(0xff2e2013));
+    body.addColour(0.85, col(0xff120d08));
     g.setGradientFill(body);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
-    // Knurled edge (repeating-conic approximation via dashed ring)
-    juce::Path edge;
-    edge.addEllipse(cx - bodyR + 1.5f, cy - bodyR + 1.5f, bodyR * 2.0f - 3.0f,
-                    bodyR * 2.0f - 3.0f);
-    g.setColour(col(0x19555555));
-    g.strokePath(edge, juce::PathStrokeType(2.0f));
+    // Fluted knurling on the body edge (RCA broadcast style - chunky ribs)
+    g.setColour(col(0x55000000));
+    const int flutes = 18;
+    for (int i = 0; i < flutes; ++i) {
+        const float a = i * juce::MathConstants<float>::twoPi / flutes;
+        const float x1 = cx + std::cos(a) * bodyR * 0.88f;
+        const float y1 = cy + std::sin(a) * bodyR * 0.88f;
+        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
+        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
+        g.drawLine(x1, y1, x2, y2, 3.0f);
+    }
+    // Highlight on upper flutes
+    g.setColour(col(0x33ffcc99));
+    for (int i = 10; i < 15; ++i) {
+        const float a = i * juce::MathConstants<float>::twoPi / flutes;
+        const float x1 = cx + std::cos(a) * bodyR * 0.88f;
+        const float y1 = cy + std::sin(a) * bodyR * 0.88f;
+        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
+        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
+        g.drawLine(x1, y1, x2, y2, 2.0f);
+    }
 
-    // Inner cap
-    const float capR = bodyR * 0.7f;
-    juce::ColourGradient cap(col(0xff333333), cx - capR * 0.5f, cy - capR * 0.6f,
-                             col(0xff000000), cx + capR * 0.5f, cy + capR * 0.5f, true);
+    // Domed cap (slightly raised center)
+    const float capR = bodyR * 0.68f;
+    juce::ColourGradient cap(col(0xff5a422a), cx - capR * 0.5f, cy - capR * 0.6f,
+                             col(0xff241a10), cx + capR * 0.5f, cy + capR * 0.5f, true);
     g.setGradientFill(cap);
     g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
-    // Pointer line at top
-    g.setColour(col(0xe8dddddd));
-    g.fillRoundedRectangle(cx - 1.5f, cy - bodyR, 3.0f, bodyR * 0.45f, 1.0f);
-
-    // Specular highlight blob (top-left, like the CSS)
-    g.setColour(col(0x33ffffff));
-    g.saveState();
-    g.addTransform(juce::AffineTransform::rotation(-12.0f * kDeg2Rad, cx, cy));
-    g.fillEllipse(cx - bodyR * 0.55f, cy - bodyR * 0.85f, bodyR * 0.8f, bodyR * 0.5f);
-    g.restoreState();
+    // Chunky ivory pointer (RCA broadcast style - wide and visible)
+    g.setColour(col(0xf5e6c8));  // aged ivory
+    const float pw = bodyR * 0.14f;  // pointer width
+    const float pl = bodyR * 0.92f;  // pointer length (almost to edge)
+    g.fillRoundedRectangle(cx - pw * 0.5f, cy - pl, pw, pl * 0.55f, pw * 0.3f);
+    // Pointer shadow for depth
+    g.setColour(col(0x66000000));
+    g.fillRoundedRectangle(cx - pw * 0.5f + 1.5f, cy - pl + 1.5f, pw, pl * 0.55f, pw * 0.3f);
 
     g.restoreState();
 }
@@ -326,26 +358,71 @@ void MetalToggle::paint(juce::Graphics& g) {
     const float bcx = bodyX + body_ * 0.5f;
     const float bcy = bodyY + body_ * 0.5f;
 
-    // Mounting nut
-    juce::ColourGradient nut(col(0xffcccccc), bcx - 10.0f, bcy - 10.0f,
-                             col(0xff666666), bcx + 10.0f, bcy + 10.0f, true);
+    // Mounting nut (hexagonal, like real toggle switches)
+    const float nutR = body_ * 0.5f;
+    juce::Path hex;
+    for (int i = 0; i < 6; ++i) {
+        const float a = i * juce::MathConstants<float>::twoPi / 6.0f + juce::MathConstants<float>::pi / 6.0f;
+        const float px = bcx + std::cos(a) * nutR;
+        const float py = bcy + std::sin(a) * nutR;
+        if (i == 0) hex.startNewSubPath(px, py);
+        else hex.lineTo(px, py);
+    }
+    hex.closeSubPath();
+    juce::ColourGradient nut(col(0xffd8d8d8), bcx - nutR, bcy - nutR,
+                             col(0xff707070), bcx + nutR, bcy + nutR, true);
     g.setGradientFill(nut);
-    g.fillEllipse(bcx - body_ * 0.5f, bcy - body_ * 0.5f, body_, body_);
-    g.setColour(col(0xff444444));
-    g.drawEllipse(bcx - body_ * 0.5f, bcy - body_ * 0.5f, body_, body_, 1.0f);
-    // Dark well
-    g.setColour(col(0xff1a1a1a));
-    g.fillEllipse(bcx - body_ * 0.4f, bcy - body_ * 0.4f, body_ * 0.8f, body_ * 0.8f);
+    g.fillPath(hex);
+    g.setColour(col(0xff505050));
+    g.strokePath(hex, juce::PathStrokeType(1.5f));
 
-    // Bat tip
-    const float tipR = 6.0f * (body_ / 30.0f);
-    const float ty = bcy + tipOffset();
-    juce::ColourGradient tip(col(0xffeeeeee), bcx - tipR, ty - tipR,
-                             col(0xff888888), bcx + tipR, ty + tipR, true);
-    g.setGradientFill(tip);
-    g.fillEllipse(bcx - tipR, ty - tipR, tipR * 2.0f, tipR * 2.0f);
-    g.setColour(col(0xccffffff));
-    g.fillEllipse(bcx - tipR * 0.7f, ty - tipR * 0.7f, tipR * 0.6f, tipR * 0.6f);
+    // Dark well (recessed)
+    g.setColour(col(0xff0d0d0d));
+    g.fillEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f);
+    // Inner shadow ring for depth
+    g.setColour(col(0x66000000));
+    g.drawEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f, 3.0f);
+
+    // Toggle bat: 3D metal lever (not just a tip)
+    // The bat pivots at center and tilts up/down based on state
+    const float batLen = body_ * 0.42f;
+    const float batW = body_ * 0.16f;
+    const float tilt = tipOffset(); // positive = down, negative = up
+
+    g.saveState();
+    // Bat base (pivot point)
+    juce::ColourGradient pivot(col(0xffa0a0a0), bcx - 6.0f, bcy - 6.0f,
+                               col(0xff404040), bcx + 6.0f, bcy + 6.0f, true);
+    g.setGradientFill(pivot);
+    g.fillEllipse(bcx - 6.0f, bcy - 6.0f, 12.0f, 12.0f);
+
+    // Bat lever: rounded rectangle with 3D shading, tilted by state
+    const float batX = bcx - batW * 0.5f;
+    const float batY = bcy - batLen + tilt * 0.3f; // lever extends up, tilts with state
+
+    // Bat shadow
+    g.setColour(col(0x77000000));
+    g.fillRoundedRectangle(batX + 2.0f, batY + 2.0f, batW, batLen, batW * 0.5f);
+
+    // Bat body: chrome/metal gradient
+    juce::ColourGradient bat(col(0xfff0f0f0), batX, batY,
+                             col(0xff909090), batX + batW, batY, false);
+    bat.addColour(0.5, col(0xffc8c8c8));
+    g.setGradientFill(bat);
+    g.fillRoundedRectangle(batX, batY, batW, batLen, batW * 0.5f);
+
+    // Bat highlight (left edge)
+    g.setColour(col(0xaaffffff));
+    g.fillRoundedRectangle(batX + 1.0f, batY + 2.0f, 2.0f, batLen - 4.0f, 1.0f);
+
+    // Bat tip: slightly larger, rounded
+    const float tipY = batY - 2.0f;
+    juce::ColourGradient tipGrad(col(0xffffffff), bcx - batW, tipY,
+                                 col(0xffa0a0a0), bcx + batW, tipY + 8.0f, true);
+    g.setGradientFill(tipGrad);
+    g.fillEllipse(bcx - batW * 0.7f, tipY, batW * 1.4f, 10.0f);
+
+    g.restoreState();
 
     // Labels
     drawLabelColumn(g, juce::Rectangle<float>(labelX, y, labelW, labelColH));
@@ -551,13 +628,13 @@ void VUMeterComp::timerCallback() {
 }
 
 void VUMeterComp::paint(juce::Graphics& g) {
-    // UAD-style VU meter: metal bezel with screws, backlit face filling the bezel,
-    // realistic needle with pivot cap. Component is 220x110.
+    // UAD-style VU meter: wide black plastic bezel with screws, recessed face under glass,
+    // backlit, realistic needle with pivot cap. Component is 220x110.
     const float bx = 2.0f, by = 2.0f;          // bezel outer
     const float bw = 216.0f, bh = 106.0f;
-    const float bezelThick = 8.0f;             // bezel frame thickness
+    const float bezelThick = 14.0f;            // WIDE black plastic bezel (recessed glass look)
     const float fx = bx + bezelThick, fy = by + bezelThick;
-    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 200x90
+    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 188x78
     const float s = w / 300.0f;
     juce::Rectangle<float> bezel(bx, by, bw, bh);
     juce::Rectangle<float> face(fx, fy, w, h);
@@ -569,18 +646,30 @@ void VUMeterComp::paint(juce::Graphics& g) {
             .drawForPath(g, sp);
     }
 
-    // Bezel: dark metallic frame with top highlight (like UAD hardware)
+    // Bezel: WIDE black plastic frame (like real VU meter housing)
+    // The face sits deep inside, recessed under glass
     {
-        juce::ColourGradient mg(col(0xff3a3a3a), bx, by, col(0xff111111), bx, by + bh, false);
-        mg.addColour(0.5, col(0xff222222));
-        g.setGradientFill(mg);
+        // Black plastic with subtle texture
+        juce::ColourGradient bg(col(0xff1e1e1e), bx, by, col(0xff0a0a0a), bx, by + bh, false);
+        bg.addColour(0.5, col(0xff151515));
+        g.setGradientFill(bg);
         g.fillRect(bezel);
-        // Top edge highlight
-        g.setColour(col(0x66ffffff));
-        g.fillRect(juce::Rectangle<float>(bx + 1, by + 1, bw - 2, 2));
-        // Inner edge shadow (face sits recessed)
-        g.setColour(col(0xdd000000));
-        g.drawRect(face.expanded(1.0f), 2.0f);
+
+        // Top edge highlight (plastic sheen)
+        g.setColour(col(0x44ffffff));
+        g.fillRect(juce::Rectangle<float>(bx + 1, by + 1, bw - 2, 3));
+
+        // Inner bevel: the glass sits in a recessed channel
+        // Outer bevel (light catching the top edge of the recess)
+        g.setColour(col(0x88333333));
+        g.drawRect(face.expanded(3.0f), 2.0f);
+        // Deep inner shadow (the face is pushed back)
+        g.setColour(col(0xee000000));
+        g.drawRect(face.expanded(1.0f), 4.0f);
+        // Inner highlight at bottom (light bouncing inside the recess)
+        g.setColour(col(0x33ffffff));
+        g.drawLine(face.getX(), face.getBottom() + 2.0f,
+                   face.getRight(), face.getBottom() + 2.0f, 1.5f);
     }
 
     // Corner screws
@@ -785,12 +874,39 @@ void VUMeterComp::paint(juce::Graphics& g) {
     }
 
     g.restoreState(); // unclip face
-    // Bezel already drawn; add glass reflection over the face
+    // GLASS COVER: wide bezel + glass makes scale/logo look recessed underneath
+    // Diagonal reflection (top-left) - the key "under glass" cue
     {
-        juce::ColourGradient glass(col(0x22ffffff), fx, fy,
-                                    col(0x00ffffff), fx + w * 0.3f, fy + h, false);
-        g.setGradientFill(glass);
+        g.saveState();
+        juce::Path gp;
+        gp.addRectangle(face);
+        g.reduceClipRegion(gp);
+
+        // Glass tint (subtle blue-grey like real meter glass)
+        g.setColour(col(0x0a8aa8c8));
         g.fillRect(face);
+
+        // Main diagonal reflection
+        juce::Path refl;
+        refl.startNewSubPath(fx, fy);
+        refl.lineTo(fx + w * 0.45f, fy);
+        refl.lineTo(fx + w * 0.15f, fy + h);
+        refl.lineTo(fx, fy + h);
+        refl.closeSubPath();
+        juce::ColourGradient rg(col(0x35ffffff), fx, fy,
+                                col(0x00ffffff), fx + w * 0.3f, fy + h * 0.5f, false);
+        g.setGradientFill(rg);
+        g.fillPath(refl);
+
+        // Faint secondary reflection (bottom-right)
+        g.setColour(col(0x18ffffff));
+        g.fillRect(juce::Rectangle<float>(fx + w * 0.7f, fy + h * 0.75f, w * 0.3f, h * 0.25f));
+
+        // Glass edge where it meets the bezel
+        g.setColour(col(0x66ffffff));
+        g.drawRect(face, 1.5f);
+
+        g.restoreState();
     }
 }
 
@@ -950,9 +1066,9 @@ void ChannelStrip::paint(juce::Graphics& g) {
 }
 
 void ChannelStrip::resized() {
-    kReverb_->setCentrePosition(72, 30 + 40);
-    kHigh_->setCentrePosition(72, 140 + 40);
-    kLow_->setCentrePosition(72, 250 + 40);
+    kReverb_->setCentrePosition(72, 25 + 40);
+    kHigh_->setCentrePosition(72, 145 + 40);
+    kLow_->setCentrePosition(72, 265 + 40);
     kLevel_->setCentrePosition(72, 330 + 50);
     lowCut_->setTopLeftPosition(4, 448);
     pad_->setTopLeftPosition(81, 434);
@@ -974,7 +1090,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
     kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 110, true, BiteyKnob::Scale::ZeroToTen);
-    kMain_->setKnobLabel("MAIN");
+    kMain_->setKnobLabel("LEVEL");
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
     addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_);
 }
@@ -993,9 +1109,9 @@ void MasterStrip::paint(juce::Graphics& g) {
 }
 
 void MasterStrip::resized() {
-    kHigh_->setCentrePosition(72, 30 + 40);
-    kMid_->setCentrePosition(72, 140 + 40);
-    kLow_->setCentrePosition(72, 250 + 40);
+    kHigh_->setCentrePosition(72, 25 + 40);
+    kMid_->setCentrePosition(72, 145 + 40);
+    kLow_->setCentrePosition(72, 265 + 40);
     midFreq_->setTopLeftPosition(79, 158);
     kMain_->setCentrePosition(72, 330 + 50);
 }
@@ -1013,7 +1129,7 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
-    kReturn_->setKnobLabel("RETURN");
+    kReturn_->setKnobLabel("LEVEL");
     addAndMakeVisible(*kDrive_); addAndMakeVisible(*kContour_);
     addAndMakeVisible(*kTime_); addAndMakeVisible(*kReturn_);
 }
@@ -1030,9 +1146,9 @@ void ReverbStrip::paint(juce::Graphics& g) {
 }
 
 void ReverbStrip::resized() {
-    kDrive_->setCentrePosition(72, 30 + 40);
-    kContour_->setCentrePosition(72, 140 + 40);
-    kTime_->setCentrePosition(72, 250 + 40);
+    kDrive_->setCentrePosition(72, 25 + 40);
+    kContour_->setCentrePosition(72, 145 + 40);
+    kTime_->setCentrePosition(72, 265 + 40);
     kReturn_->setCentrePosition(72, 330 + 50);
 }
 
@@ -1101,6 +1217,37 @@ void CenterPanel::paint(juce::Graphics& g) {
     // VU meter captions (below each meter)
     g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
     g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
+
+    // Board tape: masking tape strip with "REVERB MIXER" in sharpie style
+    // Positioned under the VU meters
+    const float tapeY = 385.0f;
+    const float tapeH = 28.0f;
+    const float tapeW = W - 24.0f;
+    const float tapeX = 12.0f;
+
+    g.saveState();
+    // Slight rotation for realism (-1 degree)
+    g.addTransform(juce::AffineTransform::rotation(-0.017f, tapeX + tapeW/2, tapeY + tapeH/2));
+
+    // Masking tape base (beige/tan with slight texture)
+    juce::ColourGradient tape(col(0xffe8d5a3), tapeX, tapeY,
+                              col(0xffd4b87a), tapeX, tapeY + tapeH, false);
+    g.setGradientFill(tape);
+    g.fillRect(tapeX, tapeY, tapeW, tapeH);
+
+    // Tape edges (slightly darker)
+    g.setColour(col(0xffb8945a));
+    g.fillRect(tapeX, tapeY, tapeW, 2.0f);
+    g.fillRect(tapeX, tapeY + tapeH - 2.0f, tapeW, 2.0f);
+
+    // Sharpie text: bold, slightly irregular, dark blue-black
+    g.setFont(BiteyFonts::robotoCondensed(16.0f));
+    g.setColour(col(0xff1a1a2e));  // Sharpie dark blue-black
+    // Slight offset for hand-drawn feel
+    g.drawText("REVERB MIXER", tapeX + 1.0f, tapeY + 1.0f, tapeW, tapeH,
+               juce::Justification::centred);
+
+    g.restoreState();
 
     // DRY/WET caption below the small knob (centered at 180,70)
     g.drawText("DRY/WET", 150, 94, 60, 12, juce::Justification::centred);
