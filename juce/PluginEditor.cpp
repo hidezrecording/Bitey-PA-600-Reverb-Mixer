@@ -151,36 +151,36 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setColour(col(0xaa000000));
     g.fillEllipse(cx - size * 0.44f, cy - size * 0.38f + 3.0f, size * 0.88f, size * 0.88f);
 
-    // Skirt (big knobs): dark bakelite ring with fluted edge
+    // Skirt (big knobs): dark bakelite ring with chunky scalloped edge
     if (skirted) {
-        // Bakelite base (warm dark brown-black)
-        juce::ColourGradient skirt(col(0xff2a1f14), cx - size * 0.35f, cy - size * 0.35f,
-                                   col(0xff0a0806), cx + size * 0.4f, cy + size * 0.4f, true);
+        // Bakelite base (dark charcoal, hint of warmth)
+        juce::ColourGradient skirt(col(0xff232022), cx - size * 0.35f, cy - size * 0.35f,
+                                   col(0xff0b0a09), cx + size * 0.4f, cy + size * 0.4f, true);
         g.setGradientFill(skirt);
         g.fillEllipse(cx - size * 0.5f, cy - size * 0.5f, size, size);
 
-        // Fluted edge: radial ridges around the circumference (RCA broadcast style)
-        g.setColour(col(0x40000000));
-        for (int i = 0; i < 24; ++i) {
-            const float a = i * juce::MathConstants<float>::twoPi / 24.0f;
-            const float x1 = cx + std::cos(a) * size * 0.46f;
-            const float y1 = cy + std::sin(a) * size * 0.46f;
+        // Chunky scallops: just a few large ridges (vintage RCA style)
+        g.setColour(col(0x50000000));
+        for (int i = 0; i < 8; ++i) {
+            const float a = i * juce::MathConstants<float>::twoPi / 8.0f;
+            const float x1 = cx + std::cos(a) * size * 0.44f;
+            const float y1 = cy + std::sin(a) * size * 0.44f;
             const float x2 = cx + std::cos(a) * size * 0.50f;
             const float y2 = cy + std::sin(a) * size * 0.50f;
-            g.drawLine(x1, y1, x2, y2, 2.0f);
+            g.drawLine(x1, y1, x2, y2, 4.0f);
         }
-        // Highlight on flutes (top-left)
-        g.setColour(col(0x22ffffff));
-        for (int i = 14; i < 20; ++i) {
-            const float a = i * juce::MathConstants<float>::twoPi / 24.0f;
-            const float x1 = cx + std::cos(a) * size * 0.46f;
-            const float y1 = cy + std::sin(a) * size * 0.46f;
+        // Highlight on scallops (top-left)
+        g.setColour(col(0x28ffffff));
+        for (int i = 4; i < 7; ++i) {
+            const float a = i * juce::MathConstants<float>::twoPi / 8.0f;
+            const float x1 = cx + std::cos(a) * size * 0.44f;
+            const float y1 = cy + std::sin(a) * size * 0.44f;
             const float x2 = cx + std::cos(a) * size * 0.50f;
             const float y2 = cy + std::sin(a) * size * 0.50f;
-            g.drawLine(x1, y1, x2, y2, 1.5f);
+            g.drawLine(x1, y1, x2, y2, 3.0f);
         }
 
-        g.setColour(col(0xff0f0c09));
+        g.setColour(col(0xff121110));
         g.fillEllipse(cx - size * 0.45f, cy - size * 0.45f, size * 0.9f, size * 0.9f);
     }
 
@@ -191,40 +191,40 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    // RCA bakelite: warm dark brown with matte finish, subtle top highlight
-    juce::ColourGradient body(col(0xff4a3421), cx - bodyR * 0.6f, cy - bodyR * 0.75f,
-                              col(0xff1a120c), cx + bodyR * 0.7f, cy + bodyR * 0.8f, true);
-    body.addColour(0.35, col(0xff2e2013));
-    body.addColour(0.85, col(0xff120d08));
+    // RCA bakelite: dark charcoal with hint of warmth, matte finish
+    juce::ColourGradient body(col(0xff35322e), cx - bodyR * 0.6f, cy - bodyR * 0.75f,
+                              col(0xff141210), cx + bodyR * 0.7f, cy + bodyR * 0.8f, true);
+    body.addColour(0.35, col(0xff242220));
+    body.addColour(0.85, col(0xff0e0c0a));
     g.setGradientFill(body);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
-    // Fluted knurling on the body edge (RCA broadcast style - chunky ribs)
-    g.setColour(col(0x55000000));
-    const int flutes = 18;
+    // Chunky scalloped knurling (just a few large ridges, vintage RCA style)
+    g.setColour(col(0x60000000));
+    const int flutes = 8;
     for (int i = 0; i < flutes; ++i) {
         const float a = i * juce::MathConstants<float>::twoPi / flutes;
-        const float x1 = cx + std::cos(a) * bodyR * 0.88f;
-        const float y1 = cy + std::sin(a) * bodyR * 0.88f;
+        const float x1 = cx + std::cos(a) * bodyR * 0.86f;
+        const float y1 = cy + std::sin(a) * bodyR * 0.86f;
+        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
+        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
+        g.drawLine(x1, y1, x2, y2, 5.0f);
+    }
+    // Highlight on upper scallops
+    g.setColour(col(0x3aaaaaaa));
+    for (int i = 2; i < 5; ++i) {
+        const float a = i * juce::MathConstants<float>::twoPi / flutes;
+        const float x1 = cx + std::cos(a) * bodyR * 0.86f;
+        const float y1 = cy + std::sin(a) * bodyR * 0.86f;
         const float x2 = cx + std::cos(a) * bodyR * 0.99f;
         const float y2 = cy + std::sin(a) * bodyR * 0.99f;
         g.drawLine(x1, y1, x2, y2, 3.0f);
     }
-    // Highlight on upper flutes
-    g.setColour(col(0x33ffcc99));
-    for (int i = 10; i < 15; ++i) {
-        const float a = i * juce::MathConstants<float>::twoPi / flutes;
-        const float x1 = cx + std::cos(a) * bodyR * 0.88f;
-        const float y1 = cy + std::sin(a) * bodyR * 0.88f;
-        const float x2 = cx + std::cos(a) * bodyR * 0.99f;
-        const float y2 = cy + std::sin(a) * bodyR * 0.99f;
-        g.drawLine(x1, y1, x2, y2, 2.0f);
-    }
 
     // Domed cap (slightly raised center)
     const float capR = bodyR * 0.68f;
-    juce::ColourGradient cap(col(0xff5a422a), cx - capR * 0.5f, cy - capR * 0.6f,
-                             col(0xff241a10), cx + capR * 0.5f, cy + capR * 0.5f, true);
+    juce::ColourGradient cap(col(0xff3d3a35), cx - capR * 0.5f, cy - capR * 0.6f,
+                             col(0xff1a1815), cx + capR * 0.5f, cy + capR * 0.5f, true);
     g.setGradientFill(cap);
     g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
@@ -632,9 +632,9 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // backlit, realistic needle with pivot cap. Component is 220x110.
     const float bx = 2.0f, by = 2.0f;          // bezel outer
     const float bw = 216.0f, bh = 106.0f;
-    const float bezelThick = 14.0f;            // WIDE black plastic bezel (recessed glass look)
+    const float bezelThick = 20.0f;            // FAT black plastic bezel covering blue edges
     const float fx = bx + bezelThick, fy = by + bezelThick;
-    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 188x78
+    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 176x66
     const float s = w / 300.0f;
     juce::Rectangle<float> bezel(bx, by, bw, bh);
     juce::Rectangle<float> face(fx, fy, w, h);
@@ -1263,16 +1263,16 @@ void CenterPanel::paint(juce::Graphics& g) {
 }
 
 void CenterPanel::resized() {
-    ips_->setTopLeftPosition(12, 20);
-    tapeSize_->setTopLeftPosition(158, 20);
+    ips_->setTopLeftPosition(4, 55);
+    tapeSize_->setTopLeftPosition(196, 55);
     // Row 1: ECHO and DRY/WET side by side, aligned with row 1 pots (y=70)
     // ECHO (40px, None): component 56x56, center (60,70) -> top-left (32,42)
     echo_->setTopLeftPosition(32, 42);
     // DRY/WET (28px, None): component 44x44, center (180,70) -> top-left (158,48)
     dryWet_->setTopLeftPosition(158, 48);
-    vuReverb_->setTopLeftPosition(10, 130);
-    vuMain_->setTopLeftPosition(10, 252);
-    tape_->setTopLeftPosition(14, 376);
+    vuReverb_->setTopLeftPosition(10, 110);
+    vuMain_->setTopLeftPosition(10, 222);
+    tape_->setTopLeftPosition(14, 346);
     power_->setTopLeftPosition(8, 432);
     jewel_->setTopLeftPosition(92, 436);
     phase_->setTopLeftPosition(168, 432);
