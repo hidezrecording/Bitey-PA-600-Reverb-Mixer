@@ -572,12 +572,13 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // with inner radius w*0.1 and outer radius w*0.95.
     // Stops: 0 -> rgba(255,255,255,0.3), 0.3 -> rgba(100,220,255,0.1),
     //        1 -> rgba(0,0,0,0.5).
+    // Inside the inner radius is transparent (no vignette).
     // JUCE radial gradients run centre -> radius, so remap stops:
     //   0.1/0.95 = 0.105, (0.1+0.3*0.85)/0.95 = 0.374.
     {
         const float vcx = fx + w * 0.5f, vcy = fy + h / 1.5f;
         const float vr = w * 0.95f;
-        juce::ColourGradient vig(col(0x4dffffff), vcx, vcy,
+        juce::ColourGradient vig(col(0x00ffffff), vcx, vcy,
                                  col(0x80000000), vcx + vr, vcy, true);
         vig.addColour(0.105, col(0x4dffffff));
         vig.addColour(0.374, col(0x1a64dcff));
@@ -652,7 +653,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
     g.drawText("dB", int(fx + w * 0.88f) - 40, int(fy + h * 0.25f) - 10, 40, 20,
                juce::Justification::centredRight);
 
-    // Needle
+    // Needle (2px for visibility on high-DPI; prototype is 1.5*s ≈ 1px)
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
     const float na = startAngle + targetPos * totalAngle;
     const float nca = std::cos(na), nsa = std::sin(na);
@@ -660,9 +661,9 @@ void VUMeterComp::paint(juce::Graphics& g) {
     g.setColour(col(0x66000000));
     g.drawLine(cx + shadowOff, cy + shadowOff,
                cx + nca * (r - 10.0f) + shadowOff, cy + nsa * (r - 10.0f) + shadowOff,
-               2.0f * s);
+               2.5f);
     g.setColour(col(0xff1a1a1a));
-    g.drawLine(cx, cy, cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 1.5f * s);
+    g.drawLine(cx, cy, cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 2.0f);
     const float tipR = r - 25.0f * s;
     g.setColour(col(0xffcc3333));
     g.drawLine(cx + nca * tipR, cy + nsa * tipR,
@@ -865,8 +866,8 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(72, 134 + 47);
     kLow_->setCentrePosition(72, 228 + 47);
     kLevel_->setCentrePosition(72, 330 + 69);
-    lowCut_->setTopLeftPosition(4, 460);
-    pad_->setTopLeftPosition(81, 446);
+    lowCut_->setTopLeftPosition(4, 448);
+    pad_->setTopLeftPosition(81, 434);
 }
 
 // ---------------------------------------------------------------------------
