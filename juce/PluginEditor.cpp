@@ -127,9 +127,9 @@ void BiteyKnob::paint(juce::Graphics& g) {
         }
     }
 
-    // Knob label in the bottom scale gap (between the end markers, under the pot)
+    // Knob label in the bottom scale gap — same condensed font as bottom labels
     if (knobLabel_.isNotEmpty()) {
-        g.setFont(BiteyFonts::robotoCondensed(10.0f));
+        g.setFont(BiteyFonts::robotoCondensed(11.0f));
         // Shadow
         g.setColour(col(0x80000000));
         g.drawText(knobLabel_, 0, int(cy + textR - 2), getWidth(), 14,
@@ -1016,7 +1016,7 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
     kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 68, false, BiteyKnob::Scale::ZeroToTen);
     kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 68, false, BiteyKnob::Scale::Eq);
     kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 68, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 120, true, BiteyKnob::Scale::ZeroToTen);
     kReverb_->setKnobLabel("REVERB");
     kHigh_->setKnobLabel("HIGH");
     kLow_->setKnobLabel("LOW");
@@ -1072,7 +1072,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "FREQ", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 120, true, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
     addAndMakeVisible(*midFreq_); addAndMakeVisible(*kMain_);
@@ -1108,7 +1108,7 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 68, false, BiteyKnob::Scale::ZeroToTen);
     kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 68, false, BiteyKnob::Scale::ZeroToTen);
     kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 68, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 110, true, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 120, true, BiteyKnob::Scale::ZeroToTen);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
