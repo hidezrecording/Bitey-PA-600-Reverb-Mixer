@@ -1153,7 +1153,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     // Channel label: "CHANNEL ONE" or "CHANNEL TWO", centered
     g.setFont(BiteyFonts::robotoCondensed(18.0f));
     g.setColour(col(0xe6ffffff));
-    juce::String label = (number_ == "1") ? "CHANNEL ONE" : "CHANNEL TWO";
+    juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
     g.drawText(label, 0, 458, W, 40, juce::Justification::centred);
 }
 
