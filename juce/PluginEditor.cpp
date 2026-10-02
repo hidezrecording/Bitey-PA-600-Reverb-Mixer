@@ -1152,10 +1152,10 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     drawScreenLine(g, 10, 325, W - 20);
-    // Channel label: "1 / LEFT" or "2 / RIGHT", centered
+    // Channel label: "CHANNEL ONE" or "CHANNEL TWO", centered
     g.setFont(BiteyFonts::robotoCondensed(18.0f));
     g.setColour(col(0xe6ffffff));
-    juce::String label = (number_ == "1") ? "1 / LEFT" : "2 / RIGHT";
+    juce::String label = (number_ == "1") ? "CHANNEL ONE" : "CHANNEL TWO";
     g.drawText(label, 0, 458, W, 40, juce::Justification::centred);
 }
 
@@ -1164,8 +1164,8 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(72, 145 + 40);
     kLow_->setCentrePosition(72, 265 + 40);
     kLevel_->setCentrePosition(72, 330 + 50);
-    lowCut_->setTopLeftPosition(20, 432);
-    pad_->setTopLeftPosition(75, 432);
+    lowCut_->setTopLeftPosition(20, 410);
+    pad_->setTopLeftPosition(75, 410);
 }
 
 // ---------------------------------------------------------------------------
