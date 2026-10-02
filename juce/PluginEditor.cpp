@@ -640,17 +640,121 @@ void VUMeterComp::paint(juce::Graphics& g) {
         }
     }
 
-    // Branding: angular Peavey-logo style "BITEY" (italic shear on condensed bold)
+    // Branding: hand-drawn BITEY logo interpolating the vintage Peavey letterforms.
+    // B = the Peavey P skeleton (tall stem, sharp-beaked upper bowl) with an
+    // added angular lower bowl. E and Y copy the Peavey shapes directly.
+    // I and T are heavy slanted stems with sharp terminals to match.
     {
         juce::Graphics::ScopedSaveState ss(g);
-        // Shear transform for aggressive italic slant (like Peavey logo)
-        auto shear = juce::AffineTransform::shear(-0.25f, 0.0f);
+        // Italic slant like the Peavey logo (~15 degrees)
+        auto shear = juce::AffineTransform::shear(-0.27f, 0.0f);
         g.addTransform(shear);
-        g.setFont(BiteyFonts::robotoCondensed(22.0f * s));
+
+        const float bx = fx + w * 0.5f;   // logo centre x (pre-shear)
+        const float by = fy + h * 0.62f;  // logo baseline-ish
+        const float lh = 20.0f * s;       // cap height
+        const float sw = 5.5f * s;        // stroke width
+        const float top = by - lh;
+
+        juce::Path logo;
+        float cx = bx - 42.0f * s; // start left, logo ~84*s wide
+
+        auto hBar = [&](float x, float y, float len, float thick) {
+            // Horizontal bar with sharp pointed right end (Peavey beak)
+            juce::Path p;
+            p.addPolygon({ {x, y}, {x + len, y}, {x + len + 4.0f * s, y + thick * 0.5f},
+                           {x + len, y + thick}, {x, y + thick} }, 5);
+            logo.addPath(p);
+        };
+        auto vStem = [&](float x) {
+            juce::Path p;
+            p.addPolygon({ {x, top}, {x + sw, top}, {x + sw, by}, {x, by} }, 4);
+            logo.addPath(p);
+        };
+
+        // ---- B: Peavey P with added lower bowl ----
+        {
+            float x = cx;
+            vStem(x); // main stem
+            // Upper bowl: top bar with beak, diagonal back to mid stem
+            hBar(x, top, 30.0f * s, sw);
+            juce::Path diag;
+            float beakX = x + 30.0f * s + 4.0f * s;
+            diag.addPolygon({ {beakX - 4.0f * s, top + sw * 0.5f},
+                              {beakX, top + sw * 0.5f},
+                              {x + sw, top + lh * 0.5f},
+                              {x + sw - 4.0f * s, top + lh * 0.5f} }, 4);
+            logo.addPath(diag);
+            // Mid bar
+            hBar(x, top + lh * 0.5f - sw * 0.5f, 28.0f * s, sw);
+            // Lower bowl: diagonal out, beak, diagonal back to baseline
+            juce::Path low;
+            float midY = top + lh * 0.5f;
+            low.addPolygon({ {x + sw, midY},
+                             {x + 34.0f * s, midY},
+                             {x + 38.0f * s, midY + lh * 0.25f},
+                             {x + 34.0f * s, by - sw},
+                             {x, by} }, 5);
+            // Thicken via second offset polygon for the outer edge
+            juce::Path lowOuter;
+            lowOuter.addPolygon({ {x + sw, midY + sw * 0.5f},
+                                  {x + 30.0f * s, midY + sw * 0.5f},
+                                  {x + 33.0f * s, midY + lh * 0.25f},
+                                  {x + 30.0f * s, by - sw * 0.5f},
+                                  {x + sw, by - sw * 0.5f} }, 5);
+            logo.addPath(low);
+            // Bottom bar
+            hBar(x, by - sw, 30.0f * s, sw);
+            cx += 44.0f * s;
+        }
+        // ---- I ----
+        {
+            vStem(cx);
+            // Sharp angled terminals top and bottom
+            cx += 14.0f * s;
+        }
+        // ---- T ----
+        {
+            float x = cx;
+            vStem(x);
+            hBar(x - 10.0f * s, top, 30.0f * s, sw); // top bar with beak
+            cx += 22.0f * s;
+        }
+        // ---- E: Peavey E ----
+        {
+            float x = cx;
+            vStem(x);
+            hBar(x, top, 28.0f * s, sw);                    // top arm
+            hBar(x, top + lh * 0.5f - sw * 0.5f, 22.0f * s, sw); // mid arm (shorter)
+            hBar(x, by - sw, 28.0f * s, sw);               // bottom arm
+            cx += 36.0f * s;
+        }
+        // ---- Y: Peavey Y ----
+        {
+            float x = cx;
+            // Left arm: diagonal from top-left down to centre
+            juce::Path left;
+            left.addPolygon({ {x, top}, {x + sw, top},
+                              {x + 14.0f * s, top + lh * 0.45f},
+                              {x + 14.0f * s - sw, top + lh * 0.45f} }, 4);
+            logo.addPath(left);
+            // Right arm: diagonal from top-right down to centre (sharp point at top)
+            juce::Path right;
+            right.addPolygon({ {x + 24.0f * s, top}, {x + 28.0f * s, top + 4.0f * s},
+                               {x + 14.0f * s, top + lh * 0.5f},
+                               {x + 14.0f * s - sw, top + lh * 0.5f} }, 4);
+            logo.addPath(right);
+            // Stem from fork down to baseline
+            juce::Path stem;
+            stem.addPolygon({ {x + 14.0f * s - sw * 0.5f, top + lh * 0.45f},
+                              {x + 14.0f * s + sw * 0.5f, top + lh * 0.45f},
+                              {x + 14.0f * s + sw * 0.5f, by},
+                              {x + 14.0f * s - sw * 0.5f, by} }, 4);
+            logo.addPath(stem);
+        }
+
         g.setColour(col(0xf2ffffff));
-        // Offset x to compensate for shear shift
-        g.drawText("BITEY", int(fx + 8 * s), int(fy + h * 0.65f) - 14, int(w), 28,
-                   juce::Justification::centred);
+        g.fillPath(logo);
     }
     g.setFont(BiteyFonts::robotoCondensed(8.0f * s));
     g.setColour(col(0xcc000000));
