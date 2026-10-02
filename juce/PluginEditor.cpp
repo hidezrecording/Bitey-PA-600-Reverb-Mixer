@@ -521,35 +521,53 @@ void PowerJewel::timerCallback() {
 
 void PowerJewel::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float r = 25.0f;
+    const float r = 32.0f;  // BIGGER - Fender amp jewel size
 
-    // Bezel
-    g.setColour(col(0xff000000));
-    g.fillEllipse(cx - r - 3, cy - r - 3, (r + 3) * 2, (r + 3) * 2);
-    g.setColour(col(0xff555555));
-    g.drawEllipse(cx - r - 3, cy - r - 3, (r + 3) * 2, (r + 3) * 2, 3.0f);
+    // Outer glow (amber halo when on)
+    if (isOn_) {
+        juce::ColourGradient halo(col(0x66ff9500), cx, cy,
+                                  col(0x00ff9500), cx, cy + r * 2.2f, true);
+        g.setGradientFill(halo);
+        g.fillEllipse(cx - r * 2.2f, cy - r * 2.2f, r * 4.4f, r * 4.4f);
+    }
 
-    // Lens
+    // Chrome bezel (Fender-style)
+    juce::ColourGradient bezel(col(0xffe8e8e8), cx - r, cy - r,
+                               col(0xff707070), cx + r, cy + r, true);
+    bezel.addColour(0.5, col(0xffa0a0a0));
+    g.setGradientFill(bezel);
+    g.fillEllipse(cx - r - 5, cy - r - 5, (r + 5) * 2, (r + 5) * 2);
+    g.setColour(col(0xff333333));
+    g.drawEllipse(cx - r - 5, cy - r - 5, (r + 5) * 2, (r + 5) * 2, 2.0f);
+
+    // Jewel lens: bright orange-yellow amber (Fender pilot light)
     juce::ColourGradient lens(
-        isOn_ ? col(0xffffdd88) : col(0xff552200), cx - r * 0.4f, cy - r * 0.4f,
-        isOn_ ? col(0xffcc5500) : col(0xff110500), cx + r * 0.5f, cy + r * 0.5f, true);
-    if (isOn_) lens.addColour(0.4, col(0xffffaa00));
-    else lens.addColour(0.6, col(0xff331100));
+        isOn_ ? col(0xffffe066) : col(0xff6b3a00), cx - r * 0.4f, cy - r * 0.5f,
+        isOn_ ? col(0xffff8800) : col(0xff241100), cx + r * 0.4f, cy + r * 0.5f, true);
+    if (isOn_) {
+        lens.addColour(0.3, col(0xffffcc33));
+        lens.addColour(0.65, col(0xffffaa00));
+    } else {
+        lens.addColour(0.6, col(0xff3d2000));
+    }
     g.setGradientFill(lens);
     g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
 
-    // Pulse glow when on
+    // Faceted jewel cuts (like a real Fender jewel)
     if (isOn_) {
-        const float a = 0.35f + 0.25f * std::sin(pulse_);
-        g.setColour(col(0xffffaa00).withAlpha(a * 0.5f));
-        g.fillEllipse(cx - r * 0.6f, cy - r * 0.6f, r * 1.2f, r * 1.2f);
+        g.setColour(col(0x88ffffff));
+        for (int i = 0; i < 6; ++i) {
+            const float a = i * juce::MathConstants<float>::twoPi / 6.0f;
+            g.drawLine(cx, cy,
+                       cx + std::cos(a) * r * 0.85f, cy + std::sin(a) * r * 0.85f, 1.0f);
+        }
     }
 
-    // Specular
+    // Bright specular highlight
     g.saveState();
-    g.addTransform(juce::AffineTransform::rotation(-45.0f * kDeg2Rad, cx, cy));
-    g.setColour(col(0xb3ffffff));
-    g.fillEllipse(cx - 14.0f, cy - 20.0f, 10.0f, 5.0f);
+    g.addTransform(juce::AffineTransform::rotation(-35.0f * kDeg2Rad, cx, cy));
+    g.setColour(isOn_ ? col(0xd6ffffff) : col(0x55ffffff));
+    g.fillEllipse(cx - r * 0.55f, cy - r * 0.75f, r * 0.45f, r * 0.22f);
     g.restoreState();
 }
 
@@ -926,10 +944,10 @@ PanelBox::PanelBox(const juce::String& title, juce::Colour bg)
 void PanelBox::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
     g.setColour(bg_);
-    g.fillRoundedRectangle(r, 4.0f);
+    g.fillRoundedRectangle(r, 12.0f);  // More rounded corners on the plates
     // Thin crisp white outline like the original PA-600
     g.setColour(col(0xffe8e8e8));
-    g.drawRoundedRectangle(r.reduced(1.5f), 3.0f, 1.5f);
+    g.drawRoundedRectangle(r.reduced(1.5f), 11.0f, 1.5f);
 
     if (title_.isNotEmpty()) {
         auto font = BiteyFonts::robotoCondensed(10.0f);
