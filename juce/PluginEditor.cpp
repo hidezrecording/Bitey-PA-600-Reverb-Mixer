@@ -535,7 +535,7 @@ void PowerJewel::timerCallback() {
 
 void PowerJewel::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float r = 32.0f;  // BIGGER - Fender amp jewel size
+    const float r = 18.0f;  // Fits in 56x56 component with bezel
 
     // Outer glow (amber halo when on)
     if (isOn_) {
@@ -1338,32 +1338,26 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
 
     // Board tape: masking tape strip with "REVERB MIXER" in sharpie style
-    // Positioned under the VU meters
-    const float tapeY = 385.0f;
-    const float tapeH = 28.0f;
-    const float tapeW = W - 24.0f;
-    const float tapeX = 12.0f;
+    // Website: 92% width, 2.75cqw (29px) height, under VU meters
+    const float tapeW = W * 0.92f;
+    const float tapeH = 29.0f;
+    const float tapeX = (W - tapeW) / 2.0f;
+    const float tapeY = 345.0f;
 
     g.saveState();
-    // Slight rotation for realism (-1 degree)
-    g.addTransform(juce::AffineTransform::rotation(-0.017f, tapeX + tapeW/2, tapeY + tapeH/2));
+    // Slight rotation for realism (-1.6 degrees like website)
+    g.addTransform(juce::AffineTransform::rotation(-0.028f, tapeX + tapeW/2, tapeY + tapeH/2));
 
-    // Masking tape base (beige/tan with slight texture)
-    juce::ColourGradient tape(col(0xffe8d5a3), tapeX, tapeY,
-                              col(0xffd4b87a), tapeX, tapeY + tapeH, false);
+    // Masking tape base (website: #ead9ae to #d8bf87)
+    juce::ColourGradient tape(col(0xffead9ae), tapeX, tapeY,
+                              col(0xffd8bf87), tapeX, tapeY + tapeH, false);
     g.setGradientFill(tape);
     g.fillRect(tapeX, tapeY, tapeW, tapeH);
 
-    // Tape edges (slightly darker)
-    g.setColour(col(0xffb8945a));
-    g.fillRect(tapeX, tapeY, tapeW, 2.0f);
-    g.fillRect(tapeX, tapeY + tapeH - 2.0f, tapeW, 2.0f);
-
-    // Sharpie text: bold, slightly irregular, dark blue-black
+    // Sharpie text: website uses Permanent Marker, 1.55cqw (16px), #1c1a17
     g.setFont(BiteyFonts::robotoCondensed(16.0f));
-    g.setColour(col(0xff1a1a2e));  // Sharpie dark blue-black
-    // Slight offset for hand-drawn feel
-    g.drawText("REVERB MIXER", tapeX + 1.0f, tapeY + 1.0f, tapeW, tapeH,
+    g.setColour(col(0xff1c1a17));
+    g.drawText("REVERB MIXER", tapeX, tapeY, tapeW, tapeH,
                juce::Justification::centred);
 
     g.restoreState();
