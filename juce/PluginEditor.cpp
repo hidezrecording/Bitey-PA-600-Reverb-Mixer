@@ -1076,6 +1076,24 @@ void PanelBox::paint(juce::Graphics& g) {
     g.fillRoundedRectangle(r, 11.0f);  // website: border-radius 1.05cqw ≈ 11px
     // No white outline — silver chassis shows through as dividers
 
+    // Corner screws (website: .scr, width .95cqw ≈ 10px, at .65cqw ≈ 7px from edges)
+    // radial-gradient(circle at 35% 30%, #e4e4e4, #7d7d7d 55%, #3a3a3a)
+    const float sr = 5.0f; // screw radius
+    const float so = 7.0f + sr; // offset from edge to center
+    const float W = r.getWidth(), H = r.getHeight();
+    float sx[4] = {so, W - so, so, W - so};
+    float sy[4] = {so, so, H - so, H - so};
+    for (int i = 0; i < 4; ++i) {
+        juce::ColourGradient screw(col(0xffe4e4e4), sx[i] - sr * 0.3f, sy[i] - sr * 0.4f,
+                                   col(0xff3a3a3a), sx[i] + sr * 0.4f, sy[i] + sr * 0.4f, true);
+        screw.addColour(0.55, col(0xff7d7d7d));
+        g.setGradientFill(screw);
+        g.fillEllipse(sx[i] - sr, sy[i] - sr, sr * 2, sr * 2);
+        // Slot
+        g.setColour(col(0xff242424));
+        g.drawLine(sx[i] - sr * 0.7f, sy[i], sx[i] + sr * 0.7f, sy[i], 1.5f);
+    }
+
     if (title_.isNotEmpty()) {
         auto font = BiteyFonts::robotoCondensed(10.0f);
         g.setFont(font);
