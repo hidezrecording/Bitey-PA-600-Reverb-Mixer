@@ -110,6 +110,7 @@ struct Curves {
     Curve scully;   // Scully 280 line amp model
     Curve c1108;    // 1108/1176-style FET return amp
     Curve helios;   // Helios Type 69 mid: inductor + transformer
+    Curve tape280;  // Scully 280 15IPS: tape hysteresis + saturation
     static Curves build();
 };
 
@@ -356,7 +357,10 @@ private:
     Biquad scullyIn_[2], scullyOut_[2];
     OversampledShaper scully_[2], bus_[2], limiter_[2];
     OversampledShaper helios_[2]; // Helios Type 69 mid inductor/transformer
+    OversampledShaper tape280_[2]; // Scully 280 15IPS tape saturation
     Biquad low_[2], mid_[2], high_[2], subCut_[2];
+    Biquad pultecDip_[2]; // Pultec-style low-end dip (below the 60Hz bump)
+    Biquad tapeEQ_[2]; // 15IPS NAB EQ curve
     Smoothed busDriveGain_;
     SeededRng rng_{0x9015Eu};
     float b0_=0,b1_=0,b2_=0,b3_=0,b4_=0,b5_=0,b6_=0;

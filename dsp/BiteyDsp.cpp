@@ -134,6 +134,24 @@ Curves Curves::build() {
         }
         return y;
     });
+    // Scully 280 15IPS tape: hysteresis-based saturation.
+    // 15IPS character: warm, slight compression, 3rd harmonic emphasis,
+    // gentle HF softening. Models the tape going onto the reel.
+    c.tape280 = Curve::make(8192, [](float x) {
+        // Tape hysteresis: odd-harmonic rich, with memory-like smoothing
+        float y = x;
+        // 3rd harmonic from tape (B-H curve)
+        y += 0.02f * x * x * x;
+        // Soft saturation (tape compression)
+        if (y > 0.75f) {
+            float d = (y - 0.75f) * 2.5f;
+            y = 0.75f + (y - 0.75f) / (1.0f + d);
+        } else if (y < -0.75f) {
+            float d = (y + 0.75f) * 2.5f;
+            y = -0.75f + (y + 0.75f) / (1.0f + d);
+        }
+        return y * 1.02f; // Slight makeup for tape loss
+    });
     return c;
 }
 
@@ -708,9 +726,14 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
         bus_[c].prepare(sr_);    bus_[c].setCurve(&curves_->bus);
         limiter_[c].prepare(sr_); limiter_[c].setCurve(&curves_->limiter);
         helios_[c].prepare(sr_); helios_[c].setCurve(&curves_->helios);
+        tape280_[c].prepare(sr_); tape280_[c].setCurve(&curves_->tape280);
         low_[c].setLowShelf(sr_, 60, 0.5, 0);
         mid_[c].setPeaking(sr_, 1000, 1.08, 0);
-        high_[c].setHighShelf(sr_, 12000, 0.3, 0);
+        high_[c].setHighShelf(sr_, 16000, 0.4, 0); // Euphonic air band
+        // Pultec-style: dip below the 60Hz bump for tightness
+        pultecDip_[c].setHighpass(sr_, 28, 0.7);
+        // 15IPS NAB: gentle HF rolloff, head bump handled by low shelf
+        tapeEQ_[c].setLowpass(sr_, 18000, 0.5);
         subCut_[c].setHighpass(sr_, 45, 0.5);
     }
     busDriveGain_.prepare(sr_, 0.9f);
@@ -721,8 +744,9 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
 void MasterSection::reset() {
     for (int c = 0; c < 2; ++c) {
         scullyIn_[c].reset(); scullyOut_[c].reset();
-        scully_[c].reset(); bus_[c].reset(); limiter_[c].reset(); helios_[c].reset();
+        scully_[c].reset(); bus_[c].reset(); limiter_[c].reset(); helios_[c].reset(); tape280_[c].reset();
         low_[c].reset(); mid_[c].reset(); high_[c].reset(); subCut_[c].reset();
+        pultecDip_[c].reset(); tapeEQ_[c].reset();
     }
     b0_=b1_=b2_=b3_=b4_=b5_=b6_=0;
 }
@@ -752,9 +776,14 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         // Proportional Q: increases with boost/cut amount (Helios behavior)
         float propQ = baseQ[mf] * (1.0f + (std::fabs(midDb) / 15.0f) * 1.2f);
         for (int c = 0; c < 2; ++c) {
+            // Pultec-style low: 60Hz bump with subtle dip below for tightness
+            // When boosting, the dip tightens; when cutting, it's a clean shelf
             low_[c].setLowShelf(sr_, 60, 0.5, lowDb);
+            float dipGain = lowDb > 0 ? -lowDb * 0.3f : 0.0f; // Pultec trick
+            pultecDip_[c].setPeaking(sr_, 35, 1.2, dipGain);
             mid_[c].setPeaking(sr_, midFreqs[mf], propQ, midDb);
-            high_[c].setHighShelf(sr_, 12000, 0.3, highDb);
+            // Euphonic high: 16kHz air band, very gentle (Fairman/Retro style)
+            high_[c].setHighShelf(sr_, 16000, 0.4, highDb);
         }
         dirty_ = false;
     }
@@ -766,14 +795,18 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         y = scullyOut_[c].process(y);
         if (phaseInvert) y = -y;
         y = low_[c].process(y);
+        y = pultecDip_[c].process(y); // Pultec-style tightness below the bump
         y = mid_[c].process(y);
         // Helios Type 69: inductor + transformer character on the mid band
         // (saturation increases with level, like the real LC circuit)
         y = helios_[c].process(y);
-        y = high_[c].process(y);
+        y = high_[c].process(y); // Euphonic air
         y = subCut_[c].process(y);
         y *= bd;
         y = bus_[c].process(y);
+        // Scully 280 15IPS: tape EQ then saturation (the sound of hitting tape)
+        y = tapeEQ_[c].process(y);
+        y = tape280_[c].process(y);
         y = limiter_[c].process(y);
         // Safety: the post-clip reconstruction filter can ring a few %
         // above the brickwall; catch it here for a true ceiling.
