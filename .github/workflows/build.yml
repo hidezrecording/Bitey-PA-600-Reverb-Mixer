@@ -54,19 +54,19 @@ jobs:
       - name: Upload plugins
         uses: actions/upload-artifact@v4
         with:
-          name: Bitey-macOS
+          name: Bitey-macOS-${{ github.run_number }}
           path: build/Bitey_artefacts/Release/
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: Bitey-Installer-macOS
+          name: Bitey-Installer-macOS-${{ github.run_number }}
           path: Bitey-0.1.0-macOS.pkg
 
       - name: Upload test host
         uses: actions/upload-artifact@v4
         with:
-          name: Bitey-TestHost-macOS
+          name: Bitey-TestHost-macOS-${{ github.run_number }}
           path: build/BiteyTestHost_artefacts/Release/
 
   windows:
@@ -96,11 +96,11 @@ jobs:
       - name: Upload plugins
         uses: actions/upload-artifact@v4
         with:
-          name: Bitey-Windows
+          name: Bitey-Windows-${{ github.run_number }}
           path: build/Bitey_artefacts/Release/
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: Bitey-Installer-Windows
+          name: Bitey-Installer-Windows-${{ github.run_number }}
           path: installer\output\Bitey-0.1.0-Windows-Setup.exe
