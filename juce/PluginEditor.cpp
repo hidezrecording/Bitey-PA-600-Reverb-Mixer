@@ -73,7 +73,9 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
         half_ = r + 8.0f;
         cy_ = r + 8.0f;
     } else {
-        textR = r * (skirted ? 1.30f : 1.45f);
+        // Tighter scale radius so the component doesn't balloon
+        // (was 1.30/1.45, now 1.15/1.25 for a more compact layout)
+        textR = r * (skirted ? 1.15f : 1.25f);
         half_ = textR + 13.0f; // label anchor + glyph extent + padding
         cy_ = textR + 11.0f;   // room for the top arc labels
     }
