@@ -294,7 +294,6 @@ private:
     std::unique_ptr<MetalToggle> ips_, tapeSize_;
     std::unique_ptr<BiteyKnob> echo_, dryWet_;
     std::unique_ptr<VUMeterComp> vuReverb_, vuMain_;
-    std::unique_ptr<BoardTape> tape_;
     std::unique_ptr<MetalToggle> power_, phase_;
     std::unique_ptr<PowerJewel> jewel_;
 

@@ -1290,7 +1290,6 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
                                          BiteyKnob::Scale::None);
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
-    tape_ = std::make_unique<BoardTape>();
     power_ = std::make_unique<MetalToggle>(proc, "power", "POWER", true,
                                          std::vector<juce::String>{"ON", "OFF"},
                                          true /* labels right */, 0, true /* invert */);
@@ -1301,7 +1300,7 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
     addAndMakeVisible(*ips_); addAndMakeVisible(*tapeSize_);
     addAndMakeVisible(*echo_); addAndMakeVisible(*dryWet_);
     addAndMakeVisible(*vuReverb_); addAndMakeVisible(*vuMain_);
-    addAndMakeVisible(*tape_); addAndMakeVisible(*power_);
+    addAndMakeVisible(*power_);
     addAndMakeVisible(*phase_); addAndMakeVisible(*jewel_);
 }
 
