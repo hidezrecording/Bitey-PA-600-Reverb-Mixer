@@ -214,9 +214,10 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
 MetalToggle::MetalToggle(BiteyProcessor& proc, const juce::String& paramID,
                          const juce::String& caption, bool captionBelow,
                          const std::vector<juce::String>& labels,
-                         bool labelsOnRight, int iconMode)
+                         bool labelsOnRight, int iconMode, bool invertBool)
     : proc_(proc), paramID_(paramID), caption_(caption), captionBelow_(captionBelow),
-      labels_(labels), labelsOnRight_(labelsOnRight), iconMode_(iconMode) {
+      labels_(labels), labelsOnRight_(labelsOnRight), iconMode_(iconMode),
+      invertBool_(invertBool) {
     if (auto* p = proc.apvts.getParameter(paramID_))
         isBool_ = (dynamic_cast<juce::AudioParameterBool*>(p) != nullptr);
 
@@ -245,7 +246,12 @@ float MetalToggle::tipOffset() const {
 void MetalToggle::syncFromParam() {
     int idx = 0;
     if (auto* p = proc_.apvts.getParameter(paramID_)) {
-        if (isBool_) idx = (p->getValue() > 0.5f) ? 1 : 0;
+        if (isBool_) {
+            bool on = (p->getValue() > 0.5f);
+            // invertBool: value 1.0 maps to index 0 (top label, bat UP)
+            // e.g. POWER with labels {"ON","OFF"}: ON=1.0 -> "ON" (top) active
+            idx = invertBool_ ? (on ? 0 : 1) : (on ? 1 : 0);
+        }
         else if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(p))
             idx = c->getIndex();
     }
@@ -257,7 +263,12 @@ void MetalToggle::mouseDown(const juce::MouseEvent&) {
     const int next = (index_ + 1) % (int) labels_.size();
     if (auto* p = proc_.apvts.getParameter(paramID_)) {
         p->beginChangeGesture();
-        if (isBool_) p->setValueNotifyingHost(next > 0 ? 1.0f : 0.0f);
+        if (isBool_) {
+            // invertBool: index 0 = ON (value 1.0), index 1 = OFF (value 0.0)
+            float v = invertBool_ ? (next == 0 ? 1.0f : 0.0f)
+                                  : (next > 0 ? 1.0f : 0.0f);
+            p->setValueNotifyingHost(v);
+        }
         else if (auto* c = dynamic_cast<juce::AudioParameterChoice*>(p))
             c->setValueNotifyingHost(c->convertTo0to1(next));
         p->endChangeGesture();
@@ -1278,7 +1289,7 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
     tape_ = std::make_unique<BoardTape>();
     power_ = std::make_unique<MetalToggle>(proc, "power", "POWER", true,
                                          std::vector<juce::String>{"ON", "OFF"},
-                                         true /* labels right */);
+                                         true /* labels right */, 0, true /* invert */);
     phase_ = std::make_unique<MetalToggle>(proc, "m_phase", "PHASE", true,
                                           std::vector<juce::String>{"0", "180"},
                                           true /* labels right */);

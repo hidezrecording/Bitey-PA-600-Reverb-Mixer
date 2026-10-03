@@ -83,7 +83,7 @@ public:
     MetalToggle(BiteyProcessor& proc, const juce::String& paramID,
                 const juce::String& caption, bool captionBelow,
                 const std::vector<juce::String>& labels,
-                bool labelsOnRight, int iconMode = 0);
+                bool labelsOnRight, int iconMode = 0, bool invertBool = false);
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent&) override;
@@ -102,6 +102,7 @@ private:
     int iconMode_;
     int index_ = 0;
     bool isBool_ = false;
+    bool invertBool_ = false; // for POWER: value 1.0 = ON = top position
     float body_ = 30.0f; // switch body diameter
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MetalToggle)
