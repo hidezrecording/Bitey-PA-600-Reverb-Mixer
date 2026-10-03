@@ -1166,8 +1166,9 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(cx, 150);
     kLow_->setCentrePosition(cx, 245);
     kLevel_->setCentrePosition(cx, 350); // 86px knob
-    lowCut_->setTopLeftPosition(24, 415);
-    pad_->setTopLeftPosition(89, 415);
+    // 96Hz/PAD toggles: spaced apart to avoid crowding
+    lowCut_->setTopLeftPosition(18, 415);
+    pad_->setTopLeftPosition(98, 415);
 }
 
 // ---------------------------------------------------------------------------
@@ -1276,9 +1277,9 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
     tapeSize_ = std::make_unique<MetalToggle>(proc, "tape_size", "TAPE", false,
                                              std::vector<juce::String>{"1/4\"", "1/2\"", "1\""},
                                              true /* labels right */);
-    echo_ = std::make_unique<BiteyKnob>(proc, "tape_mix", 40, false,
+    echo_ = std::make_unique<BiteyKnob>(proc, "tape_mix", 53, false,
                                        BiteyKnob::Scale::None);
-    dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", 28, false,
+    dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", 53, false,
                                          BiteyKnob::Scale::None);
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
