@@ -1164,7 +1164,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
-    drawScreenLine(g, 10, 365, W - 20);
+    drawScreenLine(g, 10, 405, W - 20);
     // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1174,12 +1174,14 @@ void ChannelStrip::paint(juce::Graphics& g) {
 
 void ChannelStrip::resized() {
     const int cx = 92; // center x for 185px wide strip
-    kReverb_->setCentrePosition(cx, 25 + 40);
-    kHigh_->setCentrePosition(cx, 145 + 40);
-    kLow_->setCentrePosition(cx, 265 + 40);
-    kLevel_->setCentrePosition(cx, 370); // 120px knob (185px tall) -> 277-462
-    lowCut_->setTopLeftPosition(30, 470); // below knob bottom (462)
-    pad_->setTopLeftPosition(95, 470);
+    // Increased vertical spacing to prevent overlaps
+    // 68px knobs need ~100px vertical, 120px LEVEL needs ~167px
+    kReverb_->setCentrePosition(cx, 60);
+    kHigh_->setCentrePosition(cx, 170);
+    kLow_->setCentrePosition(cx, 280);
+    kLevel_->setCentrePosition(cx, 410); // 120px knob (167px tall) -> 326-493
+    lowCut_->setTopLeftPosition(30, 500); // below knob bottom (493)
+    pad_->setTopLeftPosition(95, 500);
 }
 
 // ---------------------------------------------------------------------------
@@ -1464,20 +1466,21 @@ BiteyEditor::BiteyEditor(BiteyProcessor& p)
 
     startTimerHz(30);
     timerCallback();
-    setSize(1140, 576);
+    setSize(1140, 636);
 }
 
 void BiteyEditor::resized() {
     // Guard: setSize() in the ctor triggers resized() before strips exist.
     if (!cheekL_ || !chL_ || !center_) return;
-    // Content 30-1110, strips 185 wide (fits 182px LEVEL knob), center 240
-    cheekL_->setBounds(0, 0, 30, 576);
-    cheekR_->setBounds(1110, 0, 30, 576);
-    chL_->setBounds(38, 8, 185, 560);
-    chR_->setBounds(243, 8, 185, 560);
-    center_->setBounds(448, 8, 240, 560);
-    master_->setBounds(708, 8, 185, 560);
-    reverb_->setBounds(913, 8, 185, 560);
+    // Content 30-1110, strips 185 wide (fits 164px LEVEL knob), center 240
+    // Height increased to 620 for proper vertical spacing
+    cheekL_->setBounds(0, 0, 30, 636);
+    cheekR_->setBounds(1110, 0, 30, 636);
+    chL_->setBounds(38, 8, 185, 620);
+    chR_->setBounds(243, 8, 185, 620);
+    center_->setBounds(448, 8, 240, 620);
+    master_->setBounds(708, 8, 185, 620);
+    reverb_->setBounds(913, 8, 185, 620);
 }
 
 void BiteyEditor::timerCallback() {
