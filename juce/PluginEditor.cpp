@@ -899,37 +899,24 @@ void VUMeterComp::paint(juce::Graphics& g) {
             }
         }
         if (greenLogoImg.isValid()) {
-            const float maxW = w * 0.72f;  // Bigger logo
-            const float maxH = h * 0.55f;
+            const float maxW = w * 0.62f;  // Website: clean, crisp logo
+            const float maxH = h * 0.48f;
             const float imgAspect = (float)greenLogoImg.getWidth() / (float)greenLogoImg.getHeight();
             float dw = maxW, dh = dw / imgAspect;
             if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
             const float dx = fx + (w - dw) * 0.5f;
-            const float dy = fy + h * 0.58f;
+            const float dy = fy + h * 0.52f;
             juce::Rectangle<float> dest(dx, dy, dw, dh);
-
-            // Soft green glow behind
-            g.setColour(col(0x6644ff66));
-            g.drawImage(greenLogoImg, dest.expanded(10.0f));
-            g.setColour(col(0x4433dd44));
-            g.drawImage(greenLogoImg, dest.expanded(5.0f));
-            // Green logo
+            // Crisp green logo (website style - no blobby glow)
             g.drawImage(greenLogoImg, dest);
         }
     }
-    g.setFont(BiteyFonts::robotoCondensed(8.0f * s));
-    g.setColour(col(0xcc000000));
-    g.drawText("MOD. 600", int(fx), int(fy + h * 0.65f + 15 * s) - 8, int(w), 16,
-               juce::Justification::centred);
 
-    // Prototype draws VU left-aligned-ish and dB right-aligned at the top.
-    g.setFont(BiteyFonts::robotoCondensed(11.0f * s));
-    g.setColour(col(0xff111111));
-    g.drawText("VU", int(fx + w * 0.12f) - 20, int(fy + h * 0.25f) - 10, 40, 20,
+    // "VU" in bottom right (website style)
+    g.setFont(BiteyFonts::robotoCondensed(10.0f * s));
+    g.setColour(col(0xffffffff));
+    g.drawText("VU", int(fx + w - 30), int(fy + h - 22), 24, 16,
                juce::Justification::centred);
-    g.setColour(col(0xffcc3333));
-    g.drawText("dB", int(fx + w * 0.88f) - 40, int(fy + h * 0.25f) - 10, 40, 20,
-               juce::Justification::centredRight);
 
     // Needle (2px for visibility on high-DPI; prototype is 1.5*s ≈ 1px)
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
