@@ -578,15 +578,23 @@ void SpringReverb::prepare(double sampleRate, const Curves& curves) {
     drvGain_.prepare(sr_, 0.175f);
     toneFreq_.prepare(sr_, 3250.0f);
     retGain_.prepare(sr_, 0.7f);
-    // Build the initial IR synchronously: prepare() never runs on the audio
-    // thread, so this keeps the first blocks deterministic and silent-free.
+    // Build the initial IR synchronously ONLY on first prepare (worker not
+    // running yet). On re-prepare (sample rate change during audio), use the
+    // async worker path to avoid racing the audio thread.
     const float t0 = 0.5f + (timeParam / 10.0f) * 4.0f;
-    std::vector<float> irL, irR;
-    SpringIR::generate(t0, sr_, irL, irR);
-    convL_[0].setIR(irL.data(), int(irL.size()));
-    convR_[0].setIR(irR.data(), int(irR.size()));
-    active_.store(0);
-    cachedActive_ = 0;
+    const bool firstPrepare = !worker_.joinable();
+    if (firstPrepare) {
+        std::vector<float> irL, irR;
+        SpringIR::generate(t0, sr_, irL, irR);
+        convL_[0].setIR(irL.data(), int(irL.size()));
+        convR_[0].setIR(irR.data(), int(irR.size()));
+        active_.store(0);
+        cachedActive_ = 0;
+    } else {
+        // Ask worker to rebuild at new sample rate on inactive slot
+        reqTime_.store(t0, std::memory_order_relaxed);
+        reqPending_.store(true, std::memory_order_release);
+    }
     requestedTime_ = t0;
     swapReady_.store(false);
     reqPending_.store(false);

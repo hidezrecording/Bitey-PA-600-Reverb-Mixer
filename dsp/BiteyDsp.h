@@ -390,6 +390,8 @@ public:
     void prepare(double sampleRate);
     void reset();
     void setParams(const BiteyParams& p); // applies (smoothing inside)
+    // Call once per audio block before process(): adopts worker-finished IRs
+    void beginBlock() { reverb_.beginBlock(); }
     // In-place stereo processing.
     void process(float* left, float* right, int numSamples);
     // Total I/O latency in samples (for the host).

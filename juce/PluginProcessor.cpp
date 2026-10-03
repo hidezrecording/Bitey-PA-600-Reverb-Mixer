@@ -217,6 +217,7 @@ void BiteyProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         return;
 
     dsp_.setParams(readParamsFromHost());
+    dsp_.beginBlock(); // Adopt worker-finished reverb IRs at block boundary
 
     const int numIn  = juce::jmin(getTotalNumInputChannels(), 2);
     const int numOut = juce::jmin(getTotalNumOutputChannels(), 2);
