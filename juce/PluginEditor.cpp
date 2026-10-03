@@ -331,7 +331,10 @@ void MetalToggle::paint(juce::Graphics& g) {
 
     // Caption above (IPS / TAPE / FREQ style)
     if (caption_.isNotEmpty() && !captionBelow_) {
-        g.setFont(BiteyFonts::robotoCondensed(7.0f));
+        juce::Font capFont(BiteyFonts::robotoCondensed(8.6f));
+        capFont.setBold(true);
+        capFont.setExtraKerningFactor(0.06f);
+        g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
         g.drawText(caption_, 0, 0, int(W), 12, juce::Justification::centred);
         y += 12.0f;
@@ -423,7 +426,11 @@ void MetalToggle::paint(juce::Graphics& g) {
 
     // Caption below (PAD / 96Hz style)
     if (caption_.isNotEmpty() && captionBelow_) {
-        g.setFont(BiteyFonts::robotoCondensed(7.0f));
+        // Website: .tgl-cap - 0.82cqw (8.6px), weight 600, letter-spacing .06em
+        juce::Font capFont(BiteyFonts::robotoCondensed(8.6f));
+        capFont.setBold(true);
+        capFont.setExtraKerningFactor(0.06f);
+        g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
         g.drawText(caption_, 0, int(y + labelColH), int(W), 12,
                    juce::Justification::centred);
@@ -690,18 +697,18 @@ void ClipBulb::paint(juce::Graphics& g) {
 VUMeterComp::VUMeterComp(BiteyProcessor& proc, bool reverbMeter)
     : proc_(proc), reverbMeter_(reverbMeter) {
     // Website: VU meter face has 200:104 aspect (1.92:1) from the SVG viewBox
-    // Component 263x160: 235x122 face + bezel + padding
-    setSize(263, 160);
+    // Component 263x140: fits in center strip layout
+    setSize(263, 140);
 
     // Load website's exact VU scale (rendered from the site's SVG)
     scaleImg_ = juce::ImageCache::getFromMemory(BinaryData::vu_scale_png,
                                                BinaryData::vu_scale_pngSize);
 
     // Pre-generated static noise texture (face-sized)
-    noise_ = juce::Image(juce::Image::ARGB, 235, 122, true);
+    noise_ = juce::Image(juce::Image::ARGB, 231, 108, true);
     juce::Random rng(0x600d);
-    for (int y = 0; y < 122; ++y)
-        for (int x = 0; x < 235; ++x)
+    for (int y = 0; y < 108; ++y)
+        for (int x = 0; x < 231; ++x)
             if (rng.nextFloat() > 0.5f) {
                 const int n = int(rng.nextFloat() * 30.0f);
                 noise_.setPixelAt(x, y, juce::Colour((juce::uint8) n, (juce::uint8) n, (juce::uint8) n, (juce::uint8) 20));
@@ -1119,7 +1126,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
     g.drawText(label, 0, H - 52, W, 40, juce::Justification::centred);
@@ -1171,7 +1178,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, H - 52, W, 40, juce::Justification::centred);
 }
@@ -1216,7 +1223,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, H - 52, W, 40, juce::Justification::centred);
 }
@@ -1293,7 +1300,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const float tapeW = W * 0.92f;
     const float tapeH = 29.0f;
     const float tapeX = (W - tapeW) / 2.0f;
-    const float tapeY = 345.0f;
+    const float tapeY = 400.0f;
 
     g.saveState();
     // Slight rotation for realism (-1.6 degrees like website)
@@ -1341,7 +1348,7 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     // Bottom labels: POWER and PHASE, 20pt like other strips (website: 1.9cqw)
     const int ch = getHeight();
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("POWER", 0, ch - 52, 143, 40, juce::Justification::centred);
     g.drawText("PHASE", 143, ch - 52, 143, 40, juce::Justification::centred);
@@ -1356,15 +1363,15 @@ void CenterPanel::resized() {
     echo_->setTopLeftPosition(58, 38);
     // DRY/WET (53px knob): center (200,65)
     dryWet_->setTopLeftPosition(173, 38);
-    // VU meters: 263px wide (92% of 286), centered
-    vuReverb_->setTopLeftPosition(12, 105);
-    vuReverb_->setSize(263, 110);
-    vuMain_->setTopLeftPosition(12, 225);
-    vuMain_->setSize(263, 110);
+    // VU meters: 263px wide (92% of 286), 140px tall
+    vuReverb_->setTopLeftPosition(12, 100);
+    vuReverb_->setSize(263, 140);
+    vuMain_->setTopLeftPosition(12, 250);
+    vuMain_->setSize(263, 140);
     // Bottom row: POWER, jewel, PHASE
-    power_->setTopLeftPosition(12, 425);
-    jewel_->setTopLeftPosition(117, 429);
-    phase_->setTopLeftPosition(202, 425);
+    power_->setTopLeftPosition(12, 435);
+    jewel_->setTopLeftPosition(117, 439);
+    phase_->setTopLeftPosition(202, 435);
 }
 
 void CenterPanel::syncPower(bool on) {
