@@ -1194,7 +1194,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
-    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
     g.drawText(label, 0, H - 52, W, 40, juce::Justification::centred);
@@ -1246,7 +1246,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
-    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, H - 52, W, 40, juce::Justification::centred);
 }
@@ -1291,7 +1291,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
-    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, H - 52, W, 40, juce::Justification::centred);
 }
@@ -1416,7 +1416,7 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     // Bottom labels: POWER and PHASE, 20pt like other strips (website: 1.9cqw)
     const int ch = getHeight();
-    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("POWER", 0, ch - 52, 143, 40, juce::Justification::centred);
     g.drawText("PHASE", 143, ch - 52, 143, 40, juce::Justification::centred);
