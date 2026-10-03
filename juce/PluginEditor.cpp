@@ -1135,10 +1135,10 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
                            const juce::String& title, const juce::String& number)
     : PanelBox(title, col(0xff1a1a1a)), proc_(proc), number_(number) {
     const juce::String p = (index == 0) ? "ch1_" : "ch2_";
-    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 68, false, BiteyKnob::Scale::ZeroToTen);
-    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 68, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 68, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 120, true, BiteyKnob::Scale::ZeroToTen);
+    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 66, false, BiteyKnob::Scale::ZeroToTen);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 66, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 66, false, BiteyKnob::Scale::Eq);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 86, true, BiteyKnob::Scale::ZeroToTen);
     kReverb_->setKnobLabel("REVERB");
     kHigh_->setKnobLabel("HIGH");
     kLow_->setKnobLabel("LOW");
@@ -1173,15 +1173,14 @@ void ChannelStrip::paint(juce::Graphics& g) {
 }
 
 void ChannelStrip::resized() {
-    const int cx = 92; // center x for 185px wide strip
-    // Increased vertical spacing to prevent overlaps
-    // 68px knobs need ~100px vertical, 120px LEVEL needs ~167px
-    kReverb_->setCentrePosition(cx, 60);
-    kHigh_->setCentrePosition(cx, 170);
-    kLow_->setCentrePosition(cx, 280);
-    kLevel_->setCentrePosition(cx, 410); // 120px knob (167px tall) -> 326-493
-    lowCut_->setTopLeftPosition(30, 500); // below knob bottom (493)
-    pad_->setTopLeftPosition(95, 500);
+    const int cx = 86; // center x for 173px wide strip (173/2=86.5)
+    // Website: 66px knobs, 86px LEVEL, 504px tall strip
+    kReverb_->setCentrePosition(cx, 55);
+    kHigh_->setCentrePosition(cx, 150);
+    kLow_->setCentrePosition(cx, 245);
+    kLevel_->setCentrePosition(cx, 350); // 86px knob
+    lowCut_->setTopLeftPosition(24, 415);
+    pad_->setTopLeftPosition(89, 415);
 }
 
 // ---------------------------------------------------------------------------
@@ -1190,16 +1189,16 @@ void ChannelStrip::resized() {
 
 MasterStrip::MasterStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 68, false, BiteyKnob::Scale::Eq);
-    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 68, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 68, false, BiteyKnob::Scale::Eq);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 66, false, BiteyKnob::Scale::Eq);
+    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 66, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 66, false, BiteyKnob::Scale::Eq);
     kHigh_->setKnobLabel("HIGH");
     kMid_->setKnobLabel("MID");
     kLow_->setKnobLabel("LOW");
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 120, true, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 86, true, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
@@ -1225,15 +1224,14 @@ void MasterStrip::paint(juce::Graphics& g) {
 }
 
 void MasterStrip::resized() {
-    const int cx = 92; // center x for 185px wide strip
-    // Vertical spacing matching ChannelStrip
-    kHigh_->setCentrePosition(cx, 60);
-    kMid_->setCentrePosition(cx, 170);
-    kLow_->setCentrePosition(cx, 280);
-    midFreq_->setTopLeftPosition(105, 190);
-    kMain_->setCentrePosition(cx, 410); // 120px LEVEL knob
-    clipBulb_->setCentrePosition(65, 530);
-    clipBulb_->setSize(52, 52);
+    const int cx = 86; // center x for 173px wide strip
+    kHigh_->setCentrePosition(cx, 55);
+    kMid_->setCentrePosition(cx, 150);
+    kLow_->setCentrePosition(cx, 245);
+    midFreq_->setTopLeftPosition(99, 170);
+    kMain_->setCentrePosition(cx, 350); // 86px LEVEL knob
+    clipBulb_->setCentrePosition(59, 445);
+    clipBulb_->setSize(48, 48);
 }
 
 // ---------------------------------------------------------------------------
@@ -1242,10 +1240,10 @@ void MasterStrip::resized() {
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 68, false, BiteyKnob::Scale::ZeroToTen);
-    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 68, false, BiteyKnob::Scale::ZeroToTen);
-    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 68, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 120, true, BiteyKnob::Scale::ZeroToTen);
+    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 66, false, BiteyKnob::Scale::ZeroToTen);
+    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 66, false, BiteyKnob::Scale::ZeroToTen);
+    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 66, false, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 86, true, BiteyKnob::Scale::ZeroToTen);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
@@ -1272,14 +1270,13 @@ void ReverbStrip::paint(juce::Graphics& g) {
 }
 
 void ReverbStrip::resized() {
-    const int cx = 92; // center x for 185px wide strip
-    // Vertical spacing matching ChannelStrip
-    kDrive_->setCentrePosition(cx, 60);
-    kContour_->setCentrePosition(cx, 170);
-    kTime_->setCentrePosition(cx, 280);
-    kReturn_->setCentrePosition(cx, 410); // 120px LEVEL knob
-    clipBulb_->setCentrePosition(65, 530);
-    clipBulb_->setSize(52, 52);
+    const int cx = 86; // center x for 173px wide strip
+    kDrive_->setCentrePosition(cx, 55);
+    kContour_->setCentrePosition(cx, 150);
+    kTime_->setCentrePosition(cx, 245);
+    kReturn_->setCentrePosition(cx, 350); // 86px LEVEL knob
+    clipBulb_->setCentrePosition(59, 445);
+    clipBulb_->setSize(48, 48);
 }
 
 // ---------------------------------------------------------------------------
@@ -1384,18 +1381,23 @@ void CenterPanel::paint(juce::Graphics& g) {
 }
 
 void CenterPanel::resized() {
-    ips_->setTopLeftPosition(4, 55);
-    tapeSize_->setTopLeftPosition(196, 55);
-    // Row 1: ECHO and DRY/WET side by side, aligned with row 1 pots (y=70)
-    // ECHO (40px, None): component 56x56, center (60,70) -> top-left (32,42)
-    echo_->setTopLeftPosition(32, 42);
-    // DRY/WET (28px, None): component 44x44, center (180,70) -> top-left (158,48)
-    dryWet_->setTopLeftPosition(158, 48);
-    vuReverb_->setTopLeftPosition(10, 110);
-    vuMain_->setTopLeftPosition(10, 222);
-    power_->setTopLeftPosition(8, 432);
-    jewel_->setTopLeftPosition(92, 436);
-    phase_->setTopLeftPosition(168, 432);
+    // 286px wide center panel (website exact)
+    // Top row: IPS (left), ECHO, DRY/WET, TAPE (right)
+    ips_->setTopLeftPosition(8, 50);
+    tapeSize_->setTopLeftPosition(238, 50);
+    // ECHO (53px knob): center (85,65)
+    echo_->setTopLeftPosition(58, 38);
+    // DRY/WET (53px knob): center (200,65)
+    dryWet_->setTopLeftPosition(173, 38);
+    // VU meters: 263px wide (92% of 286), centered
+    vuReverb_->setTopLeftPosition(12, 105);
+    vuReverb_->setSize(263, 110);
+    vuMain_->setTopLeftPosition(12, 225);
+    vuMain_->setSize(263, 110);
+    // Bottom row: POWER, jewel, PHASE
+    power_->setTopLeftPosition(12, 425);
+    jewel_->setTopLeftPosition(117, 429);
+    phase_->setTopLeftPosition(202, 425);
 }
 
 void CenterPanel::syncPower(bool on) {
@@ -1471,21 +1473,21 @@ BiteyEditor::BiteyEditor(BiteyProcessor& p)
 
     startTimerHz(30);
     timerCallback();
-    setSize(1140, 636);
+    setSize(1050, 520);
 }
 
 void BiteyEditor::resized() {
     // Guard: setSize() in the ctor triggers resized() before strips exist.
     if (!cheekL_ || !chL_ || !center_) return;
-    // Content 30-1110, strips 185 wide (fits 164px LEVEL knob), center 240
-    // Height increased to 620 for proper vertical spacing
-    cheekL_->setBounds(0, 0, 30, 636);
-    cheekR_->setBounds(1110, 0, 30, 636);
-    chL_->setBounds(38, 8, 185, 620);
-    chR_->setBounds(243, 8, 185, 620);
-    center_->setBounds(448, 8, 240, 620);
-    master_->setBounds(708, 8, 185, 620);
-    reverb_->setBounds(913, 8, 185, 620);
+    // Website exact: 1050x520, grid 30fr/145fr/145fr/240fr/145fr/145fr/30fr
+    // 880fr total, 1fr=1.193px: cheek 36px, strip 173px, center 286px
+    cheekL_->setBounds(0, 0, 36, 520);
+    cheekR_->setBounds(1014, 0, 36, 520);
+    chL_->setBounds(38, 8, 173, 504);
+    chR_->setBounds(213, 8, 173, 504);
+    center_->setBounds(388, 8, 286, 504);
+    master_->setBounds(676, 8, 173, 504);
+    reverb_->setBounds(851, 8, 173, 504);
 }
 
 void BiteyEditor::timerCallback() {
