@@ -842,32 +842,32 @@ void VUMeterComp::paint(juce::Graphics& g) {
     {
         juce::Path p;
         p.addArc(cx - r, cy - r, r * 2, r * 2, startAngle, redStartAngle, true);
-        g.setColour(col(0xe6141414));
+        g.setColour(col(0xe6ffffff));
         g.strokePath(p, juce::PathStrokeType(2.0f * s));
     }
 
     // Scale ticks
     struct Tick { float pos; const char* label; bool big; bool red; };
     const Tick ticks[] = {
-        {0.00f, "20", true, false}, {0.30f, "10", true, false},
-        {0.42f, "", false, false}, {0.52f, "5", true, false},
-        {0.61f, "3", true, false}, {0.65f, "", false, false},
+        {0.00f, "-20", true, false}, {0.30f, "-10", true, false},
+        {0.42f, "-7", false, false}, {0.52f, "-5", true, false},
+        {0.61f, "-3", true, false}, {0.65f, "", false, false},
         {0.685f, "", false, false}, {0.72f, "0", true, true},
         {0.79f, "", false, true}, {0.86f, "", false, true},
-        {1.00f, "3", true, true},
+        {1.00f, "+3", true, true},
     };
     g.setFont(BiteyFonts::robotoCondensed(12.0f * s));
     for (const auto& t : ticks) {
         const float a = startAngle + t.pos * totalAngle;
         const float ca = std::cos(a), sa = std::sin(a);
         const float tickLen = (t.big ? 12.0f : 7.0f) * s;
-        g.setColour(col(t.red ? 0xffff9500 : 0xff111111));
+        g.setColour(col(t.red ? 0xffff9500 : 0xe6ffffff));
         g.drawLine(cx + ca * r, cy + sa * r,
                    cx + ca * (r - tickLen), cy + sa * (r - tickLen),
                    (t.big ? 2.5f : 1.5f) * s);
         if (t.label[0] != '\0') {
             const float td = 28.0f * s;
-            g.setColour(col(t.red ? 0xffcc7a00 : 0xff111111));
+            g.setColour(col(t.red ? 0xffff9500 : 0xe6ffffff));
             g.drawText(t.label, int(cx + ca * (r - td)) - 20, int(cy + sa * (r - td)) - 10,
                        40, 20, juce::Justification::centred);
         }
@@ -886,10 +886,12 @@ void VUMeterComp::paint(juce::Graphics& g) {
                 for (int y = 0; y < whiteLogo.getHeight(); ++y) {
                     for (int x = 0; x < whiteLogo.getWidth(); ++x) {
                         juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Green (matching toggle indicator green)
+                        // Bright glowing green (matching website's vivid VU logo)
                         const float b = px.getBrightness();
+                        // Boost brightness for a cleaner, more vivid green
+                        const float boost = 0.3f + 0.7f * b;
                         greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(0.25f * b, 1.0f * b, 0.3f * b,
+                            juce::Colour::fromFloatRGBA(0.2f * boost, 1.0f * boost, 0.25f * boost,
                                                         px.getAlpha()));
                     }
                 }
