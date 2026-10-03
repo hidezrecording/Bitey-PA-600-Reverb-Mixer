@@ -1165,7 +1165,6 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
-    drawScreenLine(g, 10, 405, W - 20);
     // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1213,11 +1212,10 @@ void MasterStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    drawScreenLine(g, 10, 405, W - 20);
-    // CLIP label next to the bulb - white
+    // CLIP label above the bulb (bulb centered at 86,425)
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, H - 98, 50, 20, juce::Justification::centredLeft);
+    g.drawText("CLIP", 0, 385, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1231,8 +1229,8 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(cx, 245);
     midFreq_->setTopLeftPosition(99, 170);
     kMain_->setCentrePosition(cx, 350); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(59, 445);
-    clipBulb_->setSize(48, 48);
+    clipBulb_->setCentrePosition(cx, 425);
+    clipBulb_->setSize(40, 40);
 }
 
 // ---------------------------------------------------------------------------
@@ -1259,11 +1257,10 @@ void ReverbStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    drawScreenLine(g, 10, 405, W - 20);
-    // CLIP label next to the bulb - white
+    // CLIP label above the bulb (bulb centered at 86,425)
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, H - 98, 50, 20, juce::Justification::centredLeft);
+    g.drawText("CLIP", 0, 385, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1276,8 +1273,8 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(cx, 150);
     kTime_->setCentrePosition(cx, 245);
     kReturn_->setCentrePosition(cx, 350); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(59, 445);
-    clipBulb_->setSize(48, 48);
+    clipBulb_->setCentrePosition(cx, 425);
+    clipBulb_->setSize(40, 40);
 }
 
 // ---------------------------------------------------------------------------
