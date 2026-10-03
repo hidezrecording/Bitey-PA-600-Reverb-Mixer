@@ -68,11 +68,12 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
         proc.apvts, paramID, slider_);
 
     const float r = knobSizePx * 0.5f;
+    float textR = r;  // default for Scale::None (no scale labels)
     if (scale == Scale::None) {
         half_ = r + 8.0f;
         cy_ = r + 8.0f;
     } else {
-        const float textR = r * (skirted ? 1.30f : 1.45f);
+        textR = r * (skirted ? 1.30f : 1.45f);
         half_ = textR + 13.0f; // label anchor + glyph extent + padding
         cy_ = textR + 11.0f;   // room for the top arc labels
     }
