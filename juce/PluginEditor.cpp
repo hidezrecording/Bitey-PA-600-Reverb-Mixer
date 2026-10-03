@@ -209,10 +209,12 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setGradientFill(cap);
     g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
-    // Thin ivory pointer line (much thinner than before)
-    g.setColour(col(0xf0e6d0));
+    // Thin ivory pointer: website exact - linear-gradient(180deg, #fff8e6, #eadfc2)
     const float pw = 2.0f;  // thin line
     const float pl = bodyR * 0.88f;
+    juce::ColourGradient ptr(col(0xfffff8e6), cx, cy - pl,
+                             col(0xffeadfc2), cx, cy - pl * 0.5f, false);
+    g.setGradientFill(ptr);
     g.fillRoundedRectangle(cx - pw * 0.5f, cy - pl, pw, pl * 0.5f, pw * 0.5f);
 
     g.restoreState();
