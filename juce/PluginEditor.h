@@ -188,6 +188,7 @@ private:
     bool dimmed_ = false;
     float smoothed_ = 0.0f;
     juce::Image noise_;
+    juce::Image scaleImg_;  // Website's exact VU scale (SVG rendered to PNG)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VUMeterComp)
 };

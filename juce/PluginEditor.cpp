@@ -689,15 +689,19 @@ void ClipBulb::paint(juce::Graphics& g) {
 
 VUMeterComp::VUMeterComp(BiteyProcessor& proc, bool reverbMeter)
     : proc_(proc), reverbMeter_(reverbMeter) {
-    // 220x110: 200x85 face + padding for the drop shadow (prototype CSS
-    // box-shadow overflows the 200x85 layout box; JUCE clips to bounds).
-    setSize(220, 110);
+    // Website: VU meter face has 200:104 aspect (1.92:1) from the SVG viewBox
+    // Component 263x160: 235x122 face + bezel + padding
+    setSize(263, 160);
+
+    // Load website's exact VU scale (rendered from the site's SVG)
+    scaleImg_ = juce::ImageCache::getFromMemory(BinaryData::vu_scale_png,
+                                               BinaryData::vu_scale_pngSize);
 
     // Pre-generated static noise texture (face-sized)
-    noise_ = juce::Image(juce::Image::ARGB, 200, 85, true);
+    noise_ = juce::Image(juce::Image::ARGB, 235, 122, true);
     juce::Random rng(0x600d);
-    for (int y = 0; y < 85; ++y)
-        for (int x = 0; x < 200; ++x)
+    for (int y = 0; y < 122; ++y)
+        for (int x = 0; x < 235; ++x)
             if (rng.nextFloat() > 0.5f) {
                 const int n = int(rng.nextFloat() * 30.0f);
                 noise_.setPixelAt(x, y, juce::Colour((juce::uint8) n, (juce::uint8) n, (juce::uint8) n, (juce::uint8) 20));
@@ -848,94 +852,15 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
-    const float zeroPos = 0.72f;
-    const float redStartAngle = startAngle + zeroPos * totalAngle;
 
-    // Red zone arc (amber, like power light)
-    {
-        juce::Path p;
-        p.addArc(cx - r, cy - r, r * 2, r * 2, redStartAngle, endAngle, true);
-        g.setColour(col(0xe6ff9500));
-        g.strokePath(p, juce::PathStrokeType(6.0f * s));
-    }
-    // Black arc
-    {
-        juce::Path p;
-        p.addArc(cx - r, cy - r, r * 2, r * 2, startAngle, redStartAngle, true);
-        g.setColour(col(0xe6ffffff));
-        g.strokePath(p, juce::PathStrokeType(2.0f * s));
+    // Website-exact VU scale: rendered from the site's own SVG
+    // (includes scale arc, ticks, numbers, VU text, zero screw)
+    if (scaleImg_.isValid()) {
+        // SVG viewBox is 200x104; draw to fill the face
+        g.drawImage(scaleImg_, fx, fy, w, h, 0, 0, 
+                    scaleImg_.getWidth(), scaleImg_.getHeight());
     }
 
-    // Scale ticks
-    struct Tick { float pos; const char* label; bool big; bool red; };
-    const Tick ticks[] = {
-        {0.00f, "-20", true, false}, {0.30f, "-10", true, false},
-        {0.42f, "-7", false, false}, {0.52f, "-5", true, false},
-        {0.61f, "-3", true, false}, {0.65f, "", false, false},
-        {0.685f, "", false, false}, {0.72f, "0", true, true},
-        {0.79f, "", false, true}, {0.86f, "", false, true},
-        {1.00f, "+3", true, true},
-    };
-    g.setFont(BiteyFonts::robotoCondensed(12.0f * s));
-    for (const auto& t : ticks) {
-        const float a = startAngle + t.pos * totalAngle;
-        const float ca = std::cos(a), sa = std::sin(a);
-        const float tickLen = (t.big ? 12.0f : 7.0f) * s;
-        g.setColour(col(t.red ? 0xffff9500 : 0xe6ffffff));
-        g.drawLine(cx + ca * r, cy + sa * r,
-                   cx + ca * (r - tickLen), cy + sa * (r - tickLen),
-                   (t.big ? 2.5f : 1.5f) * s);
-        if (t.label[0] != '\0') {
-            const float td = 28.0f * s;
-            g.setColour(col(t.red ? 0xffff9500 : 0xe6ffffff));
-            g.drawText(t.label, int(cx + ca * (r - td)) - 20, int(cy + sa * (r - td)) - 10,
-                       40, 20, juce::Justification::centred);
-        }
-    }
-
-    // Branding: Nathan's hand-drawn BITEY logo (embedded PNG with transparency)
-    {
-        static juce::Image greenLogoImg;
-        if (!greenLogoImg.isValid()) {
-            juce::Image whiteLogo = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
-                                                      BinaryData::biteylogo_pngSize);
-            if (whiteLogo.isValid()) {
-                // Tint white logo to glowing green (matching mixer indicators)
-                greenLogoImg = juce::Image(juce::Image::ARGB,
-                                           whiteLogo.getWidth(), whiteLogo.getHeight(), true);
-                for (int y = 0; y < whiteLogo.getHeight(); ++y) {
-                    for (int x = 0; x < whiteLogo.getWidth(); ++x) {
-                        juce::Colour px = whiteLogo.getPixelAt(x, y);
-                        // Bright glowing green (matching website's vivid VU logo)
-                        const float b = px.getBrightness();
-                        // Boost brightness for a cleaner, more vivid green
-                        const float boost = 0.3f + 0.7f * b;
-                        greenLogoImg.setPixelAt(x, y,
-                            juce::Colour::fromFloatRGBA(0.2f * boost, 1.0f * boost, 0.25f * boost,
-                                                        px.getAlpha()));
-                    }
-                }
-            }
-        }
-        if (greenLogoImg.isValid()) {
-            const float maxW = w * 0.62f;  // Website: clean, crisp logo
-            const float maxH = h * 0.48f;
-            const float imgAspect = (float)greenLogoImg.getWidth() / (float)greenLogoImg.getHeight();
-            float dw = maxW, dh = dw / imgAspect;
-            if (dh > maxH) { dh = maxH; dw = dh * imgAspect; }
-            const float dx = fx + (w - dw) * 0.5f;
-            const float dy = fy + h * 0.52f;
-            juce::Rectangle<float> dest(dx, dy, dw, dh);
-            // Crisp green logo (website style - no blobby glow)
-            g.drawImage(greenLogoImg, dest);
-        }
-    }
-
-    // "VU" in bottom right (website style)
-    g.setFont(BiteyFonts::robotoCondensed(10.0f * s));
-    g.setColour(col(0xffffffff));
-    g.drawText("VU", int(fx + w - 30), int(fy + h - 22), 24, 16,
-               juce::Justification::centred);
 
     // Needle (2px for visibility on high-DPI; prototype is 1.5*s ≈ 1px)
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
