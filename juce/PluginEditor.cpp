@@ -710,13 +710,14 @@ void VUMeterComp::timerCallback() {
 }
 
 void VUMeterComp::paint(juce::Graphics& g) {
-    // UAD-style VU meter: wide black plastic bezel with screws, recessed face under glass,
-    // backlit, realistic needle with pivot cap. Component is 220x110.
+    // UAD-style VU meter: wide black plastic bezel, recessed face under glass,
+    // backlit, realistic needle with pivot cap. Uses actual component bounds.
+    const float bw = (float)getWidth();
+    const float bh = (float)getHeight();
     const float bx = 2.0f, by = 2.0f;          // bezel outer
-    const float bw = 216.0f, bh = 106.0f;
-    const float bezelThick = 20.0f;            // FAT black plastic bezel covering blue edges
+    const float bezelThick = 14.0f;            // black plastic bezel
     const float fx = bx + bezelThick, fy = by + bezelThick;
-    const float w = bw - bezelThick * 2, h = bh - bezelThick * 2; // face: 176x66
+    const float w = bw - 4.0f - bezelThick * 2, h = bh - 4.0f - bezelThick * 2;
     const float s = w / 300.0f;
     juce::Rectangle<float> bezel(bx, by, bw, bh);
     juce::Rectangle<float> face(fx, fy, w, h);
