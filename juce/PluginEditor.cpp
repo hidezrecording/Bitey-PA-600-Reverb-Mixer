@@ -1300,10 +1300,10 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
                                          BiteyKnob::Scale::None);
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
-    power_ = std::make_unique<MetalToggle>(proc, "power", "POWER", true,
+    power_ = std::make_unique<MetalToggle>(proc, "power", "", true,
                                          std::vector<juce::String>{"ON", "OFF"},
                                          true /* labels right */, 0, true /* invert */);
-    phase_ = std::make_unique<MetalToggle>(proc, "m_phase", "PHASE", true,
+    phase_ = std::make_unique<MetalToggle>(proc, "m_phase", "", true,
                                           std::vector<juce::String>{"0", "180"},
                                           true /* labels right */);
     jewel_ = std::make_unique<PowerJewel>();
@@ -1381,6 +1381,14 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setFont(BiteyFonts::robotoCondensed(7.0f));
     g.setColour(col(0xe6ffffff));
     g.drawText("ON", 92, 420, 56, 12, juce::Justification::centred);
+
+    // Bottom labels: POWER and PHASE, same size as other strips (20pt), centered
+    // Power toggle at x=8, Phase toggle at x=168 (240px wide panel)
+    const int H = getHeight();
+    g.setFont(BiteyFonts::robotoCondensed(20.0f));
+    g.setColour(col(0xe6ffffff));
+    g.drawText("POWER", 0, H - 52, 120, 40, juce::Justification::centred);
+    g.drawText("PHASE", 120, H - 52, 120, 40, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
