@@ -99,25 +99,27 @@ void BiteyKnob::paint(juce::Graphics& g) {
 
     g.setFont(BiteyFonts::robotoCondensed(7.0f));
 
+    // Numeric labels - website shows only min/center/max, not all numbers
+    // ZeroToTen: "0" left, "10" right. Eq: "-15" left, "0" top, "+15" right.
     for (int i = 0; i <= 10; ++i) {
         const float angleDeg = -135.0f + (i / 10.0f) * 270.0f;
         const float a = (angleDeg - 90.0f) * kDeg2Rad;
         const float ca = std::cos(a), sa = std::sin(a);
 
-        // Tick mark
-        const float tickH = (scale_ == Scale::Eq && i == 5) ? 5.0f : 3.0f;
+        // Tick mark - thin, elegant white (website style)
+        const float tickH = (scale_ == Scale::Eq && i == 5) ? 4.0f : 2.5f;
         const float x1 = cx + ca * tickR, y1 = cy + sa * tickR;
         const float x2 = cx + ca * (tickR - tickH), y2 = cy + sa * (tickR - tickH);
-        g.setColour(col(0xffffffff));
-        g.drawLine(x1, y1, x2, y2, 1.5f);
+        g.setColour(col(0xe8ffffff));
+        g.drawLine(x1, y1, x2, y2, 1.2f);
 
-        // Numeric labels
+        // Numeric labels - only at key positions like the website
         bool show = false;
         juce::String label;
         if (scale_ == Scale::ZeroToTen) {
-            show = (i % 2 == 0);
-            label = juce::String(i);
-        } else {
+            if (i == 0) { label = "0"; show = true; }
+            if (i == 10) { label = "10"; show = true; }
+        } else { // Eq
             if (i == 0) { label = "-15"; show = true; }
             if (i == 5) { label = "0"; show = true; }
             if (i == 10) { label = "+15"; show = true; }
@@ -125,21 +127,19 @@ void BiteyKnob::paint(juce::Graphics& g) {
         if (show) {
             const float lx = cx + ca * textR, ly = cy + sa * textR;
             g.setColour(col(0xffffffff));
-            g.drawText(label, int(lx - 16), int(ly - 7), 32, 14,
+            g.setFont(BiteyFonts::robotoCondensed(8.0f));
+            g.drawText(label, int(lx - 20), int(ly - 8), 40, 16,
                        juce::Justification::centred);
         }
     }
 
-    // Knob label in the bottom scale gap — same condensed font as bottom labels
+    // Knob label BELOW the knob (website style) - white, centered
     if (knobLabel_.isNotEmpty()) {
         g.setFont(BiteyFonts::robotoCondensed(11.0f));
-        // Shadow
-        g.setColour(col(0x80000000));
-        g.drawText(knobLabel_, 0, int(cy + textR - 2), getWidth(), 14,
-                   juce::Justification::centred);
-        // Main text
         g.setColour(col(0xffffffff));
-        g.drawText(knobLabel_, 0, int(cy + textR - 3), getWidth(), 14,
+        // Position below the scale, with clear separation
+        const float labelY = cy + textR + 8.0f;
+        g.drawText(knobLabel_, 0, int(labelY), getWidth(), 14,
                    juce::Justification::centred);
     }
 }
@@ -176,13 +176,13 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    // Doorknob sphere: soft radial gradient, highlight top-left, dark edges
-    // No harsh flutes — smooth bakelite like a real door knob
-    juce::ColourGradient body(col(0xff4a4742), cx - bodyR * 0.4f, cy - bodyR * 0.45f,
-                              col(0xff161413), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
-    body.addColour(0.25, col(0xff35322e));
-    body.addColour(0.75, col(0xff1e1c19));
-    body.addColour(1.0, col(0xff0d0c0a));
+    // Doorknob sphere: warm charcoal, soft vintage bakelite (website style)
+    // Website knobs are warm gray-brown, not pure black
+    juce::ColourGradient body(col(0xff5a554e), cx - bodyR * 0.4f, cy - bodyR * 0.45f,
+                              col(0xff2a2724), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
+    body.addColour(0.25, col(0xff4a4540));
+    body.addColour(0.75, col(0xff35312d));
+    body.addColour(1.0, col(0xff1e1c1a));
     g.setGradientFill(body);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
