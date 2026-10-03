@@ -1393,7 +1393,6 @@ void CenterPanel::resized() {
     dryWet_->setTopLeftPosition(158, 48);
     vuReverb_->setTopLeftPosition(10, 110);
     vuMain_->setTopLeftPosition(10, 222);
-    tape_->setTopLeftPosition(14, 346);
     power_->setTopLeftPosition(8, 432);
     jewel_->setTopLeftPosition(92, 436);
     phase_->setTopLeftPosition(168, 432);
