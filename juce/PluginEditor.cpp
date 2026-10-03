@@ -1211,25 +1211,28 @@ void MasterStrip::syncToggles() { midFreq_->syncFromParam(); }
 void MasterStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
+    const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    drawScreenLine(g, 10, 325, W - 20);
-    // CLIP label next to the bulb (bulb at 45,432) - green
+    drawScreenLine(g, 10, 405, W - 20);
+    // CLIP label next to the bulb - white
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
-    // Large MAIN label at bottom (same height as channel numbers: 22pt)
+    g.drawText("CLIP", 75, H - 98, 50, 20, juce::Justification::centredLeft);
+    // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("MAIN", 0, 458, W, 40, juce::Justification::centred);
+    g.drawText("MAIN", 0, H - 52, W, 40, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
-    kHigh_->setCentrePosition(72, 25 + 40);
-    kMid_->setCentrePosition(72, 145 + 40);
-    kLow_->setCentrePosition(72, 265 + 40);
-    midFreq_->setTopLeftPosition(85, 165);
-    kMain_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 460);
+    const int cx = 92; // center x for 185px wide strip
+    // Vertical spacing matching ChannelStrip
+    kHigh_->setCentrePosition(cx, 60);
+    kMid_->setCentrePosition(cx, 170);
+    kLow_->setCentrePosition(cx, 280);
+    midFreq_->setTopLeftPosition(105, 190);
+    kMain_->setCentrePosition(cx, 410); // 120px LEVEL knob
+    clipBulb_->setCentrePosition(65, 530);
     clipBulb_->setSize(52, 52);
 }
 
@@ -1255,24 +1258,27 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
 void ReverbStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
+    const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    drawScreenLine(g, 10, 325, W - 20);
-    // CLIP label next to the bulb (bulb at 45,432) - green
+    drawScreenLine(g, 10, 405, W - 20);
+    // CLIP label next to the bulb - white
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 75, 422, 50, 20, juce::Justification::centredLeft);
-    // Large REVERB label at bottom (same height as channel numbers: 22pt)
+    g.drawText("CLIP", 75, H - 98, 50, 20, juce::Justification::centredLeft);
+    // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("REVERB", 0, 458, W, 40, juce::Justification::centred);
+    g.drawText("REVERB", 0, H - 52, W, 40, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
-    kDrive_->setCentrePosition(72, 25 + 40);
-    kContour_->setCentrePosition(72, 145 + 40);
-    kTime_->setCentrePosition(72, 265 + 40);
-    kReturn_->setCentrePosition(72, 330 + 50);
-    clipBulb_->setCentrePosition(45, 460);
+    const int cx = 92; // center x for 185px wide strip
+    // Vertical spacing matching ChannelStrip
+    kDrive_->setCentrePosition(cx, 60);
+    kContour_->setCentrePosition(cx, 170);
+    kTime_->setCentrePosition(cx, 280);
+    kReturn_->setCentrePosition(cx, 410); // 120px LEVEL knob
+    clipBulb_->setCentrePosition(65, 530);
     clipBulb_->setSize(52, 52);
 }
 
