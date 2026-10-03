@@ -118,6 +118,22 @@ Curves Curves::build() {
         else if (y < -0.8f) y = -0.8f + std::tanh((y + 0.8f) * 1.5f) * 0.2f;
         return y;
     });
+    // Helios Type 69 mid: inductor + transformer character.
+    // Inductor saturation: soft, with 2nd harmonic emphasis (single-ended).
+    // Transformer: subtle 3rd harmonic, very gentle saturation.
+    c.helios = Curve::make(8192, [](float x) {
+        // Inductor: asymmetric, 2nd harmonic rich
+        float y = x + 0.03f * x * x - 0.01f * x * x * x;
+        // Gentle saturation above 0.6 (inductor core saturation)
+        if (y > 0.6f) {
+            float d = (y - 0.6f) * 1.8f;
+            y = 0.6f + (y - 0.6f) / (1.0f + d * d * 0.5f);
+        } else if (y < -0.6f) {
+            float d = (y + 0.6f) * 1.8f;
+            y = -0.6f + (y + 0.6f) / (1.0f + d * d * 0.5f);
+        }
+        return y;
+    });
     return c;
 }
 
@@ -424,8 +440,10 @@ void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
     rumble_.setHighpass(sr_, 20, 0.5);
     lowCut_.setHighpass(sr_, 10, 0.5);
     bandwidth_.setLowpass(sr_, 24000, 0.5);
-    low_.setPeaking(sr_, 100, 0.55, 0);
-    high_.setHighShelf(sr_, 10000, 0.6, 0);
+    // Neve 1073-style: low shelving at 110Hz (gentle, Q=0.5), high shelving at 12kHz
+    // "A hair more gentle" than stock Neve — wider, more musical slopes
+    low_.setLowShelf(sr_, 110, 0.5, 0);
+    high_.setHighShelf(sr_, 12000, 0.5, 0);
     shaper_.prepare(sr_);
     shaper_.setCurve(&curves_->op6);
     preAmpGain_.prepare(sr_, 1.0f);
@@ -447,8 +465,8 @@ void ChannelStrip::updateGains() {
     float drive = std::pow(nl, 2.4f) * 20.0f;
     preAmpGain_.set(drive * padFactor_);
     postGain_.set(2.0f);
-    low_.setPeaking(sr_, 100, 0.55, lowDb);
-    high_.setHighShelf(sr_, 10000, 0.6, highDb);
+    low_.setLowShelf(sr_, 110, 0.5, lowDb);
+    high_.setHighShelf(sr_, 12000, 0.5, highDb);
     lowCut_.setHighpass(sr_, lowCut ? 96 : 10, 0.5);
     dirty_ = false;
 }
@@ -689,6 +707,7 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
         scully_[c].prepare(sr_); scully_[c].setCurve(&curves_->scully);
         bus_[c].prepare(sr_);    bus_[c].setCurve(&curves_->bus);
         limiter_[c].prepare(sr_); limiter_[c].setCurve(&curves_->limiter);
+        helios_[c].prepare(sr_); helios_[c].setCurve(&curves_->helios);
         low_[c].setLowShelf(sr_, 60, 0.5, 0);
         mid_[c].setPeaking(sr_, 1000, 1.08, 0);
         high_[c].setHighShelf(sr_, 12000, 0.3, 0);
@@ -702,7 +721,7 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
 void MasterSection::reset() {
     for (int c = 0; c < 2; ++c) {
         scullyIn_[c].reset(); scullyOut_[c].reset();
-        scully_[c].reset(); bus_[c].reset(); limiter_[c].reset();
+        scully_[c].reset(); bus_[c].reset(); limiter_[c].reset(); helios_[c].reset();
         low_[c].reset(); mid_[c].reset(); high_[c].reset(); subCut_[c].reset();
     }
     b0_=b1_=b2_=b3_=b4_=b5_=b6_=0;
@@ -726,10 +745,15 @@ float MasterSection::noiseTick() {
 void MasterSection::process(float inL, float inR, float& outL, float& outR) {
     if (dirty_) {
         static const float midFreqs[3] = {700.0f, 1000.0f, 1400.0f};
+        // Helios Type 69 base Q: 3 octaves (Q~0.40) at 700Hz, narrowing to
+        // 2 octaves (Q~0.67) at higher frequencies
+        static const float baseQ[3] = {0.40f, 0.55f, 0.67f};
         int mf = midFreq < 0 ? 0 : (midFreq > 2 ? 2 : midFreq);
+        // Proportional Q: increases with boost/cut amount (Helios behavior)
+        float propQ = baseQ[mf] * (1.0f + (std::fabs(midDb) / 15.0f) * 1.2f);
         for (int c = 0; c < 2; ++c) {
             low_[c].setLowShelf(sr_, 60, 0.5, lowDb);
-            mid_[c].setPeaking(sr_, midFreqs[mf], 1.08, midDb);
+            mid_[c].setPeaking(sr_, midFreqs[mf], propQ, midDb);
             high_[c].setHighShelf(sr_, 12000, 0.3, highDb);
         }
         dirty_ = false;
@@ -743,6 +767,9 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         if (phaseInvert) y = -y;
         y = low_[c].process(y);
         y = mid_[c].process(y);
+        // Helios Type 69: inductor + transformer character on the mid band
+        // (saturation increases with level, like the real LC circuit)
+        y = helios_[c].process(y);
         y = high_[c].process(y);
         y = subCut_[c].process(y);
         y *= bd;

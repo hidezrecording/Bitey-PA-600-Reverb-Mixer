@@ -109,6 +109,7 @@ struct Curves {
     Curve limiter;  // brickwall: hard clip +-0.99
     Curve scully;   // Scully 280 line amp model
     Curve c1108;    // 1108/1176-style FET return amp
+    Curve helios;   // Helios Type 69 mid: inductor + transformer
     static Curves build();
 };
 
@@ -353,7 +354,9 @@ private:
     double sr_ = 44100;
     const Curves* curves_ = nullptr;
     Biquad scullyIn_[2], scullyOut_[2];
-    OversampledShaper scully_[2], bus_[2], limiter_[2];    Biquad low_[2], mid_[2], high_[2], subCut_[2];
+    OversampledShaper scully_[2], bus_[2], limiter_[2];
+    OversampledShaper helios_[2]; // Helios Type 69 mid inductor/transformer
+    Biquad low_[2], mid_[2], high_[2], subCut_[2];
     Smoothed busDriveGain_;
     SeededRng rng_{0x9015Eu};
     float b0_=0,b1_=0,b2_=0,b3_=0,b4_=0,b5_=0,b6_=0;
