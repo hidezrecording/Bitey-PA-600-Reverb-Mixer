@@ -725,12 +725,15 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // backlit, realistic needle with pivot cap. Uses actual component bounds.
     const float bw = (float)getWidth();
     const float bh = (float)getHeight();
+    // Guard against zero/invalid bounds (crash fix)
+    if (bw < 50.0f || bh < 50.0f) return;
     const float bx = 2.0f, by = 2.0f;          // bezel outer
     const float bezelThick = 14.0f;            // black plastic bezel
     const float fx = bx + bezelThick, fy = by + bezelThick;
     const float w = bw - 4.0f - bezelThick * 2, h = bh - 4.0f - bezelThick * 2;
+    if (w < 10.0f || h < 10.0f) return;
     const float s = w / 300.0f;
-    juce::Rectangle<float> bezel(bx, by, bw, bh);
+    juce::Rectangle<float> bezel(bx, by, bw - 4.0f, bh - 4.0f);
     juce::Rectangle<float> face(fx, fy, w, h);
 
     // Drop shadow under bezel
