@@ -95,7 +95,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float cy = bounds.getCentreY();
     const float radius = knobSize_ * 0.5f;
     const float tickR = radius * (skirted_ ? 1.15f : 1.25f);
-    const float textR = radius * (skirted_ ? 1.30f : 1.45f);
+    const float textR = radius * (skirted_ ? 1.15f : 1.25f); // Must match constructor!
 
     g.setFont(BiteyFonts::robotoCondensed(7.0f));
 
