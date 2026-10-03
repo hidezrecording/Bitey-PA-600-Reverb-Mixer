@@ -1338,8 +1338,11 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setGradientFill(tape);
     g.fillRect(tapeX, tapeY, tapeW, tapeH);
 
-    // Sharpie text: website uses Permanent Marker, 1.55cqw (16px), #1c1a17
-    g.setFont(BiteyFonts::robotoCondensed(16.0f));
+    // Tape text: website uses serif (typewriter style), 1.55cqw (16px), #1c1a17
+    // Letter-spaced, all caps, classic masking tape label look
+    juce::Font tapeFont(juce::Font::getDefaultSerifFontName(), 16.0f, juce::Font::bold);
+    tapeFont.setExtraKerningFactor(0.07f); // letter-spacing like website
+    g.setFont(tapeFont);
     g.setColour(col(0xff1c1a17));
     g.drawText("REVERB MIXER", tapeX, tapeY, tapeW, tapeH,
                juce::Justification::centred);
