@@ -1173,8 +1173,8 @@ void ChannelStrip::resized() {
     kReverb_->setCentrePosition(cx, 25 + 40);
     kHigh_->setCentrePosition(cx, 145 + 40);
     kLow_->setCentrePosition(cx, 265 + 40);
-    kLevel_->setCentrePosition(cx, 330 + 60); // 120px knob, more room
-    lowCut_->setTopLeftPosition(30, 470);
+    kLevel_->setCentrePosition(cx, 370); // 120px knob (185px tall) -> 277-462
+    lowCut_->setTopLeftPosition(30, 470); // below knob bottom (462)
     pad_->setTopLeftPosition(95, 470);
 }
 
