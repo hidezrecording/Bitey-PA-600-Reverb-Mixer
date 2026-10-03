@@ -767,6 +767,7 @@ void BiteyDsp::prepare(double sampleRate) {
     tape_.prepare(sr_, curves_);
     reverb_.prepare(sr_, curves_);
     master_.prepare(sr_, curves_);
+    masterDry_.prepare(sr_, curves_);
     wetGain_.prepare(sr_, 1.0f);
     dryGain_.prepare(sr_, 0.0f);
     // Dry path: 4 identity 4x stages = 768 samples, exactly like the original's
@@ -790,6 +791,7 @@ void BiteyDsp::reset() {
     tape_.reset();
     reverb_.reset();
     master_.reset();
+    masterDry_.reset();
     std::fill(dryDelayL_.begin(), dryDelayL_.end(), 0);
     std::fill(dryDelayR_.begin(), dryDelayR_.end(), 0);
     dryPos_ = 0;
@@ -824,6 +826,14 @@ void BiteyDsp::setParams(const BiteyParams& p) {
     master_.midFreq = p.midFreq;
     master_.phaseInvert = p.phaseInvert;
     master_.touch();
+    // Dry path master follows the same EQ/settings (analog tone always on)
+    masterDry_.mainLevel = p.mainLevel;
+    masterDry_.lowDb = p.mLowDb;
+    masterDry_.midDb = p.mMidDb;
+    masterDry_.highDb = p.mHighDb;
+    masterDry_.midFreq = p.midFreq;
+    masterDry_.phaseInvert = p.phaseInvert;
+    masterDry_.touch();
     if (p.bypass) {
         wetGain_.set(0.0f);
         dryGain_.set(1.0f);
@@ -894,10 +904,16 @@ void BiteyDsp::process(float* left, float* right, int numSamples) {
         float wetL, wetR;
         master_.process(sumL, sumR, wetL, wetR);
 
+        // Dry path through its own analog chain (Scully/EQ always on).
+        // DRY/WET now crossfades between two analog-processed signals,
+        // not between processed and raw.
+        float dryProcL, dryProcR;
+        masterDry_.process(dirL, dirR, dryProcL, dryProcR);
+
         float w = wetGain_.next();
         float d = dryGain_.next();
-        float oL = wetL * w + dryL * d;
-        float oR = wetR * w + dryR * d;
+        float oL = wetL * w + dryProcL * d;
+        float oR = wetR * w + dryProcR * d;
         left[n] = oL;
         right[n] = oR;
         revSum += double(revL) * revL + double(revR) * revR;
