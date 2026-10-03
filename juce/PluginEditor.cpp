@@ -154,10 +154,12 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setColour(col(0xaa000000));
     g.fillEllipse(cx - size * 0.44f, cy - size * 0.38f + 3.0f, size * 0.88f, size * 0.88f);
 
-    // Skirt (big knobs): smooth dark bakelite ring, doorknob style
+    // Skirt (big knobs): website exact CSS
+    // radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
     if (skirted) {
-        juce::ColourGradient skirt(col(0xff2e2b27), cx - size * 0.35f, cy - size * 0.35f,
-                                   col(0xff0e0d0b), cx + size * 0.4f, cy + size * 0.4f, true);
+        juce::ColourGradient skirt(col(0xff3b352e), cx - size * 0.3f, cy - size * 0.44f,
+                                   col(0xff070605), cx + size * 0.4f, cy + size * 0.4f, true);
+        skirt.addColour(0.58, col(0xff1a1611));
         g.setGradientFill(skirt);
         g.fillEllipse(cx - size * 0.5f, cy - size * 0.5f, size, size);
 
@@ -176,14 +178,21 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    // Doorknob sphere: warm charcoal, soft vintage bakelite (website style)
-    // Website knobs are warm gray-brown, not pure black
-    juce::ColourGradient body(col(0xff5a554e), cx - bodyR * 0.4f, cy - bodyR * 0.45f,
-                              col(0xff2a2724), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
-    body.addColour(0.25, col(0xff4a4540));
-    body.addColour(0.75, col(0xff35312d));
-    body.addColour(1.0, col(0xff1e1c1a));
+    // Doorknob sphere: website exact CSS
+    // radial-gradient(circle at 38% 30%, #4d463d, #28221b 48%, #120e0a 78%, #050403 100%)
+    // plus top highlight: radial-gradient(circle at 34% 24%, rgba(255,242,216,.34), transparent 44%)
+    juce::ColourGradient body(col(0xff4d463d), cx - bodyR * 0.24f, cy - bodyR * 0.4f,
+                              col(0xff050403), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
+    body.addColour(0.48, col(0xff28221b));
+    body.addColour(0.78, col(0xff120e0a));
     g.setGradientFill(body);
+    g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+
+    // Top highlight (warm light catching the knob)
+    juce::ColourGradient hi(col(0x57fff2d8), cx - bodyR * 0.32f, cy - bodyR * 0.52f,
+                            col(0x00fff2d8), cx, cy, true);
+    hi.addColour(0.44, col(0x00fff2d8));
+    g.setGradientFill(hi);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
     // Subtle rim light (bottom-right, like light catching the curve)
@@ -794,10 +803,12 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.reduceClipRegion(clip);
     }
 
-    // Face background: vertical teal gradient
-    juce::ColourGradient bg(col(0xff0088aa), fx, fy,
-                            col(0xff002233), fx, fy + h, false);
-    bg.addColour(0.5, col(0xff005577));
+    // Face background: website exact CSS
+    // linear-gradient(180deg, #0b9dc4 0%, #00779e 38%, #004d6b 78%, #00293d 100%)
+    juce::ColourGradient bg(col(0xff0b9dc4), fx, fy,
+                            col(0xff00293d), fx, fy + h, false);
+    bg.addColour(0.38, col(0xff00779e));
+    bg.addColour(0.78, col(0xff004d6b));
     g.setGradientFill(bg);
     g.fillRect(face);
 
@@ -1055,9 +1066,13 @@ PanelBox::PanelBox(const juce::String& title, juce::Colour bg)
 
 void PanelBox::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
-    g.setColour(bg_);
-    g.fillRoundedRectangle(r, 12.0f);  // More rounded corners on the plates
-    // No white outline — silver chassis shows through as dividers (Peavey style)
+    // Website exact: linear-gradient(180deg,#1b1b1b 0%,#141414 55%,#101010 100%)
+    juce::ColourGradient bg(col(0xff1b1b1b), 0, 0,
+                            col(0xff101010), 0, r.getHeight(), false);
+    bg.addColour(0.55, col(0xff141414));
+    g.setGradientFill(bg);
+    g.fillRoundedRectangle(r, 11.0f);  // website: border-radius 1.05cqw ≈ 11px
+    // No white outline — silver chassis shows through as dividers
 
     if (title_.isNotEmpty()) {
         auto font = BiteyFonts::robotoCondensed(10.0f);
@@ -1065,7 +1080,7 @@ void PanelBox::paint(juce::Graphics& g) {
         const float tw = juce::GlyphArrangement::getStringWidth(font, title_) + 18.0f;
         const float cx = r.getCentreX();
         juce::Rectangle<float> plaque(cx - tw / 2, 7.0f, tw, 19.0f);
-        g.setColour(bg_);
+        g.setColour(col(0xff181818));
         g.fillRect(plaque);
         g.setColour(col(0xff333333));
         g.drawRect(plaque, 1.0f);
@@ -1404,29 +1419,28 @@ WoodCheek::WoodCheek(bool left) : left_(left) {}
 
 void WoodCheek::paint(juce::Graphics& g) {
     const int W = getWidth(), H = getHeight();
-    juce::ColourGradient wood(col(0xffd89a55), 0.0f, 0.0f,
+    // Website exact: linear-gradient(90deg,#e2a45e 0%, #d89a55 30%, #bd813f 62%, #a06a35 100%)
+    juce::ColourGradient wood(col(0xffe2a45e), 0.0f, 0.0f,
                               col(0xffa06a35), float(W), 0.0f, false);
+    wood.addColour(0.30, col(0xffd89a55));
+    wood.addColour(0.62, col(0xffbd813f));
     g.setGradientFill(wood);
-    g.fillRect(0, 0, W, H);
-    // grain streaks
+    g.fillRoundedRectangle(0, 0, W, H, 4.0f); // website: border-radius .35cqw ≈ 4px
+    // Wood grain: subtle vertical streaks (website has repeating gradients)
     juce::Random rng(left_ ? 0x1E57 : 0xBEEF);
-    g.setColour(col(0x334a2c10));
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 12; ++i) {
         const float x = rng.nextFloat() * W;
+        g.setColour(col(0x1960340c)); // rgba(96,52,12,.10)
         juce::Path p;
         p.startNewSubPath(x, 0);
-        p.cubicTo(x + rng.nextFloat() * 6 - 3, H * 0.3f,
-                  x + rng.nextFloat() * 6 - 3, H * 0.6f, x, float(H));
-        g.strokePath(p, juce::PathStrokeType(1.2f));
+        p.cubicTo(x + rng.nextFloat() * 4 - 2, H * 0.3f,
+                  x + rng.nextFloat() * 4 - 2, H * 0.6f, x, float(H));
+        g.strokePath(p, juce::PathStrokeType(1.0f));
     }
-    // edge shading: dark seam toward the panel, light outer edge
-    const float sx = left_ ? float(W) : 0.0f;
-    juce::ColourGradient seam(col(0xcc000000), sx, 0.0f, col(0x00000000),
-                              left_ ? float(W - 8) : 8.0f, 0.0f, false);
-    g.setGradientFill(seam);
-    g.fillRect(0, 0, W, H);
-    g.setColour(col(0x66ffffff));
-    g.fillRect(left_ ? 0 : W - 2, 0, 2, H);
+    // Inner shadow for depth (website: inset box-shadows)
+    juce::ColourGradient shade(col(0x8c462608), 0, 0, col(0x00000000), 12.0f, 0, false);
+    g.setGradientFill(shade);
+    g.fillRoundedRectangle(0, 0, W, H, 4.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -1503,22 +1517,23 @@ void BiteyEditor::timerCallback() {
 }
 
 void BiteyEditor::paint(juce::Graphics& g) {
-    // Chassis: brushed silver metal (Peavey style - black paint on silver)
-    juce::ColourGradient silver(col(0xffb8b8b8), 0, 0,
-                                col(0xff888888), 0, float(getHeight()), false);
-    silver.addColour(0.5, col(0xffa0a0a0));
+    // Chassis: website exact CSS
+    // linear-gradient(180deg,#e6e7e3 0%,#cbccc8 35%,#b0b2ad 62%,#92948f 100%)
+    // with brushed texture: repeating-linear-gradient(90deg, rgba(255,255,255,.07), rgba(0,0,0,.03))
+    const float H = float(getHeight());
+    juce::ColourGradient silver(col(0xffe6e7e3), 0, 0,
+                                col(0xff92948f), 0, H, false);
+    silver.addColour(0.35, col(0xffcbccc8));
+    silver.addColour(0.62, col(0xffb0b2ad));
     g.setGradientFill(silver);
     g.fillRect(getLocalBounds());
 
-    // Brushed metal texture (subtle horizontal lines)
-    g.setColour(col(0x1a000000));
-    for (int y = 0; y < getHeight(); y += 3) {
-        g.drawLine(0, float(y), float(getWidth()), float(y), 0.5f);
+    // Brushed metal texture: fine vertical lines (website: 90deg repeating gradient)
+    // Light lines and dark lines alternating
+    for (int x = 0; x < getWidth(); x += 6) {
+        g.setColour(col(0x12ffffff)); // rgba(255,255,255,.07)
+        g.drawLine(float(x), 0, float(x), H, 1.0f);
+        g.setColour(col(0x08000000)); // rgba(0,0,0,.03)
+        g.drawLine(float(x + 3), 0, float(x + 3), H, 1.0f);
     }
-
-    // Vignette (subtle)
-    juce::ColourGradient vig(col(0x00000000), 525.0f, 260.0f,
-                             col(0x33000000), 525.0f, 260.0f, true);
-    g.setGradientFill(vig);
-    g.fillRect(getLocalBounds());
 }
