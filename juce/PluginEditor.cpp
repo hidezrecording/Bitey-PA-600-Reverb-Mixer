@@ -73,14 +73,14 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
         half_ = r + 8.0f;
         cy_ = r + 8.0f;
     } else {
-        // Tighter scale radius so the component doesn't balloon
-        // (was 1.30/1.45, now 1.15/1.25 for a more compact layout)
+        // Website: .pk height 9.2cqw (97px) for 66px knob, 11cqw (115px) for 86px
+        // Compact layout matching website proportions
         textR = r * (skirted ? 1.15f : 1.25f);
-        half_ = textR + 13.0f; // label anchor + glyph extent + padding
-        cy_ = textR + 11.0f;   // room for the top arc labels
+        half_ = textR + 10.0f;
+        cy_ = textR + 6.0f;
     }
-    // Height includes room for the knob label below the scale (14px + padding)
-    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 18.0f)));
+    // Height includes room for the knob label below (website: absolute positioned)
+    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 10.0f)));
 }
 
 void BiteyKnob::resized() {
@@ -134,12 +134,12 @@ void BiteyKnob::paint(juce::Graphics& g) {
     }
 
     // Knob label BELOW the knob (website style) - white, centered
+    // Positioned within component bounds, just below the scale
     if (knobLabel_.isNotEmpty()) {
-        g.setFont(BiteyFonts::robotoCondensed(11.0f));
+        g.setFont(BiteyFonts::robotoCondensed(10.0f));
         g.setColour(col(0xffffffff));
-        // Position below the scale, with clear separation
-        const float labelY = cy + textR + 8.0f;
-        g.drawText(knobLabel_, 0, int(labelY), getWidth(), 14,
+        const float labelY = cy + textR + 2.0f;
+        g.drawText(knobLabel_, 0, int(labelY), getWidth(), 10,
                    juce::Justification::centred);
     }
 }
@@ -1196,14 +1196,14 @@ void ChannelStrip::paint(juce::Graphics& g) {
 
 void ChannelStrip::resized() {
     const int cx = 86; // center x for 173px wide strip (173/2=86.5)
-    // Website: 66px knobs, 86px LEVEL, 504px tall strip
-    kReverb_->setCentrePosition(cx, 55);
-    kHigh_->setCentrePosition(cx, 150);
-    kLow_->setCentrePosition(cx, 245);
-    kLevel_->setCentrePosition(cx, 350); // 86px knob
-    // 96Hz/PAD toggles: spaced apart to avoid crowding
-    lowCut_->setTopLeftPosition(18, 415);
-    pad_->setTopLeftPosition(98, 415);
+    // Website proportions: 99px tall regular knobs, 115px LEVEL
+    kReverb_->setCentrePosition(cx, 60);
+    kHigh_->setCentrePosition(cx, 160);
+    kLow_->setCentrePosition(cx, 260);
+    kLevel_->setCentrePosition(cx, 370); // 86px knob, 115px component
+    // 96Hz/PAD toggles: below LEVEL, above CHANNEL label
+    lowCut_->setTopLeftPosition(18, 435);
+    pad_->setTopLeftPosition(98, 435);
 }
 
 // ---------------------------------------------------------------------------
@@ -1235,10 +1235,10 @@ void MasterStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    // CLIP label above the bulb (bulb centered at 86,425)
+    // CLIP label above the bulb (bulb centered at 86,435)
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 0, 385, W, 20, juce::Justification::centred);
+    g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1247,13 +1247,13 @@ void MasterStrip::paint(juce::Graphics& g) {
 
 void MasterStrip::resized() {
     const int cx = 86; // center x for 173px wide strip
-    kHigh_->setCentrePosition(cx, 55);
-    kMid_->setCentrePosition(cx, 150);
-    kLow_->setCentrePosition(cx, 245);
-    midFreq_->setTopLeftPosition(99, 170);
-    kMain_->setCentrePosition(cx, 350); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx, 425);
-    clipBulb_->setSize(40, 40);
+    kHigh_->setCentrePosition(cx, 60);
+    kMid_->setCentrePosition(cx, 160);
+    kLow_->setCentrePosition(cx, 260);
+    midFreq_->setTopLeftPosition(99, 180);
+    kMain_->setCentrePosition(cx, 370); // 86px LEVEL knob
+    clipBulb_->setCentrePosition(cx, 435);
+    clipBulb_->setSize(36, 36);
 }
 
 // ---------------------------------------------------------------------------
@@ -1280,10 +1280,10 @@ void ReverbStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels drawn by knobs themselves
-    // CLIP label above the bulb (bulb centered at 86,425)
+    // CLIP label above the bulb (bulb centered at 86,435)
     g.setFont(BiteyFonts::robotoCondensed(10.0f));
     g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 0, 385, W, 20, juce::Justification::centred);
+    g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
     g.setFont(BiteyFonts::robotoCondensed(20.0f));
     g.setColour(col(0xe6ffffff));
@@ -1292,12 +1292,12 @@ void ReverbStrip::paint(juce::Graphics& g) {
 
 void ReverbStrip::resized() {
     const int cx = 86; // center x for 173px wide strip
-    kDrive_->setCentrePosition(cx, 55);
-    kContour_->setCentrePosition(cx, 150);
-    kTime_->setCentrePosition(cx, 245);
-    kReturn_->setCentrePosition(cx, 350); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx, 425);
-    clipBulb_->setSize(40, 40);
+    kDrive_->setCentrePosition(cx, 60);
+    kContour_->setCentrePosition(cx, 160);
+    kTime_->setCentrePosition(cx, 260);
+    kReturn_->setCentrePosition(cx, 370); // 86px LEVEL knob
+    clipBulb_->setCentrePosition(cx, 435);
+    clipBulb_->setSize(36, 36);
 }
 
 // ---------------------------------------------------------------------------
