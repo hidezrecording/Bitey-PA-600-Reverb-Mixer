@@ -133,13 +133,16 @@ void BiteyKnob::paint(juce::Graphics& g) {
         }
     }
 
-    // Knob label BELOW the knob (website style) - white, centered
-    // Positioned within component bounds, just below the scale
+    // Knob label: website exact - Roboto Condensed Bold, 1.08cqw (11.3px), uppercase
+    // Positioned at bottom of component with clear separation from scale
     if (knobLabel_.isNotEmpty()) {
-        g.setFont(BiteyFonts::robotoCondensed(10.0f));
+        juce::Font labelFont(BiteyFonts::robotoCondensed(11.5f));
+        labelFont.setBold(true);
+        g.setFont(labelFont);
         g.setColour(col(0xffffffff));
-        const float labelY = cy + textR + 2.0f;
-        g.drawText(knobLabel_, 0, int(labelY), getWidth(), 10,
+        const float labelH = 12.0f;
+        const float labelY = float(getHeight()) - labelH - 1.0f;
+        g.drawText(knobLabel_, 0, int(labelY), getWidth(), int(labelH),
                    juce::Justification::centred);
     }
 }
@@ -1360,8 +1363,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
     g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
 
-    // Board tape: masking tape strip with "REVERB MIXER" in sharpie style
-    // Website: 92% width, 2.75cqw (29px) height, under VU meters
+    // Board tape: masking tape strip with "REVERB MIXER"
+    // Website: 92% width, 2.75cqw (29px) height, torn edges via clip-path
     const float tapeW = W * 0.92f;
     const float tapeH = 29.0f;
     const float tapeX = (W - tapeW) / 2.0f;
@@ -1371,16 +1374,27 @@ void CenterPanel::paint(juce::Graphics& g) {
     // Slight rotation for realism (-1.6 degrees like website)
     g.addTransform(juce::AffineTransform::rotation(-0.028f, tapeX + tapeW/2, tapeY + tapeH/2));
 
+    // Torn tape edges (website clip-path polygon)
+    juce::Path tapePath;
+    tapePath.startNewSubPath(tapeX, tapeY + tapeH * 0.18f);
+    tapePath.lineTo(tapeX + tapeW * 0.02f, tapeY);
+    tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + tapeH * 0.04f);
+    tapePath.lineTo(tapeX + tapeW, tapeY + tapeH * 0.22f);
+    tapePath.lineTo(tapeX + tapeW * 0.99f, tapeY + tapeH * 0.82f);
+    tapePath.lineTo(tapeX + tapeW * 0.96f, tapeY + tapeH);
+    tapePath.lineTo(tapeX + tapeW * 0.03f, tapeY + tapeH * 0.96f);
+    tapePath.lineTo(tapeX, tapeY + tapeH * 0.78f);
+    tapePath.closeSubPath();
+
     // Masking tape base (website: #ead9ae to #d8bf87)
     juce::ColourGradient tape(col(0xffead9ae), tapeX, tapeY,
                               col(0xffd8bf87), tapeX, tapeY + tapeH, false);
     g.setGradientFill(tape);
-    g.fillRect(tapeX, tapeY, tapeW, tapeH);
+    g.fillPath(tapePath);
 
-    // Tape text: website uses serif (typewriter style), 1.55cqw (16px), #1c1a17
-    // Letter-spaced, all caps, classic masking tape label look
+    // Tape text: website serif, 1.55cqw (16px), #1c1a17, letter-spacing .07em
     juce::Font tapeFont(juce::Font::getDefaultSerifFontName(), 16.0f, juce::Font::bold);
-    tapeFont.setExtraKerningFactor(0.07f); // letter-spacing like website
+    tapeFont.setExtraKerningFactor(0.07f);
     g.setFont(tapeFont);
     g.setColour(col(0xff1c1a17));
     g.drawText("REVERB MIXER", tapeX, tapeY, tapeW, tapeH,
