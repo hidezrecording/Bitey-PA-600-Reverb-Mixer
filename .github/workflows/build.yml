@@ -69,6 +69,21 @@ jobs:
           name: Bitey-TestHost-macOS-${{ github.run_number }}
           path: build/BiteyTestHost_artefacts/Release/
 
+      - name: Generate GUI screenshot
+        run: |
+          APP="build/BiteyTestHost_artefacts/Release/Bitey Test Host.app"
+          if [ -d "$APP" ]; then
+            "$APP/Contents/MacOS/Bitey Test Host" --screenshot /tmp/bitey-gui.png || true
+            ls -lh /tmp/bitey-gui.png || echo "Screenshot failed"
+          fi
+
+      - name: Upload GUI screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitey-GUI-Screenshot-${{ github.run_number }}
+          path: /tmp/bitey-gui.png
+          if-no-files-found: warn
+
   windows:
     name: Windows (VST3)
     # windows-latest now ships Visual Studio 2026 only, so the

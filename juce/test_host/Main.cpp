@@ -156,11 +156,48 @@ class BiteyTestHostApp : public juce::JUCEApplication
 public:
     const juce::String getApplicationName() override       { return "Bitey Test Host"; }
     const juce::String getApplicationVersion() override    { return "0.1.0"; }
-    void initialise(const juce::String&) override
+    void initialise(const juce::String& commandLine) override
     {
+        // Screenshot mode: --screenshot <output.png>
+        // Renders the editor offscreen and exits (for CI verification)
+        auto args = juce::StringArray::fromTokens(commandLine, " ", "");
+        for (int i = 0; i < args.size(); ++i) {
+            if (args[i] == "--screenshot" && i + 1 < args.size()) {
+                takeScreenshot(args[i + 1]);
+                return;
+            }
+        }
         mainWindow = std::make_unique<MainWindow>(getApplicationName());
     }
     void shutdown() override                               { mainWindow = nullptr; }
+
+    void takeScreenshot(const juce::String& outputPath)
+    {
+        // Create processor and editor (no audio needed for GUI)
+        auto proc = std::make_unique<BiteyProcessor>();
+        proc->prepareToPlay(44100.0, 512);
+        auto* editor = proc->createEditor();
+        jassert(editor != nullptr);
+
+        // Render at 2x (2100x1040) to match website reference
+        const int scale = 2;
+        juce::Image img(juce::Image::ARGB, 1050 * scale, 520 * scale, true);
+        {
+            juce::Graphics g(img);
+            g.addTransform(juce::AffineTransform::scale((float)scale));
+            editor->paintEntireComponent(g, false);
+        }
+
+        juce::File outFile(outputPath);
+        auto stream = outFile.createOutputStream();
+        if (stream) {
+            juce::PNGImageFormat png;
+            png.writeImageToStream(img, *stream);
+            std::printf("Screenshot saved: %s\n", outputPath.toRawUTF8());
+        }
+        delete editor;
+        systemRequestedQuit();
+    }
 
 private:
     class MainWindow : public juce::DocumentWindow
