@@ -797,13 +797,13 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         y = low_[c].process(y);
         y = pultecDip_[c].process(y); // Pultec-style tightness below the bump
         y = mid_[c].process(y);
-        // Helios Type 69: inductor + transformer character on the mid band
-        // (saturation increases with level, like the real LC circuit)
-        y = helios_[c].process(y);
+        // Helios shaper bypassed for CPU (EQ curve retained; saturation TBD)
+        // y = helios_[c].process(y);
         y = high_[c].process(y); // Euphonic air
         y = subCut_[c].process(y);
         y *= bd;
-        y = bus_[c].process(y);
+        // Bus shaper bypassed for CPU (very subtle; Scully covers saturation)
+        // y = bus_[c].process(y);
         // Scully 280 15IPS: tape EQ then saturation (the sound of hitting tape)
         y = tapeEQ_[c].process(y);
         y = tape280_[c].process(y);

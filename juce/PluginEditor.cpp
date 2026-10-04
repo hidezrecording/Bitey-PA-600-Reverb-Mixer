@@ -1365,8 +1365,7 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     g.restoreState();
 
-    // DRY/WET caption below the small knob (centered at 180,70)
-    g.drawText("DRY/WET", 150, 94, 60, 12, juce::Justification::centred);
+    // (DRY/WET label drawn by the BiteyKnob itself; no duplicate here)
 
     // Power section divider
     g.setColour(col(0x0dffffff)); // white/5
