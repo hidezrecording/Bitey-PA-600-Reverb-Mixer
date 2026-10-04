@@ -863,16 +863,22 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.fillRect(face);
     }
 
-    const float cx = fx + w / 2, cy = fy + h * 0.846f, r = w * 0.54f;
+    const float cx = fx + w / 2, cy = fy + h * 0.846f;
+    // Needle must stay INSIDE the face (92% of pivot-to-top distance)
+    const float r = h * 0.846f * 0.92f;
     const float startAngle = -3.14159265f * 0.75f;
     const float endAngle = -3.14159265f * 0.25f;
     const float totalAngle = endAngle - startAngle;
 
     // Website-exact VU scale: rendered from the site's own SVG
-    // (includes scale arc, ticks, numbers, VU text, zero screw)
+    // Preserve aspect ratio (200:104 = 1.92:1), centered in face
     if (scaleImg_.isValid()) {
-        // SVG viewBox is 200x104; draw to fill the face
-        g.drawImage(scaleImg_, fx, fy, w, h, 0, 0, 
+        const float svgAspect = 200.0f / 104.0f;
+        float dw = w, dh = w / svgAspect;
+        if (dh > h) { dh = h; dw = h * svgAspect; }
+        const float dx = fx + (w - dw) * 0.5f;
+        const float dy = fy + (h - dh) * 0.5f;
+        g.drawImage(scaleImg_, dx, dy, dw, dh, 0, 0,
                     scaleImg_.getWidth(), scaleImg_.getHeight());
     }
 
@@ -896,22 +902,18 @@ void VUMeterComp::paint(juce::Graphics& g) {
             float lw = w * 0.35f;
             float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
             float lx = fx + (w - lw) * 0.5f;
-            float ly = fy + h * 0.52f; // Below the scale arc
+            float ly = fy + h * 0.58f; // Website: logo at ~58% down
             g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
                         greenLogo.getWidth(), greenLogo.getHeight());
         }
     }
 
 
-    // Needle (2px for visibility on high-DPI; prototype is 1.5*s ≈ 1px)
+    // Needle: single clean needle (no ghost shadow)
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
     const float na = startAngle + targetPos * totalAngle;
     const float nca = std::cos(na), nsa = std::sin(na);
-    const float shadowOff = 4.0f * s;
-    g.setColour(col(0x66000000));
-    g.drawLine(cx + shadowOff, cy + shadowOff,
-               cx + nca * (r - 10.0f) + shadowOff, cy + nsa * (r - 10.0f) + shadowOff,
-               2.5f);
+    // (No shadow — was creating the "ghost needle")
     g.setColour(col(0xff1a1a1a));
     g.drawLine(cx, cy, cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 2.0f);
     const float tipR = r - 25.0f * s;
@@ -1315,15 +1317,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     // ECHO/DRY/WET captions are drawn by the BiteyKnob components themselves
     // (no duplicate drawing here)
 
-    // VU meter captions (below each meter)
-    // vuReverb: y=100-240, vuMain: y=250-390
-    g.setFont(BiteyFonts::robotoCondensed(11.5f));
-    juce::Font capFont(BiteyFonts::robotoCondensed(11.5f));
-    capFont.setBold(true);
-    g.setFont(capFont);
-    g.setColour(col(0xffffffff));
-    g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
-    g.drawText("MAIN", 0, 392, W, 14, juce::Justification::centred);
+    // (No REVERB/MAIN captions — the website doesn't have them)
 
     // Board tape: masking tape strip with "REVERB MIXER"
     // Website: 92% width, 2.75cqw (29px) height, torn edges via clip-path
