@@ -868,6 +868,32 @@ void VUMeterComp::paint(juce::Graphics& g) {
                     scaleImg_.getWidth(), scaleImg_.getHeight());
     }
 
+    // Bitey logo (website: HTML img overlay, centered below scale)
+    {
+        juce::Image logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
+                                                             BinaryData::biteylogo_pngSize);
+        if (logoImg.isValid()) {
+            // Tint to glowing green like the website
+            juce::Image greenLogo(juce::Image::ARGB, logoImg.getWidth(), logoImg.getHeight(), true);
+            for (int y = 0; y < logoImg.getHeight(); ++y) {
+                for (int x = 0; x < logoImg.getWidth(); ++x) {
+                    juce::Colour px = logoImg.getPixelAt(x, y);
+                    float b = px.getBrightness();
+                    float boost = 0.3f + 0.7f * b;
+                    greenLogo.setPixelAt(x, y, juce::Colour::fromFloatRGBA(
+                        0.2f * boost, 1.0f * boost, 0.25f * boost, px.getAlpha()));
+                }
+            }
+            // Website: logo centered, about 50% of face width
+            float lw = w * 0.50f;
+            float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
+            float lx = fx + (w - lw) * 0.5f;
+            float ly = fy + h * 0.45f; // Below the scale arc
+            g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
+                        greenLogo.getWidth(), greenLogo.getHeight());
+        }
+    }
+
 
     // Needle (2px for visibility on high-DPI; prototype is 1.5*s ≈ 1px)
     const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
@@ -885,15 +911,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
     g.drawLine(cx + nca * tipR, cy + nsa * tipR,
                cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 1.5f * s);
 
-    // Pivot cover (dome)
-    {
-        juce::Path dome;
-        dome.addArc(cx - 40.0f * s, fy + h + 10.0f - 40.0f * s, 80.0f * s, 80.0f * s,
-                    3.14159265f, 6.2831853f, true);
-        dome.closeSubPath();
-        g.setColour(col(0xff111111));
-        g.fillPath(dome);
-    }
+    // (Pivot screw is in the SVG scale image; no separate dome needed)
 
     // Glass: top sheen (prototype: white/10 gradient over top 45%)
     {
@@ -1286,14 +1304,18 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.fillRect(6, 16, W - 12, 1);
     g.fillRect(6, 115, W - 12, 1);
 
-    // ECHO caption below the echo knob (centered at 60,70)
-    g.setFont(BiteyFonts::robotoCondensed(7.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("ECHO", 30, 98, 60, 14, juce::Justification::centred);
+    // ECHO/DRY/WET captions are drawn by the BiteyKnob components themselves
+    // (no duplicate drawing here)
 
     // VU meter captions (below each meter)
+    // vuReverb: y=100-240, vuMain: y=250-390
+    g.setFont(BiteyFonts::robotoCondensed(11.5f));
+    juce::Font capFont(BiteyFonts::robotoCondensed(11.5f));
+    capFont.setBold(true);
+    g.setFont(capFont);
+    g.setColour(col(0xffffffff));
     g.drawText("REVERB", 0, 242, W, 14, juce::Justification::centred);
-    g.drawText("MAIN", 0, 364, W, 14, juce::Justification::centred);
+    g.drawText("MAIN", 0, 392, W, 14, juce::Justification::centred);
 
     // Board tape: masking tape strip with "REVERB MIXER"
     // Website: 92% width, 2.75cqw (29px) height, torn edges via clip-path
