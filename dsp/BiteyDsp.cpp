@@ -156,14 +156,13 @@ Curves Curves::build() {
 }
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x zero-stuff + 193-tap Kaiser-windowed-sinc FIR.
+// OversampledShaper — 4x zero-stuff + 95-tap Kaiser-windowed-sinc FIR.
 //
-// Matches Chromium's 4x WaveShaperNode, measured directly:
-//   1/2/3/4 cascaded stages -> 192/384/576/768 samples latency.
-// The resampling filter itself is nearly transparent (flat to ~20 kHz,
-// gentle rolloff to Nyquist); the 193-tap FIR contributes 48 samples of
-// group delay and a pure delay line makes up the remaining 144, for an
-// exact total of 192 samples at the base rate per instance.
+// Reduced from 193 taps for CPU (2x faster, still >60dB stopband).
+// The resampling filter is nearly transparent (flat to ~20 kHz,
+// gentle rolloff to Nyquist); the 95-tap FIR contributes 24 samples of
+// group delay and a pure delay line makes up the remaining 72, for a
+// total of 96 samples at the base rate per instance.
 // ---------------------------------------------------------------------------
 
 // Modified Bessel I0 (Kaiser window).

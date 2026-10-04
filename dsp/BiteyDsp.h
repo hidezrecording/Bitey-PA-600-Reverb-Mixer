@@ -115,9 +115,9 @@ struct Curves {
 };
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x zero-stuff + 193-tap Kaiser FIR.
-// Exact latency: 192 samples at the base rate per instance, matching
-// Chromium's measured 4x WaveShaperNode latency.
+// OversampledShaper — 4x zero-stuff + 95-tap Kaiser FIR (reduced from 193
+// for CPU; still provides >60dB stopband attenuation).
+// Latency: 96 samples at the base rate per instance.
 // ---------------------------------------------------------------------------
 
 class OversampledShaper {
@@ -125,15 +125,15 @@ public:
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void reset();
-    float process(float x);          // 192 samples latency
-    static constexpr int latency() { return 192; }
+    float process(float x);          // 96 samples latency
+    static constexpr int latency() { return 96; }
 private:
-    static constexpr int kTaps = 193;
-    // FIR group delay per filter: (193-1)/2 @4x = 24 @1x; two filters = 48.
-    static constexpr int kPureDelay = 192 - 2 * ((kTaps - 1) / 8);
-    std::vector<float> fir_;         // 193 taps
+    static constexpr int kTaps = 95;
+    // FIR group delay per filter: (95-1)/2 @4x = 11.75 @1x; two filters = 23.5.
+    static constexpr int kPureDelay = 96 - 2 * ((kTaps - 1) / 8);
+    std::vector<float> fir_;         // 95 taps
     std::vector<float> upBuf_, dnBuf_;
-    std::vector<float> delayBuf_;    // pure delay padding to 192
+    std::vector<float> delayBuf_;    // pure delay padding to 96
     int upPos_ = 0, dnPos_ = 0, delayPos_ = 0;
     const Curve* curve_ = nullptr;
 };
