@@ -380,11 +380,18 @@ void MetalToggle::paint(juce::Graphics& g) {
     g.setColour(col(0x66000000));
     g.drawEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f, 3.0f);
 
-    // Toggle bat: 3D metal lever (not just a tip)
-    // The bat pivots at center and tilts up/down based on state
+    // Toggle bat: 3D metal lever that ROTATES around the pivot (like a real switch)
+    // The bat pivots ±25 degrees based on state (not just tiny translation)
     const float batLen = body_ * 0.42f;
     const float batW = body_ * 0.16f;
-    const float tilt = tipOffset(); // positive = down, negative = up
+    const int nStates = (int) labels_.size();
+    // Map index to angle: first = up (-25°), last = down (+25°)
+    float angleDeg = 0.0f;
+    if (nStates > 1) {
+        float t = float(index_) / float(nStates - 1); // 0..1
+        angleDeg = -25.0f + t * 50.0f; // -25° to +25°
+    }
+    const float angleRad = angleDeg * 3.14159265f / 180.0f;
 
     g.saveState();
     // Bat base (pivot point)
@@ -394,8 +401,10 @@ void MetalToggle::paint(juce::Graphics& g) {
     g.fillEllipse(bcx - 6.0f, bcy - 6.0f, 12.0f, 12.0f);
 
     // Bat lever: rounded rectangle with 3D shading, tilted by state
+    // Bat lever: rotated around pivot (realistic toggle action)
+    g.addTransform(juce::AffineTransform::rotation(angleRad, bcx, bcy));
     const float batX = bcx - batW * 0.5f;
-    const float batY = bcy - batLen + tilt * 0.3f; // lever extends up, tilts with state
+    const float batY = bcy - batLen; // lever extends up from pivot
 
     // Bat shadow
     g.setColour(col(0x77000000));
@@ -539,7 +548,7 @@ void BatToggle::paint(juce::Graphics& g) {
 // ---------------------------------------------------------------------------
 
 PowerJewel::PowerJewel() {
-    setSize(56, 56);
+    setSize(36, 36);
     startTimerHz(12);
 }
 
@@ -1147,7 +1156,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
-    g.drawText(label, 0, H - 52, W, 40, juce::Justification::centred);
+    g.drawText(label, 0, H - 44, W, 40, juce::Justification::centred);
 }
 
 void ChannelStrip::resized() {
@@ -1198,7 +1207,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("MAIN", 0, H - 52, W, 40, juce::Justification::centred);
+    g.drawText("MAIN", 0, H - 44, W, 40, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
@@ -1243,7 +1252,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("REVERB", 0, H - 52, W, 40, juce::Justification::centred);
+    g.drawText("REVERB", 0, H - 44, W, 40, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
