@@ -627,7 +627,7 @@ void ClipBulb::timerCallback() {
 
 void ClipBulb::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float r = 18.0f;  // Smaller than power bulb
+    const float r = 7.0f;  // Small LED like the website
 
     const float lvl = juce::jlimit(0.0f, 1.2f, displayLevel_);
 
@@ -884,11 +884,11 @@ void VUMeterComp::paint(juce::Graphics& g) {
                         0.2f * boost, 1.0f * boost, 0.25f * boost, px.getAlpha()));
                 }
             }
-            // Website: logo centered, about 50% of face width
-            float lw = w * 0.50f;
+            // Website: logo centered, about 35% of face width (not covering scale)
+            float lw = w * 0.35f;
             float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
             float lx = fx + (w - lw) * 0.5f;
-            float ly = fy + h * 0.45f; // Below the scale arc
+            float ly = fy + h * 0.52f; // Below the scale arc
             g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
                         greenLogo.getWidth(), greenLogo.getHeight());
         }
@@ -1157,9 +1157,9 @@ void ChannelStrip::resized() {
     kHigh_->setCentrePosition(cx, 160);
     kLow_->setCentrePosition(cx, 260);
     kLevel_->setCentrePosition(cx, 370); // 86px knob, 115px component
-    // 96Hz/PAD toggles: below LEVEL, above CHANNEL label
-    lowCut_->setTopLeftPosition(18, 435);
-    pad_->setTopLeftPosition(98, 435);
+    // 96Hz/PAD toggles: below LEVEL, above CHANNEL label (no overlap)
+    lowCut_->setTopLeftPosition(18, 415);
+    pad_->setTopLeftPosition(98, 415);
 }
 
 // ---------------------------------------------------------------------------
@@ -1209,7 +1209,7 @@ void MasterStrip::resized() {
     midFreq_->setTopLeftPosition(99, 180);
     kMain_->setCentrePosition(cx, 370); // 86px LEVEL knob
     clipBulb_->setCentrePosition(cx, 435);
-    clipBulb_->setSize(36, 36);
+    clipBulb_->setSize(20, 20);
 }
 
 // ---------------------------------------------------------------------------
@@ -1253,7 +1253,7 @@ void ReverbStrip::resized() {
     kTime_->setCentrePosition(cx, 260);
     kReturn_->setCentrePosition(cx, 370); // 86px LEVEL knob
     clipBulb_->setCentrePosition(cx, 435);
-    clipBulb_->setSize(36, 36);
+    clipBulb_->setSize(20, 20);
 }
 
 // ---------------------------------------------------------------------------

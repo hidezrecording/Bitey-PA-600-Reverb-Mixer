@@ -827,9 +827,7 @@ void BiteyDsp::prepare(double sampleRate) {
     tape_.prepare(sr_, curves_);
     reverb_.prepare(sr_, curves_);
     master_.prepare(sr_, curves_);
-    masterDry_.prepare(sr_, curves_);
     wetGain_.prepare(sr_, 1.0f);
-    dryGain_.prepare(sr_, 0.0f);
     // Dry path: 4 identity 4x stages = 768 samples, exactly like the original's
     // four dryFix waveshapers (each measures 192 samples in Chromium).
     // This aligns dry with the DIRECT path (ch/scully/bus/limiter = 4 stages).
@@ -851,7 +849,6 @@ void BiteyDsp::reset() {
     tape_.reset();
     reverb_.reset();
     master_.reset();
-    masterDry_.reset();
     std::fill(dryDelayL_.begin(), dryDelayL_.end(), 0);
     std::fill(dryDelayR_.begin(), dryDelayR_.end(), 0);
     dryPos_ = 0;
@@ -887,20 +884,11 @@ void BiteyDsp::setParams(const BiteyParams& p) {
     master_.phaseInvert = p.phaseInvert;
     master_.touch();
     // Dry path master follows the same EQ/settings (analog tone always on)
-    masterDry_.mainLevel = p.mainLevel;
-    masterDry_.lowDb = p.mLowDb;
-    masterDry_.midDb = p.mMidDb;
-    masterDry_.highDb = p.mHighDb;
-    masterDry_.midFreq = p.midFreq;
-    masterDry_.phaseInvert = p.phaseInvert;
-    masterDry_.touch();
     if (p.bypass) {
         wetGain_.set(0.0f);
-        dryGain_.set(1.0f);
     } else {
         float m = p.mix / 10.0f;
         wetGain_.set(m);
-        dryGain_.set(1.0f - m);
     }
 }
 
@@ -952,32 +940,24 @@ void BiteyDsp::process(float* left, float* right, int numSamples) {
         float revL, revR;
         reverb_.process(revInL, revInR, revL, revR);
 
-        // Master sum: direct path needs no extra alignment (4 stages = 64,
-        // same as the dry path). One shared noise tick, dual-mono like the
-        // original's mono source.
+        // Master sum: dry ALWAYS through Scully/EQ at unity.
+        // DRY/WET controls the effects send level, not a crossfade.
+        // This keeps the analog tone intact and halves CPU (single master chain).
         float dirL = postL * mainG, dirR = postR * mainG;
 
+        float w = wetGain_.next(); // 0..1 effects level
+
         float nz = master_.noiseTick();
-        float sumL = dirL + tapeOut * mainG + revL + nz;
-        float sumR = dirR + tapeOut * mainG + revR + nz;
+        float sumL = dirL + (tapeOut * mainG + revL) * w + nz;
+        float sumR = dirR + (tapeOut * mainG + revR) * w + nz;
 
-        float wetL, wetR;
-        master_.process(sumL, sumR, wetL, wetR);
+        float outL, outR;
+        master_.process(sumL, sumR, outL, outR);
 
-        // Dry path through its own analog chain (Scully/EQ always on).
-        // DRY/WET now crossfades between two analog-processed signals,
-        // not between processed and raw.
-        float dryProcL, dryProcR;
-        masterDry_.process(dirL, dirR, dryProcL, dryProcR);
-
-        float w = wetGain_.next();
-        float d = dryGain_.next();
-        float oL = wetL * w + dryProcL * d;
-        float oR = wetR * w + dryProcR * d;
-        left[n] = oL;
-        right[n] = oR;
+        left[n] = outL;
+        right[n] = outR;
         revSum += double(revL) * revL + double(revR) * revR;
-        outSum += double(oL) * oL + double(oR) * oR;
+        outSum += double(outL) * outL + double(outR) * outR;
     }
 
     // Browser calculateRMS() scaling: min(rms * 4.0, 1.4).

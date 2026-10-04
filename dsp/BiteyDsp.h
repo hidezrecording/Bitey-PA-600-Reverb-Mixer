@@ -414,9 +414,8 @@ private:
     ChannelStrip ch_[2];
     TapeSlap tape_;
     SpringReverb reverb_;
-    MasterSection master_;      // Wet path: dry+effects through Scully/EQ
-    MasterSection masterDry_;   // Dry path: dry only through Scully/EQ
-    Smoothed wetGain_, dryGain_;
+    MasterSection master_;      // Single master: dry + effects through Scully/EQ
+    Smoothed wetGain_;
     std::vector<float> dryDelayL_, dryDelayR_;
     int dryPos_ = 0;
     BiteyParams params_;
