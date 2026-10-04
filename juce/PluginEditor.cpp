@@ -902,7 +902,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
             float lw = w * 0.35f;
             float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
             float lx = fx + (w - lw) * 0.5f;
-            float ly = fy + h * 0.58f; // Website: logo at ~58% down
+            float ly = fy + h * 0.42f; // Centered in face, clear of bezel
             g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
                         greenLogo.getWidth(), greenLogo.getHeight());
         }
