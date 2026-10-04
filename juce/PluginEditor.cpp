@@ -380,18 +380,18 @@ void MetalToggle::paint(juce::Graphics& g) {
     g.setColour(col(0x66000000));
     g.drawEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f, 3.0f);
 
-    // Toggle bat: 3D metal lever that ROTATES around the pivot (like a real switch)
-    // The bat pivots ±25 degrees based on state (not just tiny translation)
+    // Toggle bat: 3D metal lever that moves UP/DOWN (like a real switch)
+    // UP = first position, DOWN = last position. Vertical travel, not rotation.
     const float batLen = body_ * 0.42f;
     const float batW = body_ * 0.16f;
     const int nStates = (int) labels_.size();
-    // Map index to angle: first = up (-25°), last = down (+25°)
-    float angleDeg = 0.0f;
+    // Map index to vertical offset: first = up, last = down
+    float yOffset = 0.0f;
     if (nStates > 1) {
         float t = float(index_) / float(nStates - 1); // 0..1
-        angleDeg = -25.0f + t * 50.0f; // -25° to +25°
+        yOffset = -6.0f + t * 12.0f; // -6 (up) to +6 (down), scaled by body
+        yOffset *= (body_ / 36.0f);
     }
-    const float angleRad = angleDeg * 3.14159265f / 180.0f;
 
     g.saveState();
     // Bat base (pivot point)
@@ -401,10 +401,9 @@ void MetalToggle::paint(juce::Graphics& g) {
     g.fillEllipse(bcx - 6.0f, bcy - 6.0f, 12.0f, 12.0f);
 
     // Bat lever: rounded rectangle with 3D shading, tilted by state
-    // Bat lever: rotated around pivot (realistic toggle action)
-    g.addTransform(juce::AffineTransform::rotation(angleRad, bcx, bcy));
+    // Bat lever: vertical movement (up/down), with 3D perspective
     const float batX = bcx - batW * 0.5f;
-    const float batY = bcy - batLen; // lever extends up from pivot
+    const float batY = bcy - batLen + yOffset; // lever extends up, moves vertically
 
     // Bat shadow
     g.setColour(col(0x77000000));
@@ -1506,11 +1505,8 @@ void BiteyEditor::timerCallback() {
         on = p->getValue() > 0.5f;
     if (on != lastPower_) {
         lastPower_ = on;
-        const float a = on ? 1.0f : 0.6f;
-        chL_->setAlpha(a);
-        chR_->setAlpha(a);
-        master_->setAlpha(a);
-        reverb_->setAlpha(a);
+        // Do NOT dim the channel strips — Nathan wants them always visible.
+        // Only the VU meters dim (via center_->syncPower) and the jewel changes.
         center_->syncPower(on);
     }
 }
