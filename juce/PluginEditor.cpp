@@ -95,7 +95,19 @@ void BiteyKnob::resized() {
 }
 
 void BiteyKnob::paint(juce::Graphics& g) {
-    if (scale_ == Scale::None) return; // ECHO / DRY/WET: bare knob, no scale
+    // Draw knob label even for Scale::None (ECHO/DRY-WET need labels)
+    if (knobLabel_.isNotEmpty() && scale_ == Scale::None) {
+        juce::Font labelFont(BiteyFonts::hardwareFont(13.0f));
+        labelFont.setBold(true);
+        g.setFont(labelFont);
+        g.setColour(col(0xffffffff));
+        const float labelH = 14.0f;
+        const float labelY = float(getHeight()) - labelH - 2.0f;
+        g.drawText(knobLabel_, 0, int(labelY), getWidth(), int(labelH),
+                   juce::Justification::centred);
+        return;
+    }
+    if (scale_ == Scale::None) return; // No scale, no label
     const auto bounds = slider_.getBounds();
     const float cx = bounds.getCentreX();
     const float cy = bounds.getCentreY();
@@ -603,15 +615,7 @@ void PowerJewel::paint(juce::Graphics& g) {
     g.setGradientFill(lens);
     g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
 
-    // Faceted jewel cuts (like a real Fender jewel)
-    if (isOn_) {
-        g.setColour(col(0x88ffffff));
-        for (int i = 0; i < 6; ++i) {
-            const float a = i * juce::MathConstants<float>::twoPi / 6.0f;
-            g.drawLine(cx, cy,
-                       cx + std::cos(a) * r * 0.85f, cy + std::sin(a) * r * 0.85f, 1.0f);
-        }
-    }
+    // (No faceted cuts — website has a simple smooth amber dome)
 
     // Bright specular highlight
     g.saveState();
