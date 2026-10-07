@@ -18,6 +18,16 @@ juce::Typeface::Ptr loadEmbedded(const void* data, size_t size) {
 
 juce::Colour col(uint32_t argb) { return juce::Colour(argb); }
 
+// Extra-heavy "stamped into the metal" text: draws the string multiple times
+// with sub-pixel offsets for a double-bold industrial look.
+inline void drawStamped(juce::Graphics& g, const juce::String& text,
+                        int x, int y, int w, int h,
+                        juce::Justification just = juce::Justification::centred) {
+    for (float ox = -0.8f; ox <= 0.8f; ox += 0.8f)
+        for (float oy = -0.8f; oy <= 0.8f; oy += 0.8f)
+            g.drawText(text, int(x + ox), int(y + oy), w, h, just);
+}
+
 } // namespace
 
 namespace BiteyFonts {
@@ -1113,7 +1123,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
-    g.drawText(label, 0, H - 30, W, 26, juce::Justification::centred);
+    drawStamped(g, label, 0, H - 30, W, 26);
 }
 
 void ChannelStrip::resized() {
@@ -1161,7 +1171,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     // Large MAIN label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
+    drawStamped(g, "MAIN", 0, H - 30, W, 26);
 }
 
 void MasterStrip::resized() {
@@ -1201,7 +1211,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     // Large REVERB label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
+    drawStamped(g, "REVERB", 0, H - 30, W, 26);
 }
 
 void ReverbStrip::resized() {
@@ -1316,8 +1326,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", 0, ch - 30, 130, 26, juce::Justification::centred);
-    g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
+    drawStamped(g, "POWER", 0, ch - 30, 130, 26);
+    drawStamped(g, "PHASE", 143, ch - 30, 143, 26);
 }
 
 void CenterPanel::resized() {
