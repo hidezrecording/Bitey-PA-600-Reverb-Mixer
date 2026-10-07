@@ -87,20 +87,26 @@ void Biquad::setHighpass(double fs, double f, double q) {
 Curves Curves::build() {
     Curves c;
     c.op6 = Curve::make(8192, [](float x) {
-        return x < 0 ? std::tanh(x * 1.2f) : std::tanh(x * 1.05f);
+        // PV low-end: strong 2nd harmonic warmth (single-ended tube character).
+        // Reference (drums through PA-600): H2 ~ -10dB, H3 ~ -28dB.
+        float y = x < 0 ? std::tanh(x * 1.2f) : std::tanh(x * 1.05f);
+        return y + 0.30f * x * x;
     });
     c.tape = Curve::make(8192, [](float x) { return std::tanh(x * 1.5f); });
     c.bus = Curve::make(8192, [](float x) {
         return x * 0.98f + std::tanh(x * 0.1f) * 0.02f;
     });
-    c.driver = Curve::make(8192, [](float x) { return std::tanh(x * 0.8f); });
+    c.driver = Curve::make(8192, [](float x) {
+        // 12AT7 reverb driver: gentle saturation with 2nd harmonic warmth.
+        return std::tanh(x * 0.9f) + 0.20f * x * x;
+    });
     c.limiter = Curve::make(8192, [](float x) {
         if (x > 0.99f) return 0.99f;
         if (x < -0.99f) return -0.99f;
         return x;
     });
     c.scully = Curve::make(8192, [](float x) {
-        float y = x + 0.02f * (x * x);
+        float y = x + 0.04f * (x * x);
         if (y > 0.7f) {
             float d = (y - 0.7f) * 2.0f;
             y = 0.7f + (y - 0.7f) / (1.0f + d * d);
