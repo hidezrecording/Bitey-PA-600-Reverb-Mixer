@@ -1335,7 +1335,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const float tapeW = W * 0.92f;
     const float tapeH = 29.0f;
     const float tapeX = (W - tapeW) / 2.0f;
-    const float tapeY = 400.0f;
+    const float tapeY = 392.0f;
 
     g.saveState();
     // Slight rotation for realism (-1.6 degrees like website)
@@ -1404,9 +1404,9 @@ void CenterPanel::resized() {
     vuMain_->setTopLeftPosition(12, 250);
     vuMain_->setSize(263, 140);
     // Bottom row: POWER, jewel, PHASE
-    power_->setTopLeftPosition(12, 435);
-    jewel_->setTopLeftPosition(117, 439);
-    phase_->setTopLeftPosition(202, 435);
+    power_->setTopLeftPosition(12, 445);
+    jewel_->setTopLeftPosition(117, 449);
+    phase_->setTopLeftPosition(202, 445);
 }
 
 void CenterPanel::syncPower(bool on) {
