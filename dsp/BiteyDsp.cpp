@@ -1100,11 +1100,25 @@ void BiteyDsp::process(float* left, float* right, int numSamples) {
         float w = wetGain_.next(); // 0..1 effects level
 
         float nz = master_.noiseTick();
-        float sumL = dirL + (tapeOut * mainG + revL) * w + nz;
-        float sumR = dirR + (tapeOut * mainG + revR) * w + nz;
+        // ARCHITECTURE (Nathan 2026-10-07): MAIN and REVERB are INDEPENDENT
+        // buses feeding the final stereo bus. They do NOT feed into each other.
+        // - MAIN bus: dry + tape -> master chain (Scully, EQ, tape, limiter)
+        // - REVERB bus: reverb return -> final bus DIRECT (no master saturation).
+        //   (Reverb already has its own 1108 drive chain.)
+        // Cranking REVERB does NOT push the MAIN into distortion.
+        float sumL = dirL + tapeOut * mainG * w + nz;
+        float sumR = dirR + tapeOut * mainG * w + nz;
 
-        float outL, outR;
-        master_.process(sumL, sumR, outL, outR);
+        float mainL, mainR;
+        master_.process(sumL, sumR, mainL, mainR);
+
+        // Independent reverb bus (LEVEL pot controls returnGain in SpringReverb)
+        float revBusL = revL * w;
+        float revBusR = revR * w;
+
+        // Final stereo bus: sum of independent buses
+        float outL = mainL + revBusL;
+        float outR = mainR + revBusR;
 
         left[n] = outL;
         right[n] = outR;
