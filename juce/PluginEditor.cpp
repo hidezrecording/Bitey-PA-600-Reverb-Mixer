@@ -1157,7 +1157,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
-    g.drawText(label, 0, H - 44, W, 40, juce::Justification::centred);
+    g.drawText(label, 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void ChannelStrip::resized() {
@@ -1208,7 +1208,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("MAIN", 0, H - 44, W, 40, juce::Justification::centred);
+    g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
@@ -1253,7 +1253,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("REVERB", 0, H - 44, W, 40, juce::Justification::centred);
+    g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
@@ -1375,8 +1375,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", 0, ch - 52, 143, 40, juce::Justification::centred);
-    g.drawText("PHASE", 143, ch - 52, 143, 40, juce::Justification::centred);
+    g.drawText("POWER", 0, ch - 30, 143, 26, juce::Justification::centred);
+    g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
