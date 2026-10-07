@@ -100,22 +100,25 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float cy = dims_.tickD * 0.5f;
     const float tickR = dims_.tickD * 0.5f;
 
-    // Tick ring: repeating-conic equivalent — 11 ticks over -135..+135 deg,
-    // radius 59%..72.5% of the tick circle (web mask), clipped at the bottom.
-    const float rIn = tickR * 0.59f, rOut = tickR * 0.725f;
-    g.setColour(col(0xf2ffffff));
-    for (int i = 0; i <= 10; ++i) {
-        const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
-        const float sa = std::sin(a), ca = std::cos(a);
-        g.drawLine(cx + sa * rIn, cy - ca * rIn,
-                   cx + sa * rOut, cy - ca * rOut, 1.6f);
+    // Tick ring: 21 ticks over -135..+135 deg, in the black band OUTSIDE the
+    // kring (radius 43..48). Drawn as filled rotated rects so they render
+    // on every backend (drawLine hairlines vanished on macOS).
+    g.setColour(col(0xffffff));
+    const float tickLen = 5.5f, tickW = 2.2f;
+    const float tickMid = tickR - tickLen * 0.5f - 0.5f;
+    for (int i = 0; i <= 20; ++i) {
+        const float a = (-135.0f + i * 13.5f) * kDeg2Rad;
+        g.saveState();
+        g.addTransform(juce::AffineTransform::rotation(a, cx, cy));
+        g.fillRect(cx - tickW * 0.5f, cy - tickMid - tickLen * 0.5f, tickW, tickLen);
+        g.restoreState();
     }
 
     // End markers "0" / "15" on the label baseline (web .end-l/.end-r)
     juce::Font endFont(BiteyFonts::robotoCondensed(8.4f));
     g.setFont(endFont);
     g.setColour(col(0xffffffff));
-    const int markY = int(H - 16);
+    const int markY = int(H - 19);
     g.drawText("0", 6, markY, 24, 13, juce::Justification::centredLeft);
     g.drawText("15", int(W - 30), markY, 24, 13, juce::Justification::centredRight);
 
@@ -126,7 +129,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
         const juce::String txt = knobLabel_.toUpperCase();
         const float tw = juce::GlyphArrangement::getStringWidth(labelFont, txt);
         const float chipW = tw + 7.0f, chipH = 13.0f;
-        const float chipX = cx - chipW * 0.5f, chipY = H - chipH - 2.0f;
+        const float chipX = cx - chipW * 0.5f, chipY = H - chipH - 5.0f;
         g.setColour(col(0xff181818));
         g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
         g.setColour(col(0xffffffff));
@@ -393,10 +396,7 @@ void MetalToggle::paint(juce::Graphics& g) {
     const float rowH = labelColH / juce::jmax(1, n);
     for (int i = 0; i < n; ++i) {
         const bool active = (i == index_);
-        if (active) {
-            g.setColour(col(0x664dff7a));
-            g.fillRoundedRectangle(labelX - 2.0f, y + i * rowH, labelW + 4.0f, rowH, 2.0f);
-        }
+        // Active = green text only (no background box)
         g.setColour(active ? col(0xff4dff7a) : col(0x61ffffff));
         auto just = labelsOnRight_ ? juce::Justification::centredLeft
                                    : juce::Justification::centredRight;
@@ -547,31 +547,44 @@ void PowerJewel::timerCallback() {
 }
 
 void PowerJewel::paint(juce::Graphics& g) {
-    // Web build: .bezel 3.65cqw round metallic, .jewel 2.8cqw amber radial
-    // with a big warm halo.
+    // Silver HEXAGON surround (matches toggle hardware), amber jewel, soft halo.
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float bezelR = 19.2f, jewelR = 14.7f;
+    const float hexR = 21.0f, jewelR = 13.0f;
 
-    // Halo when on: 0 0 2.2cqw .55cqw rgba(255,176,32,.75)
+    // Soft halo when on (radial, fades fully — no hard edge)
     if (isOn_) {
-        juce::ColourGradient halo(col(0xbfffb020), cx, cy,
-                                  col(0x00ffb020), cx, cy + 34.0f, true);
+        juce::ColourGradient halo(col(0x55ffb020), cx, cy,
+                                  col(0x00ffb020), cx, cy + 30.0f, true);
         g.setGradientFill(halo);
-        g.fillEllipse(cx - 34.0f, cy - 34.0f, 68.0f, 68.0f);
+        g.fillEllipse(cx - 30.0f, cy - 30.0f, 60.0f, 60.0f);
     }
 
-    // Bezel: conic metallic approximated with an angular sweep of segments
-    for (int i = 0; i < 24; ++i) {
-        const float a0 = i * 15.0f * kDeg2Rad, a1 = (i + 1) * 15.0f * kDeg2Rad;
-        const float shade = 0.55f + 0.45f * std::abs(std::sin(i * 1.7f));
-        juce::Path seg;
-        seg.addPieSegment(cx - bezelR, cy - bezelR, bezelR * 2.0f, bezelR * 2.0f,
-                          a0, a1, 0.72f);
-        g.setColour(col(0xff888888).interpolatedWith(col(0xfff4f4f4), shade * 0.6f));
-        g.fillPath(seg);
+    // Hexagon: flat-top, chrome gradient
+    juce::Path hex;
+    for (int i = 0; i < 6; ++i) {
+        float a = (60.0f * i - 90.0f) * kDeg2Rad;
+        float px = cx + hexR * std::cos(a), py = cy + hexR * std::sin(a);
+        if (i == 0) hex.startNewSubPath(px, py); else hex.lineTo(px, py);
     }
+    hex.closeSubPath();
+    juce::ColourGradient chrome(col(0xfff0f0f0), cx - hexR, cy - hexR,
+                                col(0xff6a6a6a), cx + hexR, cy + hexR, false);
+    chrome.addColour(0.5, col(0xffb8b8b8));
+    g.setGradientFill(chrome);
+    g.fillPath(hex);
     g.setColour(col(0x80000000));
-    g.drawEllipse(cx - bezelR, cy - bezelR, bezelR * 2.0f, bezelR * 2.0f, 1.5f);
+    g.strokePath(hex, juce::PathStrokeType(1.5f));
+    // Dark recessed center
+    juce::Path hexIn;
+    const float hexInR = hexR - 3.5f;
+    for (int i = 0; i < 6; ++i) {
+        float a = (60.0f * i - 90.0f) * kDeg2Rad;
+        float px = cx + hexInR * std::cos(a), py = cy + hexInR * std::sin(a);
+        if (i == 0) hexIn.startNewSubPath(px, py); else hexIn.lineTo(px, py);
+    }
+    hexIn.closeSubPath();
+    g.setColour(col(0xff0a0a0a));
+    g.fillPath(hexIn);
 
     // Jewel: radial-gradient(circle at 38% 30%, #fff8c8, #ffe066 28%,
     //   #ffb020 52%, #ff8800 74%, #c65300)
@@ -835,10 +848,11 @@ void VUMeterComp::paint(juce::Graphics& g) {
         juce::Image logo = juce::ImageCache::getFromMemory(
             BinaryData::biteylogogreen_png, BinaryData::biteylogogreen_pngSize);
         if (logo.isValid()) {
-            juce::ColourGradient lg(col(0x664dff7a), X(100.0f), Y(66.0f),
-                                    col(0x004dff7a), X(100.0f), Y(100.0f), true);
+            // Subtle underlighting only — no distinct bright circle
+            juce::ColourGradient lg(col(0x264dff7a), X(100.0f), Y(66.0f),
+                                    col(0x004dff7a), X(100.0f), Y(92.0f), true);
             g.setGradientFill(lg);
-            g.fillEllipse(X(65.0f), Y(42.0f), S(70.0f), S(52.0f));
+            g.fillEllipse(X(72.0f), Y(48.0f), S(56.0f), S(40.0f));
             g.drawImage(logo, X(72.9f), Y(46.8f), S(54.3f), S(39.4f),
                         0, 0, logo.getWidth(), logo.getHeight());
         }
@@ -1152,12 +1166,12 @@ void MasterStrip::paint(juce::Graphics& g) {
 
 void MasterStrip::resized() {
     const int cx = 78; // center x for 157px wide strip (web grid)
-    kHigh_->setCentrePosition(cx, 66);
+    kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
     midFreq_->setTopLeftPosition(106, 140); // web .midrow: freq toggle beside MID
     kMain_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 436, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 442, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1196,7 +1210,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(cx, 157);
     kTime_->setCentrePosition(cx, 256);
     kReturn_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 436, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 442, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1302,7 +1316,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", 0, ch - 30, 143, 26, juce::Justification::centred);
+    g.drawText("POWER", 0, ch - 30, 130, 26, juce::Justification::centred);
     g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
 }
 
@@ -1310,9 +1324,9 @@ void CenterPanel::resized() {
     // 260px wide center panel (web grid)
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
     ips_->setTopLeftPosition(14, 12);
-    tapeSize_->setTopLeftPosition(198, 12);
-    echo_->setCentrePosition(78, 48);    // small ring knob, tick-top at 12
-    dryWet_->setCentrePosition(168, 48); // clear of the TAPE toggle
+    tapeSize_->setTopLeftPosition(206, 12);
+    echo_->setCentrePosition(86, 48);    // small ring knob, tick-top at 12
+    dryWet_->setCentrePosition(176, 48); // clear of the TAPE toggle
     // VU meters: 92% of 260 = 239px
     vuReverb_->setBounds(10, 112, 239, 138);
     vuMain_->setBounds(10, 258, 239, 138);
