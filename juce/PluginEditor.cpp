@@ -618,6 +618,18 @@ void PowerJewel::paint(juce::Graphics& g) {
     g.setGradientFill(lens);
     g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
 
+    // Inner filament glow (realistic pilot light: bright core)
+    if (isOn_) {
+        juce::ColourGradient core(col(0xfffffff0), cx, cy,
+                                   col(0x00fffff0), cx, cy + r * 0.5f, true);
+        g.setGradientFill(core);
+        g.fillEllipse(cx - r * 0.35f, cy - r * 0.35f, r * 0.7f, r * 0.7f);
+    }
+
+    // Glass edge (darker rim for depth, not a balloon)
+    g.setColour(col(0x66000000));
+    g.drawEllipse(cx - r + 1, cy - r + 1, (r - 1) * 2, (r - 1) * 2, 1.5f);
+
     // (No faceted cuts — website has a simple smooth amber dome)
 
     // Bright specular highlight
@@ -828,10 +840,12 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.drawLine(sx - sr * 0.7f, sy + 1.0f, sx + sr * 0.7f, sy + 1.0f, 1.0f);
     }
 
-    // Backlight glow behind face (warm, like incandescent VU backlight)
+    // Backlight glow from bulbs at bottom (classic VU: lit from underneath)
+    // Brighter at bottom, fading to darker at top for realistic shading
     {
-        juce::ColourGradient glow(col(0x33ffdd88), fx + w/2, fy + h/2,
-                                   col(0x00000000), fx + w/2, fy + h/2 + h, true);
+        juce::ColourGradient glow(col(0x00000000), fx, fy,
+                                   col(0x55ffdd88), fx, fy + h, false);
+        glow.addColour(0.6, col(0x22ffdd88));
         g.setGradientFill(glow);
         g.fillRect(face);
     }
@@ -1174,7 +1188,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
     // Channel label: "CHANNEL 1" or "CHANNEL 2" — hardware font (Peavey PA-600)
-    juce::Font bf(BiteyFonts::hardwareFont(22.0f));
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true));
     g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
@@ -1227,7 +1241,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
 }
@@ -1272,7 +1286,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
 }
@@ -1390,7 +1404,7 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     // Bottom labels: POWER and PHASE, 20pt like other strips (website: 1.9cqw)
     const int ch = getHeight();
-    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
+    juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("POWER", 0, ch - 30, 143, 26, juce::Justification::centred);
     g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
