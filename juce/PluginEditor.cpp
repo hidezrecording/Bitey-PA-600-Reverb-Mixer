@@ -57,11 +57,21 @@ juce::Font permanentMarker(float sizePx) {
 // BiteyKnob
 // ---------------------------------------------------------------------------
 
+BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
+    // compH = tickD + 8.9 (ring overflow above the .pk box) + 2px pad;
+    // label chip sits at the bottom over the tick-free zone.
+    switch (s) {
+        case Size::Large: return { 115.5f, 99.75f, 86.1f, 134.0f, 126.0f };
+        case Size::Small: return { 78.75f, 64.6f, 53.0f, 92.0f, 90.0f };
+        default:          return { 96.6f, 78.75f, 66.15f, 116.0f, 108.0f };
+    }
+}
+
 BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
-                     int knobSizePx, bool skirted, Scale scale)
-    : knobSize_(knobSizePx), skirted_(skirted), scale_(scale) {
-    look_.knobSize = knobSizePx;
-    look_.skirted = skirted;
+                     Size size, Scale scale)
+    : dims_(dimsFor(size)), scale_(scale) {
+    look_.kringD = dims_.kringD;
+    look_.pknobD = dims_.pknobD;
     slider_.setLookAndFeel(&look_);
     slider_.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     slider_.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -73,97 +83,54 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
     att_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         proc.apvts, paramID, slider_);
 
-    const float r = knobSizePx * 0.5f;
-    float textR = r;  // default for Scale::None (no scale labels)
-    if (scale == Scale::None) {
-        half_ = r + 8.0f;
-        cy_ = r + 8.0f;
-        // For Scale::None with label: need room for label below knob
-        setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + r + 16.0f)));
-        return;
-    } else {
-        // Website: .pk height 9.2cqw (97px) for 66px knob, 11cqw (115px) for 86px
-        // Compact layout matching website proportions
-        textR = r * (skirted ? 1.15f : 1.25f);
-        half_ = textR + 10.0f;
-        cy_ = textR + 6.0f;
-    }
-    // Height includes room for the knob label below (tight padding)
-    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 2.0f)));
+    setSize(int(std::ceil(dims_.compW)), int(std::ceil(dims_.compH)));
 }
 
 void BiteyKnob::resized() {
-    const int s = knobSize_;
-    slider_.setBounds(int(half_ - s * 0.5f), int(cy_ - s * 0.5f), s, s);
+    const float cx = getWidth() * 0.5f;
+    const float cy = dims_.tickD * 0.5f; // tick ring top at 0; component sits 8.9px above the web .pk box
+    const float k = dims_.kringD;
+    slider_.setBounds(int(cx - k * 0.5f), int(cy - k * 0.5f),
+                      int(std::ceil(k)), int(std::ceil(k)));
 }
 
 void BiteyKnob::paint(juce::Graphics& g) {
-    // Draw knob label even for Scale::None (ECHO/DRY-WET need labels)
-    if (knobLabel_.isNotEmpty() && scale_ == Scale::None) {
-        juce::Font labelFont(BiteyFonts::hardwareFont(13.0f));
-        labelFont.setBold(true);
-        g.setFont(labelFont);
-        g.setColour(col(0xffffffff));
-        const float labelH = 14.0f;
-        const float labelY = float(getHeight()) - labelH - 2.0f;
-        g.drawText(knobLabel_, 0, int(labelY), getWidth(), int(labelH),
-                   juce::Justification::centred);
-        return;
-    }
-    if (scale_ == Scale::None) return; // No scale, no label
-    const auto bounds = slider_.getBounds();
-    const float cx = bounds.getCentreX();
-    const float cy = bounds.getCentreY();
-    const float radius = knobSize_ * 0.5f;
-    const float tickR = radius * (skirted_ ? 1.15f : 1.25f);
-    const float textR = radius * (skirted_ ? 1.15f : 1.25f); // Must match constructor!
+    const float W = float(getWidth()), H = float(getHeight());
+    const float cx = W * 0.5f;
+    const float cy = dims_.tickD * 0.5f;
+    const float tickR = dims_.tickD * 0.5f;
 
-    g.setFont(BiteyFonts::robotoCondensed(7.0f));
-
-    // Numeric labels - website shows only min/center/max, not all numbers
-    // ZeroToTen: "0" left, "10" right. Eq: "-15" left, "0" top, "+15" right.
+    // Tick ring: repeating-conic equivalent — 11 ticks over -135..+135 deg,
+    // radius 59%..72.5% of the tick circle (web mask), clipped at the bottom.
+    const float rIn = tickR * 0.59f, rOut = tickR * 0.725f;
+    g.setColour(col(0xf2ffffff));
     for (int i = 0; i <= 10; ++i) {
-        const float angleDeg = -135.0f + (i / 10.0f) * 270.0f;
-        const float a = (angleDeg - 90.0f) * kDeg2Rad;
-        const float ca = std::cos(a), sa = std::sin(a);
-
-        // Tick mark - thin, elegant white (website style)
-        const float tickH = (scale_ == Scale::Eq && i == 5) ? 4.0f : 2.5f;
-        const float x1 = cx + ca * tickR, y1 = cy + sa * tickR;
-        const float x2 = cx + ca * (tickR - tickH), y2 = cy + sa * (tickR - tickH);
-        g.setColour(col(0xe8ffffff));
-        g.drawLine(x1, y1, x2, y2, 1.2f);
-
-        // Numeric labels - only at key positions like the website
-        bool show = false;
-        juce::String label;
-        if (scale_ == Scale::ZeroToTen) {
-            if (i == 0) { label = "0"; show = true; }
-            if (i == 10) { label = "10"; show = true; }
-        } else { // Eq
-            if (i == 0) { label = "-15"; show = true; }
-            if (i == 5) { label = "0"; show = true; }
-            if (i == 10) { label = "+15"; show = true; }
-        }
-        if (show) {
-            const float lx = cx + ca * textR, ly = cy + sa * textR;
-            g.setColour(col(0xffffffff));
-            g.setFont(BiteyFonts::robotoCondensed(8.0f));
-            g.drawText(label, int(lx - 20), int(ly - 8), 40, 16,
-                       juce::Justification::centred);
-        }
+        const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
+        const float sa = std::sin(a), ca = std::cos(a);
+        g.drawLine(cx + sa * rIn, cy - ca * rIn,
+                   cx + sa * rOut, cy - ca * rOut, 1.6f);
     }
 
-    // Knob label: hardware (Peavey PA-600) — heavy industrial sans, uppercase
-    // Positioned at bottom of component with clear separation from scale
-    if (knobLabel_.isNotEmpty()) {
-        juce::Font labelFont(BiteyFonts::hardwareFont(13.0f));
-        labelFont.setBold(true);
+    // End markers "0" / "15" on the label baseline (web .end-l/.end-r)
+    juce::Font endFont(BiteyFonts::robotoCondensed(8.4f));
+    g.setFont(endFont);
+    g.setColour(col(0xffffffff));
+    const int markY = int(H - 16);
+    g.drawText("0", 6, markY, 24, 13, juce::Justification::centredLeft);
+    g.drawText("15", int(W - 30), markY, 24, 13, juce::Justification::centredRight);
+
+    // Knob label: uppercase chip on #181818, 1.1cqw Roboto Condensed 700
+    if (knobLabel_.isNotEmpty() || scale_ != Scale::None) {
+        juce::Font labelFont(BiteyFonts::robotoCondensed(11.55f));
         g.setFont(labelFont);
+        const juce::String txt = knobLabel_.toUpperCase();
+        const float tw = juce::GlyphArrangement::getStringWidth(labelFont, txt);
+        const float chipW = tw + 7.0f, chipH = 13.0f;
+        const float chipX = cx - chipW * 0.5f, chipY = H - chipH - 2.0f;
+        g.setColour(col(0xff181818));
+        g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
         g.setColour(col(0xffffffff));
-        const float labelH = 12.0f;
-        const float labelY = float(getHeight()) - labelH - 1.0f;
-        g.drawText(knobLabel_, 0, int(labelY), getWidth(), int(labelH),
+        g.drawText(txt, int(chipX), int(chipY), int(chipW), int(chipH),
                    juce::Justification::centred);
     }
 }
@@ -172,74 +139,71 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
                                        float sliderPos, float rotaryStartAngle,
                                        float rotaryEndAngle, juce::Slider&) {
     const float cx = x + w * 0.5f, cy = y + h * 0.5f;
-    const float size = float(knobSize);
+    const float kringR = kringD * 0.5f;
+    const float pknobR = pknobD * 0.5f;
 
-    // Drop shadow (soft, offset down-right)
-    g.setColour(col(0xaa000000));
-    g.fillEllipse(cx - size * 0.44f, cy - size * 0.38f + 3.0f, size * 0.88f, size * 0.88f);
+    // Drop shadow: 0 .45cqw .9cqw rgba(0,0,0,.72)
+    g.setColour(col(0xb8000000));
+    g.fillEllipse(cx - kringR, cy - kringR + 4.7f, kringR * 2.0f, kringR * 2.0f);
 
-    // Skirt (big knobs): website exact CSS
-    // radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
-    if (skirted) {
-        juce::ColourGradient skirt(col(0xff3b352e), cx - size * 0.3f, cy - size * 0.44f,
-                                   col(0xff070605), cx + size * 0.4f, cy + size * 0.4f, true);
-        skirt.addColour(0.58, col(0xff1a1611));
-        g.setGradientFill(skirt);
-        g.fillEllipse(cx - size * 0.5f, cy - size * 0.5f, size, size);
+    // kring: radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
+    juce::ColourGradient kring(col(0xff3b352e), cx - kringR * 0.3f, cy - kringR * 0.44f,
+                               col(0xff070605), cx + kringR * 0.4f, cy + kringR * 0.4f, true);
+    kring.addColour(0.58, col(0xff1a1611));
+    g.setGradientFill(kring);
+    g.fillEllipse(cx - kringR, cy - kringR, kringR * 2.0f, kringR * 2.0f);
+    // Inner top light + bottom shade (web inset shadows)
+    g.setColour(col(0x24f0e2c6));
+    g.drawEllipse(cx - kringR + 2.0f, cy - kringR + 2.0f,
+                  (kringR - 2.0f) * 2.0f, (kringR - 2.0f) * 2.0f, 3.0f);
+    g.setColour(col(0xd8000000));
+    g.drawEllipse(cx - kringR + 1.0f, cy - kringR + 1.0f,
+                  (kringR - 1.0f) * 2.0f, (kringR - 1.0f) * 2.0f, 5.0f);
 
-        // Subtle edge highlight (smooth, not fluted)
-        g.setColour(col(0x2a9a8a76));
-        g.drawEllipse(cx - size * 0.48f, cy - size * 0.48f, size * 0.96f, size * 0.96f, 2.0f);
-
-        g.setColour(col(0xff151412));
-        g.fillEllipse(cx - size * 0.45f, cy - size * 0.45f, size * 0.9f, size * 0.9f);
-    }
-
-    const float bodyR = (skirted ? 0.35f : 0.425f) * size;
-
-    // Rotating body: smooth rounded doorknob shape (spherical, not industrial)
+    // pknob (rotates): base radial-gradient(circle at 38% 30%,
+    //   #4d463d, #28221b 48%, #120e0a 78%, #050403 100%)
     g.saveState();
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    // Doorknob sphere: website exact CSS
-    // radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
-    // plus top highlight: radial-gradient(circle at 34% 24%, rgba(255,242,216,.34), transparent 44%)
-    juce::ColourGradient body(col(0xff6b5d4d), cx - bodyR * 0.24f, cy - bodyR * 0.4f,
-                              col(0xff0a0806), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
-    body.addColour(0.35, col(0xff3b352e));
-    body.addColour(0.58, col(0xff1a1611));
-    g.setGradientFill(body);
-    g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+    juce::ColourGradient pk(col(0xff4d463d), cx - pknobR * 0.24f, cy - pknobR * 0.4f,
+                            col(0xff050403), cx + pknobR * 0.3f, cy + pknobR * 0.35f, true);
+    pk.addColour(0.48, col(0xff28221b));
+    pk.addColour(0.78, col(0xff120e0a));
+    g.setGradientFill(pk);
+    g.fillEllipse(cx - pknobR, cy - pknobR, pknobR * 2.0f, pknobR * 2.0f);
 
-    // Top highlight (warm light catching the knob) - stronger for bronze look
-    juce::ColourGradient hi(col(0x99fff2d8), cx - bodyR * 0.32f, cy - bodyR * 0.52f,
+    // Top highlight: radial-gradient(circle at 34% 24%, rgba(255,242,216,.34), transparent 44%)
+    juce::ColourGradient hi(col(0x57fff2d8), cx - pknobR * 0.32f, cy - pknobR * 0.52f,
                             col(0x00fff2d8), cx, cy, true);
     hi.addColour(0.44, col(0x00fff2d8));
     g.setGradientFill(hi);
-    g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+    g.fillEllipse(cx - pknobR, cy - pknobR, pknobR * 2.0f, pknobR * 2.0f);
 
-    // Subtle rim light (bottom-right, like light catching the curve)
-    g.setColour(col(0x1a8a7a66));
-    juce::Path rim;
-    rim.addArc(cx - bodyR * 0.95f, cy - bodyR * 0.95f, bodyR * 1.9f, bodyR * 1.9f,
-               0.6f, 1.8f, true);
-    g.strokePath(rim, juce::PathStrokeType(2.5f));
+    // Inner shading: inset 0 .35cqw .7cqw rgba(255,240,210,.20),
+    //   inset 0 -.8cqw 1.4cqw rgba(0,0,0,.82)
+    g.setColour(col(0x33fff0d2));
+    g.drawEllipse(cx - pknobR + 3.0f, cy - pknobR + 3.0f,
+                  (pknobR - 3.0f) * 2.0f, (pknobR - 3.0f) * 2.0f, 3.5f);
+    g.setColour(col(0xd2000000));
+    g.drawEllipse(cx - pknobR + 1.5f, cy - pknobR + 1.5f,
+                  (pknobR - 1.5f) * 2.0f, (pknobR - 1.5f) * 2.0f, 7.0f);
 
-    // Domed top: smaller, smoother highlight
-    const float capR = bodyR * 0.62f;
-    juce::ColourGradient cap(col(0xff54514b), cx - capR * 0.45f, cy - capR * 0.5f,
-                             col(0xff201d1a), cx + capR * 0.3f, cy + capR * 0.35f, true);
-    g.setGradientFill(cap);
-    g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+    // ::after inner dome (34% circle, subtle)
+    const float domeR = pknobR * 0.34f;
+    juce::ColourGradient dome(col(0x24ffeeCD), cx - domeR * 0.16f, cy - domeR * 0.36f,
+                              col(0x57000000), cx + domeR * 0.3f, cy + domeR * 0.3f, true);
+    g.setGradientFill(dome);
+    g.fillEllipse(cx - domeR, cy - domeR, domeR * 2.0f, domeR * 2.0f);
 
-    // Thin ivory pointer: website exact - linear-gradient(180deg, #fff8e6, #eadfc2)
-    const float pw = 2.0f;  // thin line
-    const float pl = bodyR * 0.88f;
-    juce::ColourGradient ptr(col(0xfffff8e6), cx, cy - pl,
-                             col(0xffeadfc2), cx, cy - pl * 0.5f, false);
+    // Ivory pointer: width .17cqw, top 6%, height 39% of the pknob box
+    const float pw = 1.8f;
+    const float pTop = cy - pknobR + pknobD * 0.06f;
+    const float pLen = pknobD * 0.39f;
+    juce::ColourGradient ptr(col(0xfffff8e6), cx, pTop,
+                             col(0xffeadfc2), cx, pTop + pLen, false);
     g.setGradientFill(ptr);
-    g.fillRoundedRectangle(cx - pw * 0.5f, cy - pl, pw, pl * 0.5f, pw * 0.5f);
+    g.fillRoundedRectangle(cx - pw * 0.5f, pTop, pw, pLen, pw * 0.5f);
 
     g.restoreState();
 }
@@ -258,8 +222,8 @@ MetalToggle::MetalToggle(BiteyProcessor& proc, const juce::String& paramID,
     if (auto* p = proc.apvts.getParameter(paramID_))
         isBool_ = (dynamic_cast<juce::AudioParameterBool*>(p) != nullptr);
 
-    // Measure the label column
-    auto font = BiteyFonts::robotoCondensed(8.0f);
+    // Measure the label column (paint uses 10.7px)
+    auto font = BiteyFonts::robotoCondensed(10.7f);
     float labelW = 0.0f;
     for (auto& l : labels_)
         labelW = juce::jmax(labelW, juce::GlyphArrangement::getStringWidth(font, l));
@@ -347,122 +311,120 @@ void MetalToggle::drawLabelColumn(juce::Graphics& g, juce::Rectangle<float> area
 }
 
 void MetalToggle::paint(juce::Graphics& g) {
+    // Web-build toggle: 2.05cqw (21.5px) hex body, chrome bat lever, label
+    // column with the active value glowing green.
     const float W = getWidth();
+    const float body = 21.5f;
     float y = 0.0f;
 
-    // Caption above (IPS / TAPE / FREQ style)
+    // Caption above (IPS / TAPE style): .mtog-cap 0.86cqw
     if (caption_.isNotEmpty() && !captionBelow_) {
-        juce::Font capFont(BiteyFonts::robotoCondensed(8.6f));
-        capFont.setBold(true);
-        capFont.setExtraKerningFactor(0.06f);
+        juce::Font capFont(BiteyFonts::robotoCondensed(9.0f));
+        capFont.setExtraKerningFactor(0.08f);
         g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
-        g.drawText(caption_, 0, 0, int(W), 12, juce::Justification::centred);
+        g.drawText(caption_.toUpperCase(), 0, 0, int(W), 12,
+                   juce::Justification::centred);
         y += 12.0f;
     }
 
     const int n = (int) labels_.size();
-    const float labelColH = juce::jmax(body_, float(n) * 11.0f);
-    const float bodyY = y + (labelColH - body_) * 0.5f;
-
-    auto font = BiteyFonts::robotoCondensed(8.0f);
+    auto font = BiteyFonts::robotoCondensed(10.7f);
     float labelW = 0.0f;
     for (auto& l : labels_)
         labelW = juce::jmax(labelW, juce::GlyphArrangement::getStringWidth(font, l));
-    if (iconMode_ == 1) labelW = 20.0f;
+    if (iconMode_ == 1) labelW = 24.0f;
 
+    const float labelColH = juce::jmax(body, float(n) * 12.5f);
+    const float bodyY = y + (labelColH - body) * 0.5f;
     const float bodyX = labelsOnRight_ ? 0.0f : labelW + 6.0f;
-    const float labelX = labelsOnRight_ ? body_ + 6.0f : 0.0f;
-    const float bcx = bodyX + body_ * 0.5f;
-    const float bcy = bodyY + body_ * 0.5f;
+    const float labelX = labelsOnRight_ ? body + 6.0f : 0.0f;
+    const float bcx = bodyX + body * 0.5f;
+    const float bcy = bodyY + body * 0.5f;
 
-    // Mounting nut (hexagonal, like real toggle switches)
-    const float nutR = body_ * 0.5f;
+    // Hex body: clip-path polygon(25% 2%, 75% 2%, 98% 50%, 75% 98%, 25% 98%, 2% 50%)
+    // with linear-gradient(145deg, #dedede, #878787 38%, #cfcfcf 58%, #686868)
     juce::Path hex;
+    const float hx[6] = { 0.25f, 0.75f, 0.98f, 0.75f, 0.25f, 0.02f };
+    const float hy[6] = { 0.02f, 0.02f, 0.50f, 0.98f, 0.98f, 0.50f };
     for (int i = 0; i < 6; ++i) {
-        const float a = i * juce::MathConstants<float>::twoPi / 6.0f + juce::MathConstants<float>::pi / 6.0f;
-        const float px = bcx + std::cos(a) * nutR;
-        const float py = bcy + std::sin(a) * nutR;
+        const float px = bodyX + hx[i] * body, py = bodyY + hy[i] * body;
         if (i == 0) hex.startNewSubPath(px, py);
         else hex.lineTo(px, py);
     }
     hex.closeSubPath();
-    juce::ColourGradient nut(col(0xffd8d8d8), bcx - nutR, bcy - nutR,
-                             col(0xff707070), bcx + nutR, bcy + nutR, true);
-    g.setGradientFill(nut);
+    juce::ColourGradient hg(col(0xffdedede), bodyX, bodyY,
+                            col(0xff686868), bodyX + body, bodyY + body, false);
+    hg.addColour(0.38, col(0xff878787));
+    hg.addColour(0.58, col(0xffcfcfcf));
+    g.setGradientFill(hg);
     g.fillPath(hex);
-    g.setColour(col(0xff505050));
-    g.strokePath(hex, juce::PathStrokeType(1.5f));
 
-    // Dark well (recessed)
-    g.setColour(col(0xff0d0d0d));
-    g.fillEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f);
-    // Inner shadow ring for depth
-    g.setColour(col(0x66000000));
-    g.drawEllipse(bcx - body_ * 0.38f, bcy - body_ * 0.38f, body_ * 0.76f, body_ * 0.76f, 3.0f);
+    // Dark well: radial-gradient(ellipse at 50% 42%, #202020, #050505 72%)
+    const float wellR = body * 0.37f;
+    juce::ColourGradient well(col(0xff202020), bcx, bcy - wellR * 0.16f,
+                              col(0xff050505), bcx, bcy + wellR, true);
+    g.setGradientFill(well);
+    g.fillEllipse(bcx - wellR, bcy - wellR, wellR * 2.0f, wellR * 2.0f);
 
-    // Toggle bat: 3D metal lever that moves UP/DOWN (like a real switch)
-    // UP = first position, DOWN = last position. Vertical travel, not rotation.
-    const float batLen = body_ * 0.42f;
-    const float batW = body_ * 0.16f;
-    const int nStates = (int) labels_.size();
-    // Map index to vertical offset: first = up, last = down
-    // Travel must be clearly visible: bat moves full up/down, not to center
-    float yOffset = 0.0f;
-    if (nStates > 1) {
-        float t = float(index_) / float(nStates - 1); // 0..1
-        yOffset = -10.0f + t * 20.0f; // -10 (up) to +10 (down), scaled by body
-        yOffset *= (body_ / 36.0f);
+    // Bat lever: .mbat 0.34 x 0.78cqw, chrome horizontal gradient.
+    // UP (index 0) = bottom:44%; DOWN (last) = top:44%; interpolate between.
+    const float batW = 3.6f, batH = 8.2f;
+    float batY = bcy - batH * 0.5f;
+    if (n > 1) {
+        const float t = float(index_) / float(n - 1); // 0 = up, 1 = down
+        const float upY = (bodyY + body) - body * 0.44f - batH;
+        const float dnY = bodyY + body * 0.44f;
+        batY = upY + t * (dnY - upY);
     }
-
+    const float tilt = (n > 1) ? (-8.0f + 16.0f * float(index_) / float(n - 1)) : -8.0f;
     g.saveState();
-    // Bat base (pivot point)
-    juce::ColourGradient pivot(col(0xffa0a0a0), bcx - 6.0f, bcy - 6.0f,
-                               col(0xff404040), bcx + 6.0f, bcy + 6.0f, true);
-    g.setGradientFill(pivot);
-    g.fillEllipse(bcx - 6.0f, bcy - 6.0f, 12.0f, 12.0f);
-
-    // Bat lever: rounded rectangle with 3D shading, tilted by state
-    // Bat lever: vertical movement (up/down), with 3D perspective
-    const float batX = bcx - batW * 0.5f;
-    const float batY = bcy - batLen + yOffset; // lever extends up, moves vertically
-
-    // Bat shadow
-    g.setColour(col(0x77000000));
-    g.fillRoundedRectangle(batX + 2.0f, batY + 2.0f, batW, batLen, batW * 0.5f);
-
-    // Bat body: chrome/metal gradient
-    juce::ColourGradient bat(col(0xfff0f0f0), batX, batY,
-                             col(0xff909090), batX + batW, batY, false);
-    bat.addColour(0.5, col(0xffc8c8c8));
+    g.addTransform(juce::AffineTransform::rotation(tilt * kDeg2Rad, bcx, bcy));
+    juce::ColourGradient bat(col(0xfff5f5f5), bcx - batW * 0.5f, 0.0f,
+                             col(0xff767676), bcx + batW * 0.5f, 0.0f, false);
+    bat.addColour(0.38, col(0xffa3a3a3));
+    bat.addColour(0.62, col(0xffececec));
     g.setGradientFill(bat);
-    g.fillRoundedRectangle(batX, batY, batW, batLen, batW * 0.5f);
-
-    // Bat highlight (left edge)
-    g.setColour(col(0xaaffffff));
-    g.fillRoundedRectangle(batX + 1.0f, batY + 2.0f, 2.0f, batLen - 4.0f, 1.0f);
-
-    // Bat tip: slightly larger, rounded
-    const float tipY = batY - 2.0f;
-    juce::ColourGradient tipGrad(col(0xffffffff), bcx - batW, tipY,
-                                 col(0xffa0a0a0), bcx + batW, tipY + 8.0f, true);
-    g.setGradientFill(tipGrad);
-    g.fillEllipse(bcx - batW * 0.7f, tipY, batW * 1.4f, 10.0f);
-
+    g.fillRoundedRectangle(bcx - batW * 0.5f, batY, batW, batH, batW * 0.5f);
     g.restoreState();
 
-    // Labels
-    drawLabelColumn(g, juce::Rectangle<float>(labelX, y, labelW, labelColH));
+    // Label column: .mlabs 1.02cqw, active = #4dff7a with glow
+    g.setFont(font);
+    const float rowH = labelColH / juce::jmax(1, n);
+    for (int i = 0; i < n; ++i) {
+        const bool active = (i == index_);
+        if (active) {
+            g.setColour(col(0x664dff7a));
+            g.fillRoundedRectangle(labelX - 2.0f, y + i * rowH, labelW + 4.0f, rowH, 2.0f);
+        }
+        g.setColour(active ? col(0xff4dff7a) : col(0x61ffffff));
+        auto just = labelsOnRight_ ? juce::Justification::centredLeft
+                                   : juce::Justification::centredRight;
+        if (iconMode_ == 1) {
+            // 96Hz icons: flat line (off) / high-pass bode curve (on)
+            const float icx = labelX + labelW * 0.5f, icy = y + i * rowH + rowH * 0.5f;
+            if (i == 0) {
+                g.drawLine(icx - 10.0f, icy, icx + 10.0f, icy, 2.6f);
+            } else {
+                juce::Path bode;
+                bode.startNewSubPath(icx - 12.0f, icy + 4.0f);
+                bode.lineTo(icx - 4.0f, icy + 4.0f);
+                bode.quadraticTo(icx, icy + 4.0f, icx + 2.0f, icy);
+                bode.quadraticTo(icx + 4.0f, icy - 4.0f, icx + 12.0f, icy - 4.0f);
+                g.strokePath(bode, juce::PathStrokeType(2.2f));
+            }
+        } else {
+            g.drawText(labels_[i], int(labelX), int(y + i * rowH),
+                       int(std::ceil(labelW)) + 4, int(rowH), just);
+        }
+    }
 
-    // Caption below (PAD / 96Hz style)
+    // Caption below (96 Hz / Pad style): .pk-label 1.08cqw static
     if (caption_.isNotEmpty() && captionBelow_) {
-        // Website: .tgl-cap - 0.82cqw (8.6px), weight 600, letter-spacing .06em
-        juce::Font capFont(BiteyFonts::robotoCondensed(8.6f));
-        capFont.setBold(true);
-        capFont.setExtraKerningFactor(0.06f);
+        juce::Font capFont(BiteyFonts::robotoCondensed(11.3f));
         g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
-        g.drawText(caption_, 0, int(y + labelColH), int(W), 12,
+        g.drawText(caption_, 0, int(y + labelColH), int(W), 14,
                    juce::Justification::centred);
     }
 }
@@ -585,60 +547,57 @@ void PowerJewel::timerCallback() {
 }
 
 void PowerJewel::paint(juce::Graphics& g) {
+    // Web build: .bezel 3.65cqw round metallic, .jewel 2.8cqw amber radial
+    // with a big warm halo.
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float r = 18.0f;  // Fits in 56x56 component with bezel
+    const float bezelR = 19.2f, jewelR = 14.7f;
 
-    // Outer glow (amber halo when on)
+    // Halo when on: 0 0 2.2cqw .55cqw rgba(255,176,32,.75)
     if (isOn_) {
-        juce::ColourGradient halo(col(0x66ff9500), cx, cy,
-                                  col(0x00ff9500), cx, cy + r * 2.2f, true);
+        juce::ColourGradient halo(col(0xbfffb020), cx, cy,
+                                  col(0x00ffb020), cx, cy + 34.0f, true);
         g.setGradientFill(halo);
-        g.fillEllipse(cx - r * 2.2f, cy - r * 2.2f, r * 4.4f, r * 4.4f);
+        g.fillEllipse(cx - 34.0f, cy - 34.0f, 68.0f, 68.0f);
     }
 
-    // Chrome bezel (Fender-style)
-    juce::ColourGradient bezel(col(0xffe8e8e8), cx - r, cy - r,
-                               col(0xff707070), cx + r, cy + r, true);
-    bezel.addColour(0.5, col(0xffa0a0a0));
-    g.setGradientFill(bezel);
-    g.fillEllipse(cx - r - 5, cy - r - 5, (r + 5) * 2, (r + 5) * 2);
-    g.setColour(col(0xff333333));
-    g.drawEllipse(cx - r - 5, cy - r - 5, (r + 5) * 2, (r + 5) * 2, 2.0f);
+    // Bezel: conic metallic approximated with an angular sweep of segments
+    for (int i = 0; i < 24; ++i) {
+        const float a0 = i * 15.0f * kDeg2Rad, a1 = (i + 1) * 15.0f * kDeg2Rad;
+        const float shade = 0.55f + 0.45f * std::abs(std::sin(i * 1.7f));
+        juce::Path seg;
+        seg.addPieSegment(cx - bezelR, cy - bezelR, bezelR * 2.0f, bezelR * 2.0f,
+                          a0, a1, 0.72f);
+        g.setColour(col(0xff888888).interpolatedWith(col(0xfff4f4f4), shade * 0.6f));
+        g.fillPath(seg);
+    }
+    g.setColour(col(0x80000000));
+    g.drawEllipse(cx - bezelR, cy - bezelR, bezelR * 2.0f, bezelR * 2.0f, 1.5f);
 
-    // Jewel lens: bright orange-yellow amber (Fender pilot light)
-    juce::ColourGradient lens(
-        isOn_ ? col(0xffffe066) : col(0xff6b3a00), cx - r * 0.4f, cy - r * 0.5f,
-        isOn_ ? col(0xffff8800) : col(0xff241100), cx + r * 0.4f, cy + r * 0.5f, true);
+    // Jewel: radial-gradient(circle at 38% 30%, #fff8c8, #ffe066 28%,
+    //   #ffb020 52%, #ff8800 74%, #c65300)
+    juce::ColourGradient jewel(
+        isOn_ ? col(0xfffff8c8) : col(0xff5a3a10),
+        cx - jewelR * 0.24f, cy - jewelR * 0.4f,
+        isOn_ ? col(0xffc65300) : col(0xff1a0e00),
+        cx + jewelR * 0.3f, cy + jewelR * 0.35f, true);
     if (isOn_) {
-        lens.addColour(0.3, col(0xffffcc33));
-        lens.addColour(0.65, col(0xffffaa00));
-    } else {
-        lens.addColour(0.6, col(0xff3d2000));
+        jewel.addColour(0.28, col(0xffffe066));
+        jewel.addColour(0.52, col(0xffffb020));
+        jewel.addColour(0.74, col(0xffff8800));
     }
-    g.setGradientFill(lens);
-    g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
-
-    // Inner filament glow (realistic pilot light: bright core)
+    g.setGradientFill(jewel);
+    g.fillEllipse(cx - jewelR, cy - jewelR, jewelR * 2.0f, jewelR * 2.0f);
+    // Inner shading
     if (isOn_) {
-        juce::ColourGradient core(col(0xfffffff0), cx, cy,
-                                   col(0x00fffff0), cx, cy + r * 0.5f, true);
-        g.setGradientFill(core);
-        g.fillEllipse(cx - r * 0.35f, cy - r * 0.35f, r * 0.7f, r * 0.7f);
+        g.setColour(col(0x8ca03c00));
+        g.drawEllipse(cx - jewelR + 1.5f, cy - jewelR + 1.5f,
+                      (jewelR - 1.5f) * 2.0f, (jewelR - 1.5f) * 2.0f, 3.5f);
+        g.setColour(col(0xbfffffdc));
+        g.drawEllipse(cx - jewelR + 1.0f, cy - jewelR + 1.0f,
+                      (jewelR - 1.0f) * 2.0f, (jewelR - 1.0f) * 2.0f, 1.8f);
     }
-
-    // Glass edge (darker rim for depth, not a balloon)
-    g.setColour(col(0x66000000));
-    g.drawEllipse(cx - r + 1, cy - r + 1, (r - 1) * 2, (r - 1) * 2, 1.5f);
-
-    // (No faceted cuts — website has a simple smooth amber dome)
-
-    // Bright specular highlight
-    g.saveState();
-    g.addTransform(juce::AffineTransform::rotation(-35.0f * kDeg2Rad, cx, cy));
-    g.setColour(isOn_ ? col(0xd6ffffff) : col(0x55ffffff));
-    g.fillEllipse(cx - r * 0.55f, cy - r * 0.75f, r * 0.45f, r * 0.22f);
-    g.restoreState();
 }
+
 
 // ---------------------------------------------------------------------------
 // ClipBulb — UA 1108 style: single round bulb, green -> yellow -> red.
@@ -660,69 +619,61 @@ void ClipBulb::timerCallback() {
 }
 
 void ClipBulb::paint(juce::Graphics& g) {
-    const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float r = 7.0f;  // Small LED like the website
+    // Web build .clip: 2.05cqw (21.5px) hex socket, 56% glowing core
+    // (green at rest), "CLIP" word 1.05cqw to the right.
+    const float hexD = 21.5f;
+    const float cx = hexD * 0.5f + 2.0f, cy = getHeight() * 0.5f;
 
     const float lvl = juce::jlimit(0.0f, 1.2f, displayLevel_);
+    juce::Colour coreCol;
+    if (lvl < 0.6f) coreCol = col(0xff2fe07a);
+    else if (lvl < 0.85f) coreCol = col(0xffffc020);
+    else coreCol = col(0xffff3020);
 
-    // Color: green (0.0-0.6) -> yellow (0.6-0.85) -> red (0.85+)
-    juce::Colour bulbCol;
-    if (lvl < 0.6f) {
-        const float b = 0.35f + 0.65f * (lvl / 0.6f);
-        bulbCol = juce::Colour::fromFloatRGBA(0.2f * b, 1.0f * b, 0.25f * b, 0.85f);
-    } else if (lvl < 0.85f) {
-        const float t = (lvl - 0.6f) / 0.25f;
-        bulbCol = juce::Colour::fromFloatRGBA(0.35f + 0.65f * t, 1.0f, 0.2f * (1.0f - t), 0.9f);
-    } else {
-        const float t = juce::jmin(1.0f, (lvl - 0.85f) / 0.35f);
-        const float pulse = 0.85f + 0.15f * std::sin(juce::Time::getMillisecondCounter() * 0.012f);
-        bulbCol = juce::Colour::fromFloatRGBA(1.0f * pulse, 0.2f * (1.0f - t * 0.5f), 0.12f, 0.95f);
-    }
-
-    // Hexagonal outer (same as toggle screws)
-    const float hexR = r + 8.0f;
+    // Hex socket: linear-gradient(145deg, #dedede, #878787 38%, #cfcfcf 58%, #686868)
     juce::Path hex;
+    const float hx[6] = { 0.25f, 0.75f, 0.98f, 0.75f, 0.25f, 0.02f };
+    const float hy[6] = { 0.02f, 0.02f, 0.50f, 0.98f, 0.98f, 0.50f };
     for (int i = 0; i < 6; ++i) {
-        const float a = i * juce::MathConstants<float>::twoPi / 6.0f + juce::MathConstants<float>::pi / 6.0f;
-        const float px = cx + std::cos(a) * hexR;
-        const float py = cy + std::sin(a) * hexR;
+        const float px = cx - hexD * 0.5f + hx[i] * hexD;
+        const float py = cy - hexD * 0.5f + hy[i] * hexD;
         if (i == 0) hex.startNewSubPath(px, py);
         else hex.lineTo(px, py);
     }
     hex.closeSubPath();
-    juce::ColourGradient hexG(col(0xffc8c8c8), cx - hexR, cy - hexR,
-                              col(0xff555555), cx + hexR, cy + hexR, true);
-    g.setGradientFill(hexG);
+    juce::ColourGradient hg(col(0xffdedede), cx - hexD * 0.5f, cy - hexD * 0.5f,
+                            col(0xff686868), cx + hexD * 0.5f, cy + hexD * 0.5f, false);
+    hg.addColour(0.38, col(0xff878787));
+    hg.addColour(0.58, col(0xffcfcfcf));
+    g.setGradientFill(hg);
     g.fillPath(hex);
-    g.setColour(col(0xff333333));
-    g.strokePath(hex, juce::PathStrokeType(1.5f));
 
-    // Dark recess inside hex
-    g.setColour(col(0xff0a0a0a));
-    g.fillEllipse(cx - r - 2, cy - r - 2, (r + 2) * 2, (r + 2) * 2);
-
-    // Translucent bulb (smaller, glowing from within)
-    // Outer glow
-    const float glowA = 0.2f + 0.5f * juce::jmin(1.0f, lvl);
-    juce::ColourGradient glow(bulbCol.withAlpha(glowA * 0.6f), cx, cy,
-                              col(0x00000000), cx, cy + r * 1.8f, true);
+    // Core: 56% circle, radial highlight, green glow
+    const float coreR = hexD * 0.28f;
+    const float glowA = 0.25f + 0.55f * juce::jmin(1.0f, lvl);
+    juce::ColourGradient glow(coreCol.withAlpha(glowA), cx, cy,
+                              col(0x00000000), cx, cy + coreR * 2.2f, true);
     g.setGradientFill(glow);
-    g.fillEllipse(cx - r * 1.8f, cy - r * 1.8f, r * 3.6f, r * 3.6f);
+    g.fillEllipse(cx - coreR * 2.2f, cy - coreR * 2.2f, coreR * 4.4f, coreR * 4.4f);
+    juce::ColourGradient core(col(0xe6ffffff), cx - coreR * 0.28f, cy - coreR * 0.44f,
+                              coreCol.withAlpha(0.85f), cx + coreR * 0.3f, cy + coreR * 0.4f, true);
+    core.addColour(0.34, col(0x40ffffff));
+    core.addColour(0.58, col(0x00ffffff));
+    g.setGradientFill(core);
+    g.fillEllipse(cx - coreR, cy - coreR, coreR * 2.0f, coreR * 2.0f);
+    g.setColour(col(0x61000000));
+    g.drawEllipse(cx - coreR, cy - coreR, coreR * 2.0f, coreR * 2.0f, 1.0f);
 
-    // Bulb glass (translucent)
-    juce::ColourGradient glass(bulbCol.brighter(0.5f).withAlpha(0.9f), cx - r * 0.4f, cy - r * 0.5f,
-                               bulbCol.darker(0.4f).withAlpha(0.75f), cx + r * 0.3f, cy + r * 0.4f, true);
-    g.setGradientFill(glass);
-    g.fillEllipse(cx - r, cy - r, r * 2, r * 2);
-
-    // Inner bright core
-    g.setColour(bulbCol.brighter(0.6f).withAlpha(0.5f));
-    g.fillEllipse(cx - r * 0.45f, cy - r * 0.45f, r * 0.9f, r * 0.9f);
-
-    // Specular
-    g.setColour(col(0x99ffffff));
-    g.fillEllipse(cx - r * 0.4f, cy - r * 0.55f, r * 0.3f, r * 0.15f);
+    // "CLIP" word: 1.05cqw Roboto Condensed 700, letter-spacing .08em
+    juce::Font wf(BiteyFonts::robotoCondensed(11.0f));
+    wf.setExtraKerningFactor(0.08f);
+    g.setFont(wf);
+    g.setColour(col(0xffffffff));
+    g.drawText("CLIP", int(cx + hexD * 0.5f + 6.0f), 0,
+               int(getWidth() - (cx + hexD * 0.5f + 6.0f)), getHeight(),
+               juce::Justification::centredLeft);
 }
+
 
 // ---------------------------------------------------------------------------
 // VUMeterComp — direct port of VUMeter.tsx canvas rendering.
@@ -769,254 +720,210 @@ void VUMeterComp::timerCallback() {
 }
 
 void VUMeterComp::paint(juce::Graphics& g) {
-    // UAD-style VU meter: wide black plastic bezel, recessed face under glass,
-    // backlit, realistic needle with pivot cap. Uses actual component bounds.
-    const float bw = (float)getWidth();
-    const float bh = (float)getHeight();
-    // Guard against zero/invalid bounds (crash fix)
-    if (bw < 50.0f || bh < 50.0f) return;
-    const float bx = 2.0f, by = 2.0f;          // bezel outer
-    const float bezelThick = 14.0f;            // black plastic bezel
-    const float fx = bx + bezelThick, fy = by + bezelThick;
-    const float w = bw - 4.0f - bezelThick * 2, h = bh - 4.0f - bezelThick * 2;
-    if (w < 10.0f || h < 10.0f) return;
-    const float s = w / 300.0f;
-    juce::Rectangle<float> bezel(bx, by, bw - 4.0f, bh - 4.0f);
-    juce::Rectangle<float> face(fx, fy, w, h);
+    // Web-build VU meter, exact replica of the inline SVG (viewBox 0 0 200 104):
+    // teal face, white/amber scale arc, tick marks, numerals, green Bitey logo,
+    // white needle on a round pivot cap, "VU" corner label, zero-adjust screw.
+    const float bw = float(getWidth()), bh = float(getHeight());
+    if (bw < 40.0f || bh < 40.0f) return;
 
-    // Drop shadow under bezel
+    // .vum: black housing, .28cqw border, 1.1cqw radius, .75/.9cqw padding
+    const float border = 2.9f, padV = 7.9f, padH = 9.5f;
+    juce::ColourGradient housing(col(0xff2b2b2b), 0.0f, 0.0f,
+                                 col(0xff030303), 0.0f, bh, false);
+    g.setGradientFill(housing);
+    g.fillRoundedRectangle(0.0f, 0.0f, bw, bh, 11.5f);
+    g.setColour(col(0xff000000));
+    g.drawRoundedRectangle(border * 0.5f, border * 0.5f,
+                           bw - border, bh - border, 11.5f, border);
+
+    // Face rect (inside padding)
+    const float fx = border + padH, fy = border + padV;
+    const float fw = bw - 2.0f * (border + padH);
+    const float fh = bh - 2.0f * (border + padV);
+    if (fw < 20.0f || fh < 20.0f) return;
+
+    // .vuface: teal gradient + warm top glow + diagonal glass
+    juce::ColourGradient faceBg(col(0xff0b9dc4), fx, fy,
+                                col(0xff00293d), fx, fy + fh, false);
+    faceBg.addColour(0.38, col(0xff00779e));
+    faceBg.addColour(0.78, col(0xff004d6b));
+    g.setGradientFill(faceBg);
+    g.fillRoundedRectangle(fx, fy, fw, fh, 2.3f);
+    // Warm bulb glow from top: radial ellipse 75%x45% at (50%,-6%)
     {
-        juce::Path sp; sp.addRectangle(bezel);
-        juce::DropShadow(juce::Colours::black.withAlpha(0.8f), 12, juce::Point<int>(0, 6))
-            .drawForPath(g, sp);
+        juce::ColourGradient warm(col(0x57ffd082), fx + fw * 0.5f, fy - fh * 0.28f,
+                                  col(0x00ffb25c), fx + fw * 0.5f, fy + fh * 0.2f, true);
+        warm.addColour(0.55, col(0x1affb25c));
+        g.setGradientFill(warm);
+        g.fillRoundedRectangle(fx, fy, fw, fh, 2.3f);
     }
+    // Inset depth shadows
+    g.setColour(col(0xd2000000));
+    g.drawRoundedRectangle(fx + 1.0f, fy + 1.0f, fw - 2.0f, fh - 2.0f, 2.3f, 3.0f);
 
-    // Bezel: WIDE black plastic frame (like real VU meter housing)
-    // The face sits deep inside, recessed under glass
-    {
-        // Black plastic with subtle texture
-        juce::ColourGradient bg(col(0xff1e1e1e), bx, by, col(0xff0a0a0a), bx, by + bh, false);
-        bg.addColour(0.5, col(0xff151515));
-        g.setGradientFill(bg);
-        g.fillRect(bezel);
-
-        // Top edge highlight (plastic sheen)
-        g.setColour(col(0x44ffffff));
-        g.fillRect(juce::Rectangle<float>(bx + 1, by + 1, bw - 2, 3));
-
-        // Inner bevel: the glass sits in a recessed channel
-        // Outer bevel (light catching the top edge of the recess)
-        g.setColour(col(0x88333333));
-        g.drawRect(face.expanded(3.0f), 2.0f);
-        // Deep inner shadow (the face is pushed back)
-        g.setColour(col(0xee000000));
-        g.drawRect(face.expanded(1.0f), 4.0f);
-        // Inner highlight at bottom (light bouncing inside the recess)
-        g.setColour(col(0x33ffffff));
-        g.drawLine(face.getX(), face.getBottom() + 2.0f,
-                   face.getRight(), face.getBottom() + 2.0f, 1.5f);
-    }
-
-    // Zero-adjust screw: ONE small slotted trim screw centered below the meter
-    // (like a real VU meter's zero adjustment, not a mounting screw)
-    {
-        const float sx = bx + bw * 0.5f;  // center horizontally
-        const float sy = by + bh - bezelThick * 0.5f;  // centered in bottom bezel
-        const float sr = 5.0f;
-
-        // Screw head: small brass/dark metal circle
-        juce::ColourGradient sg(col(0xff8a7a5a), sx - sr, sy - sr,
-                                col(0xff2a241a), sx + sr, sy + sr, false);
-        g.setGradientFill(sg);
-        g.fillEllipse(sx - sr, sy - sr, sr * 2, sr * 2);
-        // Dark ring around screw
-        g.setColour(col(0xff0a0a0a));
-        g.drawEllipse(sx - sr, sy - sr, sr * 2, sr * 2, 1.0f);
-        // Slot (horizontal, like a trim pot)
-        g.setColour(col(0xff0d0b08));
-        g.drawLine(sx - sr * 0.7f, sy, sx + sr * 0.7f, sy, 2.0f);
-        // Highlight on slot edge
-        g.setColour(col(0x44ffffff));
-        g.drawLine(sx - sr * 0.7f, sy + 1.0f, sx + sr * 0.7f, sy + 1.0f, 1.0f);
-    }
-
-    // Backlight glow from bulbs at bottom (classic VU: lit from underneath)
-    // Brighter at bottom, fading to darker at top for realistic shading
-    {
-        juce::ColourGradient glow(col(0x00000000), fx, fy,
-                                   col(0x55ffdd88), fx, fy + h, false);
-        glow.addColour(0.6, col(0x22ffdd88));
-        g.setGradientFill(glow);
-        g.fillRect(face);
-    }
-
-    // Clip everything below to the face
+    // Map SVG 200x104 onto the face
     g.saveState();
     {
         juce::Path clip;
-        clip.addRectangle(face);
+        clip.addRoundedRectangle(fx, fy, fw, fh, 2.3f);
         g.reduceClipRegion(clip);
     }
+    const float sc = juce::jmin(fw / 200.0f, fh / 104.0f);
+    const float ox = fx + (fw - 200.0f * sc) * 0.5f;
+    const float oy = fy + (fh - 104.0f * sc) * 0.5f;
+    auto X = [&](float x) { return ox + x * sc; };
+    auto Y = [&](float y) { return oy + y * sc; };
+    auto S = [&](float v) { return v * sc; };
 
-    // Face background: website exact CSS
-    // linear-gradient(180deg, #0b9dc4 0%, #00779e 38%, #004d6b 78%, #00293d 100%)
-    juce::ColourGradient bg(col(0xff0b9dc4), fx, fy,
-                            col(0xff00293d), fx, fy + h, false);
-    bg.addColour(0.38, col(0xff00779e));
-    bg.addColour(0.78, col(0xff004d6b));
-    g.setGradientFill(bg);
-    g.fillRect(face);
-
-    // Static noise (prototype: 'overlay' blend at 0.5 alpha; JUCE has no
-    // overlay mode, so pre-darkened speckle at low opacity approximates it)
-    g.setOpacity(0.5f);
-    g.drawImageAt(noise_, int(fx), int(fy));
-    g.setOpacity(1.0f);
-
-    // Vignette: prototype is a radial gradient centred at (w/2, h/1.5)
-    // with inner radius w*0.1 and outer radius w*0.95.
-    // Stops: 0 -> rgba(255,255,255,0.3), 0.3 -> rgba(100,220,255,0.1),
-    //        1 -> rgba(0,0,0,0.5).
-    // Inside the inner radius is transparent (no vignette).
-    // JUCE radial gradients run centre -> radius, so remap stops:
-    //   0.1/0.95 = 0.105, (0.1+0.3*0.85)/0.95 = 0.374.
+    // Scale arc: radius 108 centered at (100,114); white -146deg..-70.2deg,
+    // amber -70.2deg..-43deg (SVG y-down, JUCE angles clockwise from +x)
     {
-        const float vcx = fx + w * 0.5f, vcy = fy + h / 1.5f;
-        const float vr = w * 0.95f;
-        juce::ColourGradient vig(col(0x00ffffff), vcx, vcy,
-                                 col(0x80000000), vcx + vr, vcy, true);
-        vig.addColour(0.105, col(0x4dffffff));
-        vig.addColour(0.374, col(0x1a64dcff));
-        g.setGradientFill(vig);
-        g.fillRect(face);
+        juce::Path white, amber;
+        white.addArc(X(100.0f - 108.0f), Y(114.0f - 108.0f), S(216.0f), S(216.0f),
+                     -0.977f, 0.346f, true);
+        amber.addArc(X(100.0f - 108.0f), Y(114.0f - 108.0f), S(216.0f), S(216.0f),
+                     0.346f, 0.820f, true);
+        g.setColour(col(0xe6ffffff));
+        g.strokePath(white, juce::PathStrokeType(S(1.8f)));
+        g.setColour(col(0xffffb020));
+        g.strokePath(amber, juce::PathStrokeType(S(1.8f)));
+    }
+    // Tick marks (exact SVG coordinates)
+    auto tick = [&](float x1, float y1, float x2, float y2,
+                    juce::Colour c, float wdt) {
+        g.setColour(c);
+        g.drawLine(X(x1), Y(y1), X(x2), Y(y2), S(wdt));
+    };
+    const juce::Colour tkw(0xffffffff), tka(0xffffb020);
+    const float wm[5][4] = {{14.9f,47.5f,25.5f,55.8f},{47.6f,19.5f,54.2f,31.3f},
+                            {63.4f,12.4f,68.0f,25.1f},{80.1f,7.8f,82.6f,21.1f},
+                            {102.3f,6.0f,102.0f,19.5f}};
+    for (auto& t : wm) tick(t[0],t[1],t[2],t[3],tkw,2.0f);
+    const float am[2][4] = {{136.6f,12.4f,132.0f,25.1f},{169.4f,31.3f,160.7f,41.6f}};
+    for (auto& t : am) tick(t[0],t[1],t[2],t[3],tka,2.0f);
+    const float wm2[2][4] = {{114.5f,7.0f,113.2f,16.4f},{124.5f,8.8f,122.3f,18.1f}};
+    for (auto& t : wm2) tick(t[0],t[1],t[2],t[3],col(0xccffffff),1.4f);
+    const float ws[11][4] = {{19.7f,41.7f,24.2f,45.7f},{25.0f,36.3f,29.1f,40.6f},
+                             {30.6f,31.3f,34.4f,35.9f},{36.5f,26.6f,40.0f,31.5f},
+                             {42.8f,22.4f,45.9f,27.5f},{56.1f,15.3f,58.5f,20.8f},
+                             {70.2f,10.2f,71.9f,16.0f},{85.0f,7.1f,85.8f,13.0f},
+                             {92.5f,6.3f,92.9f,12.2f},{107.5f,6.3f,107.1f,12.2f},
+                             {129.8f,10.2f,128.1f,16.0f}};
+    for (auto& t : ws) tick(t[0],t[1],t[2],t[3],col(0xb3ffffff),1.1f);
+    const float as_[5][4] = {{143.9f,15.3f,141.5f,20.8f},{150.7f,18.6f,147.9f,23.9f},
+                             {157.2f,22.4f,154.1f,27.5f},{163.5f,26.6f,160.0f,31.5f},
+                             {175.0f,36.3f,170.9f,40.6f}};
+    for (auto& t : as_) tick(t[0],t[1],t[2],t[3],tka,1.1f);
+
+    // Numerals: Roboto Condensed 700, 11.5px
+    juce::Font numFont(BiteyFonts::robotoCondensed(S(11.5f)));
+    g.setFont(numFont);
+    struct Num { const char* t; float x, y; bool amber; };
+    const Num nums[] = {{"-20",37.0f,68.2f,false},{"-10",61.2f,47.5f,false},
+                        {"-7",72.9f,42.2f,false},{"-5",85.3f,38.9f,false},
+                        {"-3",101.7f,37.5f,false},{"0",127.1f,42.2f,true},
+                        {"+3",151.4f,56.2f,true}};
+    for (auto& nu : nums) {
+        g.setColour(nu.amber ? col(0xffffb020) : col(0xffffffff));
+        // SVG text-anchor=middle with baseline at y: emulate with centred box
+        g.drawText(nu.t, int(X(nu.x) - S(20.0f)), int(Y(nu.y) - S(11.5f)),
+                   int(S(40.0f)), int(S(13.0f)), juce::Justification::centred);
     }
 
-    const float cx = fx + w / 2, cy = fy + h * 0.846f;
-    // Needle must stay INSIDE the face (92% of pivot-to-top distance)
-    const float r = h * 0.846f * 0.92f;
-    const float startAngle = -2.70f; // Aligned to -20 on SVG scale
-    const float endAngle = -0.45f;   // Aligned to +3 on SVG scale
-    const float totalAngle = endAngle - startAngle;
-
-    // Website-exact VU scale: rendered from the site's own SVG
-    // Preserve aspect ratio, centered in face with padding (not under bezel)
-    // Bezel must completely clear all content — use 75% for safe clearance
-    if (scaleImg_.isValid()) {
-        const float svgAspect = 200.0f / 104.0f;
-        // Use 75% of face to leave clear padding from bezel
-        const float padW = w * 0.75f, padH = h * 0.75f;
-        float dw = padW, dh = padW / svgAspect;
-        if (dh > padH) { dh = padH; dw = padH * svgAspect; }
-        const float dx = fx + (w - dw) * 0.5f;
-        const float dy = fy + (h - dh) * 0.5f;
-        g.drawImage(scaleImg_, dx, dy, dw, dh, 0, 0,
-                    scaleImg_.getWidth(), scaleImg_.getHeight());
-    }
-
-    // Bitey logo (website: HTML img overlay, centered below scale)
+    // Green Bitey logo with glow (web .vu-logo drop-shadows)
     {
-        juce::Image logoImg = juce::ImageCache::getFromMemory(BinaryData::biteylogo_png,
-                                                             BinaryData::biteylogo_pngSize);
-        if (logoImg.isValid()) {
-            // Tint to glowing green like the website
-            juce::Image greenLogo(juce::Image::ARGB, logoImg.getWidth(), logoImg.getHeight(), true);
-            for (int y = 0; y < logoImg.getHeight(); ++y) {
-                for (int x = 0; x < logoImg.getWidth(); ++x) {
-                    juce::Colour px = logoImg.getPixelAt(x, y);
-                    float b = px.getBrightness();
-                    float boost = 0.3f + 0.7f * b;
-                    greenLogo.setPixelAt(x, y, juce::Colour::fromFloatRGBA(
-                        0.2f * boost, 1.0f * boost, 0.25f * boost, px.getAlpha()));
-                }
-            }
-            // Website: logo subtle, about 22% of face width, tucked under scale
-            float lw = w * 0.22f;
-            float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
-            float lx = fx + (w - lw) * 0.5f;
-            float ly = fy + h * 0.48f; // Under the scale, above bottom
-            // Reduce brightness: website logo is subtle, not neon
-            g.setOpacity(0.7f);
-            g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
-                        greenLogo.getWidth(), greenLogo.getHeight());
-            g.setOpacity(1.0f);
+        juce::Image logo = juce::ImageCache::getFromMemory(
+            BinaryData::biteylogogreen_png, BinaryData::biteylogogreen_pngSize);
+        if (logo.isValid()) {
+            juce::ColourGradient lg(col(0x664dff7a), X(100.0f), Y(66.0f),
+                                    col(0x004dff7a), X(100.0f), Y(100.0f), true);
+            g.setGradientFill(lg);
+            g.fillEllipse(X(65.0f), Y(42.0f), S(70.0f), S(52.0f));
+            g.drawImage(logo, X(72.9f), Y(46.8f), S(54.3f), S(39.4f),
+                        0, 0, logo.getWidth(), logo.getHeight());
         }
     }
 
-
-    // Needle: single clean needle (no ghost shadow)
-    const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_);
-    const float na = startAngle + targetPos * totalAngle;
-    const float nca = std::cos(na), nsa = std::sin(na);
-    // (No shadow — was creating the "ghost needle")
-    g.setColour(col(0xff1a1a1a));
-    g.drawLine(cx, cy, cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 2.0f);
-    const float tipR = r - 25.0f * s;
-    g.setColour(col(0xffcc3333));
-    g.drawLine(cx + nca * tipR, cy + nsa * tipR,
-               cx + nca * (r - 5.0f), cy + nsa * (r - 5.0f), 1.5f * s);
-
-    // (Pivot screw is in the SVG scale image; no separate dome needed)
-
-    // Glass: top sheen (prototype: white/10 gradient over top 45%)
+    // Needle: white polygon, pivot at (100,88). Rest (-20) = -65.5deg,
+    // full (+3) = +51.6deg from vertical (derived from SVG tick geometry).
     {
-        juce::ColourGradient sheen(col(0x1affffff), fx, fy,
-                                   col(0x00ffffff), fx, fy + h * 0.45f, false);
-        g.setGradientFill(sheen);
-        g.fillRect(juce::Rectangle<float>(fx, fy, w, h * 0.45f));
-    }
-
-    // Inner dark edge (prototype: inset 0 0 20px rgba(0,0,0,0.9))
-    {
-        juce::ColourGradient inner(col(0x00000000), fx, fy,
-                                   col(0xe6000000), fx, fy + 14.0f, false);
-        g.setGradientFill(inner);
-        juce::Path ip;
-        ip.addRectangle(face);
+        const float lvl = juce::jlimit(0.0f, 1.0f, smoothed_);
+        const float ang = (-65.5f + 117.1f * lvl) * kDeg2Rad;
         g.saveState();
-        g.reduceClipRegion(ip);
-        g.fillRect(juce::Rectangle<float>(fx, fy, w, 14.0f));
-        g.fillRect(juce::Rectangle<float>(fx, fy + h - 14.0f, w, 14.0f));
-        g.fillRect(juce::Rectangle<float>(fx, fy, 14.0f, h));
-        g.fillRect(juce::Rectangle<float>(fx + w - 14.0f, fy, 14.0f, h));
+        g.addTransform(juce::AffineTransform::rotation(ang, X(100.0f), Y(88.0f)));
+        juce::Path needle;
+        needle.startNewSubPath(X(99.12f), Y(94.0f));
+        needle.lineTo(X(100.88f), Y(94.0f));
+        needle.lineTo(X(100.34f), Y(10.0f));
+        needle.lineTo(X(99.66f), Y(10.0f));
+        needle.closeSubPath();
+        g.setColour(col(0xffffffff));
+        g.fillPath(needle);
+        g.setColour(col(0x7300141e));
+        g.strokePath(needle, juce::PathStrokeType(S(0.5f)));
         g.restoreState();
     }
 
-    g.restoreState(); // unclip face
-    // GLASS COVER: wide bezel + glass makes scale/logo look recessed underneath
-    // Diagonal reflection (top-left) - the key "under glass" cue
+    // Pivot cap: radial-gradient(circle at 38% 32%, #f4f4f4, #8a8a8a 55%, #2e2e2e)
     {
-        g.saveState();
-        juce::Path gp;
-        gp.addRectangle(face);
-        g.reduceClipRegion(gp);
+        const float px = X(100.0f), py = Y(88.0f), pr = S(6.2f);
+        juce::ColourGradient cap(col(0xfff4f4f4), px - pr * 0.24f, py - pr * 0.36f,
+                                 col(0xff2e2e2e), px + pr * 0.3f, py + pr * 0.35f, true);
+        cap.addColour(0.55, col(0xff8a8a8a));
+        g.setGradientFill(cap);
+        g.fillEllipse(px - pr, py - pr, pr * 2.0f, pr * 2.0f);
+        g.setColour(col(0x80000000));
+        g.drawEllipse(px - pr, py - pr, pr * 2.0f, pr * 2.0f, S(0.6f));
+        // Slot
+        g.setColour(col(0xff1a1a1a));
+        g.drawLine(X(97.9f), Y(86.6f), X(102.1f), Y(89.4f), S(1.1f));
+        // Center dot
+        g.setColour(col(0xff141414));
+        g.fillEllipse(px - S(2.0f), py - S(2.0f), S(4.0f), S(4.0f));
+    }
 
-        // Glass tint (subtle blue-grey like real meter glass)
-        g.setColour(col(0x0a8aa8c8));
-        g.fillRect(face);
+    // "VU" corner label: 9.5px, letter-spacing 2.5
+    {
+        juce::Font vuFont(BiteyFonts::robotoCondensed(S(9.5f)));
+        vuFont.setExtraKerningFactor(0.26f);
+        g.setFont(vuFont);
+        g.setColour(col(0xe6ffffff));
+        g.drawText("VU", int(X(150.0f)), int(Y(82.0f)), int(S(40.0f)), int(S(14.0f)),
+                   juce::Justification::right);
+    }
 
-        // Main diagonal reflection
+    // Diagonal glass reflection (117deg, subtle)
+    {
         juce::Path refl;
         refl.startNewSubPath(fx, fy);
-        refl.lineTo(fx + w * 0.45f, fy);
-        refl.lineTo(fx + w * 0.15f, fy + h);
-        refl.lineTo(fx, fy + h);
+        refl.lineTo(fx + fw * 0.42f, fy);
+        refl.lineTo(fx + fw * 0.16f, fy + fh);
+        refl.lineTo(fx, fy + fh);
         refl.closeSubPath();
-        juce::ColourGradient rg(col(0x35ffffff), fx, fy,
-                                col(0x00ffffff), fx + w * 0.3f, fy + h * 0.5f, false);
+        juce::ColourGradient rg(col(0x36ffffff), fx, fy,
+                                col(0x00ffffff), fx + fw * 0.3f, fy + fh * 0.6f, false);
         g.setGradientFill(rg);
         g.fillPath(refl);
+    }
+    g.restoreState(); // unclip face
 
-        // Faint secondary reflection (bottom-right)
-        g.setColour(col(0x18ffffff));
-        g.fillRect(juce::Rectangle<float>(fx + w * 0.7f, fy + h * 0.75f, w * 0.3f, h * 0.25f));
-
-        // Glass edge where it meets the bezel
-        g.setColour(col(0x66ffffff));
-        g.drawRect(face, 1.5f);
-
+    // Zero-adjust screw below the face (.zscr 0.68cqw)
+    {
+        const float sr = 3.6f;
+        const float sx = bw * 0.5f, sy = bh - border - 2.0f - sr;
+        juce::ColourGradient sg(col(0xfff0f0f0), sx - sr * 0.3f, sy - sr * 0.4f,
+                                col(0xff2e2e2e), sx + sr * 0.3f, sy + sr * 0.3f, true);
+        sg.addColour(0.52, col(0xff8a8a8a));
+        g.setGradientFill(sg);
+        g.fillEllipse(sx - sr, sy - sr, sr * 2.0f, sr * 2.0f);
+        g.setColour(col(0xff171717));
+        g.saveState();
+        g.addTransform(juce::AffineTransform::rotation(28.0f * kDeg2Rad, sx, sy));
+        g.fillRoundedRectangle(sx - sr * 0.72f, sy - 0.7f, sr * 1.44f, 1.4f, 0.7f);
         g.restoreState();
     }
 }
+
 
 // ---------------------------------------------------------------------------
 // BoardTape
@@ -1158,20 +1065,20 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
                            const juce::String& title, const juce::String& number)
     : PanelBox(title, col(0xff1a1a1a)), proc_(proc), number_(number) {
     const juce::String p = (index == 0) ? "ch1_" : "ch2_";
-    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 72, false, BiteyKnob::Scale::ZeroToTen);
-    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 72, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 72, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 115, false, BiteyKnob::Scale::ZeroToTen);
+    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", BiteyKnob::Size::Large, BiteyKnob::Scale::ZeroToTen);
     kReverb_->setKnobLabel("REVERB");
     kHigh_->setKnobLabel("HIGH");
     kLow_->setKnobLabel("LOW");
     kLevel_->setKnobLabel("LEVEL");
-    lowCut_ = std::make_unique<MetalToggle>(proc, p + "lowcut", "96Hz", true,
+    lowCut_ = std::make_unique<MetalToggle>(proc, p + "lowcut", "96 Hz", true,
                                             std::vector<juce::String>{"", ""},
-                                            true, 1 /* icons */);
+                                            false /* icons left, body right */, 1 /* icons */);
     pad_ = std::make_unique<MetalToggle>(proc, p + "pad", "PAD", true,
                                         std::vector<juce::String>{"+10", "+4", "0", "-10"},
-                                        false /* labels left */);
+                                        true /* body left, labels right */);
     addAndMakeVisible(*kReverb_); addAndMakeVisible(*kHigh_);
     addAndMakeVisible(*kLow_); addAndMakeVisible(*kLevel_);
     addAndMakeVisible(*lowCut_); addAndMakeVisible(*pad_);
@@ -1196,15 +1103,16 @@ void ChannelStrip::paint(juce::Graphics& g) {
 }
 
 void ChannelStrip::resized() {
-    const int cx = 86; // center x for 173px wide strip (173/2=86.5)
-    // Upper knobs 72px, LEVEL huge at 115px (like hardware)
-    kReverb_->setCentrePosition(cx, 55);
-    kHigh_->setCentrePosition(cx, 150);
-    kLow_->setCentrePosition(cx, 245);
-    kLevel_->setCentrePosition(cx, 360); // 115px LEVEL knob
-    // 96Hz/PAD toggles: below LEVEL, above CHANNEL label (no overlap)
-    lowCut_->setTopLeftPosition(18, 430);
-    pad_->setTopLeftPosition(98, 430);
+    const int cx = 78; // center x for 157px wide strip (web grid)
+    // Web rows: tick-tops at 12 / 110.5 / 209 / 307.5 (strip-relative)
+    kReverb_->setCentrePosition(cx, 59);
+    kHigh_->setCentrePosition(cx, 157);
+    kLow_->setCentrePosition(cx, 256);
+    kLevel_->setCentrePosition(cx, 363);
+    // 96Hz + PAD toggles: one row, hex bodies sharing a baseline (y=448),
+    // clear of the LEVEL label chip and the CHANNEL label
+    lowCut_->setTopLeftPosition(16, 435);
+    pad_->setTopLeftPosition(94, 423);
 }
 
 // ---------------------------------------------------------------------------
@@ -1213,16 +1121,16 @@ void ChannelStrip::resized() {
 
 MasterStrip::MasterStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 100, false, BiteyKnob::Scale::Eq);
-    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 100, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 100, false, BiteyKnob::Scale::Eq);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
     kHigh_->setKnobLabel("HIGH");
     kMid_->setKnobLabel("MID");
     kLow_->setKnobLabel("LOW");
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 115, false, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", BiteyKnob::Size::Large, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
@@ -1235,26 +1143,21 @@ void MasterStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
     const int H = getHeight();
-    // Knob labels drawn by knobs themselves
-    // CLIP label above the bulb (bulb centered at 86,435)
-    g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
-    // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
+    // Knob labels drawn by knobs themselves (ClipBulb draws its own CLIP row)
+    // Large MAIN label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
-    const int cx = 86; // center x for 173px wide strip
-    kHigh_->setCentrePosition(cx, 60);
-    kMid_->setCentrePosition(cx, 160);
-    kLow_->setCentrePosition(cx, 260);
-    midFreq_->setTopLeftPosition(115, 180);
-    kMain_->setCentrePosition(cx, 370); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx + 40, 415);
-    clipBulb_->setSize(20, 20);
+    const int cx = 78; // center x for 157px wide strip (web grid)
+    kHigh_->setCentrePosition(cx, 66);
+    kMid_->setCentrePosition(cx, 157);
+    kLow_->setCentrePosition(cx, 256);
+    midFreq_->setTopLeftPosition(106, 140); // web .midrow: freq toggle beside MID
+    kMain_->setCentrePosition(cx, 363);
+    clipBulb_->setBounds(cx - 35, 436, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1263,10 +1166,10 @@ void MasterStrip::resized() {
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 100, false, BiteyKnob::Scale::ZeroToTen);
-    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 100, false, BiteyKnob::Scale::ZeroToTen);
-    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 100, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 115, false, BiteyKnob::Scale::ZeroToTen);
+    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
+    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
+    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", BiteyKnob::Size::Large, BiteyKnob::Scale::ZeroToTen);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
@@ -1280,25 +1183,20 @@ void ReverbStrip::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
     const int H = getHeight();
-    // Knob labels drawn by knobs themselves
-    // CLIP label above the bulb (bulb centered at 86,435)
-    g.setFont(BiteyFonts::robotoCondensed(10.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
-    // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
+    // Knob labels drawn by knobs themselves (ClipBulb draws its own CLIP row)
+    // Large REVERB label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
-    const int cx = 86; // center x for 173px wide strip
-    kDrive_->setCentrePosition(cx, 60);
-    kContour_->setCentrePosition(cx, 160);
-    kTime_->setCentrePosition(cx, 260);
-    kReturn_->setCentrePosition(cx, 370); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx + 40, 415);
-    clipBulb_->setSize(20, 20);
+    const int cx = 78; // center x for 157px wide strip (web grid)
+    kDrive_->setCentrePosition(cx, 59);
+    kContour_->setCentrePosition(cx, 157);
+    kTime_->setCentrePosition(cx, 256);
+    kReturn_->setCentrePosition(cx, 363);
+    clipBulb_->setBounds(cx - 35, 436, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1313,10 +1211,10 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
     tapeSize_ = std::make_unique<MetalToggle>(proc, "tape_size", "TAPE", false,
                                              std::vector<juce::String>{"1/4\"", "1/2\"", "1\""},
                                              true /* labels right */);
-    echo_ = std::make_unique<BiteyKnob>(proc, "tape_mix", 70, false,
+    echo_ = std::make_unique<BiteyKnob>(proc, "tape_mix", BiteyKnob::Size::Small,
                                        BiteyKnob::Scale::None);
     echo_->setKnobLabel("ECHO");
-    dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", 70, false,
+    dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", BiteyKnob::Size::Small,
                                          BiteyKnob::Scale::None);
     dryWet_->setKnobLabel("DRY/WET");
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
@@ -1354,9 +1252,9 @@ void CenterPanel::paint(juce::Graphics& g) {
     // Board tape: masking tape strip with "REVERB MIXER"
     // Website: 92% width, 2.75cqw (29px) height, torn edges via clip-path
     const float tapeW = W * 0.92f;
-    const float tapeH = 29.0f;
+    const float tapeH = 28.9f; // 2.75cqw
     const float tapeX = (W - tapeW) / 2.0f;
-    const float tapeY = 392.0f;
+    const float tapeY = 404.0f;
 
     g.saveState();
     // Slight rotation for realism (-1.6 degrees like website)
@@ -1380,11 +1278,9 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setGradientFill(tape);
     g.fillPath(tapePath);
 
-    // Tape text: website serif, 1.55cqw (16px), #1c1a17, letter-spacing .07em
-    // Tape text: sharpie scribble — italic sans, slightly irregular
-    juce::Font tapeFont(juce::Font::getDefaultSansSerifFontName(), 17.0f, juce::Font::plain);
-    tapeFont.setItalic(true);
-    tapeFont.setExtraKerningFactor(0.04f);
+    // Tape text: Permanent Marker 1.55cqw (16.3px), #1c1a17, letter-spacing .07em
+    juce::Font tapeFont(BiteyFonts::permanentMarker(16.3f));
+    tapeFont.setExtraKerningFactor(0.07f);
     g.setFont(tapeFont);
     g.setColour(col(0xff2a2520));
     // Slight rotation for handwritten feel (on top of the tape's -1.6deg)
@@ -1411,23 +1307,19 @@ void CenterPanel::paint(juce::Graphics& g) {
 }
 
 void CenterPanel::resized() {
-    // 286px wide center panel (website exact)
-    // Top row: IPS (left), ECHO, DRY/WET, TAPE (right)
-    ips_->setTopLeftPosition(8, 50);
-    tapeSize_->setTopLeftPosition(238, 50);
-    // ECHO (53px knob): center (85,65)
-    echo_->setTopLeftPosition(58, 25);
-    // DRY/WET (70px knob): center (208,60) — aligned with channel REVERB knobs
-    dryWet_->setTopLeftPosition(173, 25);
-    // VU meters: 263px wide (92% of 286), 140px tall
-    vuReverb_->setTopLeftPosition(12, 120);
-    vuReverb_->setSize(263, 130);
-    vuMain_->setTopLeftPosition(12, 260);
-    vuMain_->setSize(263, 130);
-    // Bottom row: POWER, jewel, PHASE
-    power_->setTopLeftPosition(12, 445);
-    jewel_->setTopLeftPosition(117, 449);
-    phase_->setTopLeftPosition(202, 445);
+    // 260px wide center panel (web grid)
+    // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
+    ips_->setTopLeftPosition(14, 12);
+    tapeSize_->setTopLeftPosition(198, 12);
+    echo_->setCentrePosition(78, 48);    // small ring knob, tick-top at 12
+    dryWet_->setCentrePosition(168, 48); // clear of the TAPE toggle
+    // VU meters: 92% of 260 = 239px
+    vuReverb_->setBounds(10, 112, 239, 138);
+    vuMain_->setBounds(10, 258, 239, 138);
+    // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
+    power_->setTopLeftPosition(28, 442);
+    jewel_->setBounds(106, 438, 48, 48);
+    phase_->setTopLeftPosition(192, 442);
 }
 
 void CenterPanel::syncPower(bool on) {
@@ -1510,13 +1402,14 @@ void BiteyEditor::resized() {
     if (!cheekL_ || !chL_ || !center_) return;
     // Website exact: 1050x520, grid 30fr/145fr/145fr/240fr/145fr/145fr/30fr
     // 880fr total, 1fr=1.193px: cheek 36px, strip 173px, center 286px
-    cheekL_->setBounds(0, 0, 36, 520);
-    cheekR_->setBounds(1014, 0, 36, 520);
-    chL_->setBounds(38, 8, 173, 504);
-    chR_->setBounds(213, 8, 173, 504);
-    center_->setBounds(388, 8, 286, 504);
-    master_->setBounds(676, 8, 173, 504);
-    reverb_->setBounds(851, 8, 173, 504);
+    // Web grid: pad .55cqw, cheeks 30fr, channels 145fr, center 240fr, gap 1.35%
+    cheekL_->setBounds(6, 6, 32, 508);
+    cheekR_->setBounds(1012, 6, 32, 508);
+    chL_->setBounds(53, 6, 157, 508);
+    chR_->setBounds(224, 6, 157, 508);
+    center_->setBounds(395, 6, 260, 508);
+    master_->setBounds(669, 6, 157, 508);
+    reverb_->setBounds(840, 6, 157, 508);
 }
 
 void BiteyEditor::timerCallback() {

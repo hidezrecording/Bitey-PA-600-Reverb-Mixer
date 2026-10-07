@@ -36,24 +36,30 @@ juce::Font permanentMarker(float sizePx);
 } // namespace BiteyFonts
 
 // ---------------------------------------------------------------------------
-// BiteyKnob — rotary slider with the prototype's exact knob artwork:
-// panel tick scale + labels, drop shadow, optional metal skirt, knurled
-// rotating body with pointer and specular highlight.
+// BiteyKnob — web-build ring-style knob: tick-mark ring, dark kring circle,
+// smaller domed pknob with ivory pointer, "0"/"15" end markers and a label
+// chip below. Sizes follow the web build exactly (1cqw = 10.5px):
+//   Standard: tick ring 96.6, kring 78.75, pknob 66.15
+//   Large:    tick ring 115.5, kring 99.75, pknob 86.1
+//   Small:    tick ring 78.75, kring 64.6,  pknob 53.0  (center ECHO/DRY-WET)
 // ---------------------------------------------------------------------------
 class BiteyKnob : public juce::Component {
 public:
     enum class Scale { ZeroToTen, Eq, None };
+    enum class Size { Standard, Large, Small };
 
     BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
-              int knobSizePx, bool skirted, Scale scale);
+              Size size, Scale scale);
     void paint(juce::Graphics& g) override;
     void resized() override;
     void setKnobLabel(const juce::String& label) { knobLabel_ = label; }
 
 private:
+    struct Dims { float tickD, kringD, pknobD, compW, compH; };
+    static Dims dimsFor(Size s);
+
     struct Look : public juce::LookAndFeel_V4 {
-        int knobSize = 50;
-        bool skirted = false;
+        float kringD = 78.75f, pknobD = 66.15f;
         void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
                               float sliderPos, float rotaryStartAngle,
                               float rotaryEndAngle, juce::Slider& slider) override;
@@ -62,11 +68,8 @@ private:
     juce::Slider slider_;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> att_;
     Look look_;
-    int knobSize_;
-    bool skirted_;
+    Dims dims_;
     Scale scale_;
-    float half_ = 0.0f; // half-width of the component (labels included)
-    float cy_ = 0.0f;   // y of the knob circle centre
     juce::String knobLabel_; // label drawn in the bottom scale gap
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BiteyKnob)
@@ -104,7 +107,7 @@ private:
     int index_ = 0;
     bool isBool_ = false;
     bool invertBool_ = false; // for POWER: value 1.0 = ON = top position
-    float body_ = 30.0f; // switch body diameter
+    float body_ = 21.5f; // web-build switch body diameter (2.05cqw)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MetalToggle)
 };
