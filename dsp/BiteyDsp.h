@@ -115,9 +115,10 @@ struct Curves {
 };
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x zero-stuff + 95-tap Kaiser FIR (reduced from 193
-// for CPU; still provides >60dB stopband attenuation).
-// Latency: 96 samples at the base rate per instance.
+// OversampledShaper — 2x zero-stuff + 47-tap Kaiser FIR.
+// Reduced from 4x/95-tap for CPU (4x was 92% of real-time, needed <50%).
+// 2x provides adequate aliasing suppression for the saturation curves used.
+// Latency: 24 samples at the base rate per instance.
 // ---------------------------------------------------------------------------
 
 class OversampledShaper {
@@ -125,13 +126,13 @@ public:
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void reset();
-    float process(float x);          // 96 samples latency
-    static constexpr int latency() { return 96; }
+    float process(float x);          // 24 samples latency
+    static constexpr int latency() { return 24; }
 private:
-    static constexpr int kTaps = 95;
-    // FIR group delay per filter: (95-1)/2 @4x = 11.75 @1x; two filters = 23.5.
-    static constexpr int kPureDelay = 96 - 2 * ((kTaps - 1) / 8);
-    std::vector<float> fir_;         // 95 taps
+    static constexpr int kTaps = 47;
+    // FIR group delay per filter: (47-1)/2 @2x = 11.5 @1x; two filters = 23.
+    static constexpr int kPureDelay = 24 - 2 * ((kTaps - 1) / 4);
+    std::vector<float> fir_;         // 47 taps
     std::vector<float> upBuf_, dnBuf_;
     std::vector<float> delayBuf_;    // pure delay padding to 96
     int upPos_ = 0, dnPos_ = 0, delayPos_ = 0;

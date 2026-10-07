@@ -27,7 +27,11 @@ def mean_abs_diff(img1, img2):
     """Mean absolute pixel difference (0-255)."""
     diff = ImageChops.difference(img1, img2)
     hist = diff.histogram()
-    total = sum(i * count for i, count in enumerate(hist))
+    # histogram() concatenates per-channel bins (768 entries for RGB);
+    # each channel's bins must be weighted 0-255, not 0-767.
+    total = (sum(hist[i] * i for i in range(256))
+             + sum(hist[256 + i] * i for i in range(256))
+             + sum(hist[512 + i] * i for i in range(256)))
     pixels = img1.size[0] * img1.size[1] * 3  # RGB
     return total / pixels
 

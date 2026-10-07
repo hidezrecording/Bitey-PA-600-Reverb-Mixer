@@ -156,13 +156,14 @@ Curves Curves::build() {
 }
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 4x zero-stuff + 95-tap Kaiser-windowed-sinc FIR.
+// OversampledShaper — 2x zero-stuff + 47-tap Kaiser-windowed-sinc FIR.
 //
-// Reduced from 193 taps for CPU (2x faster, still >60dB stopband).
+// Reduced from 4x/95-tap for CPU (was 92% of real-time, need <50%).
+// 2x provides adequate aliasing suppression for the saturation curves.
 // The resampling filter is nearly transparent (flat to ~20 kHz,
-// gentle rolloff to Nyquist); the 95-tap FIR contributes 24 samples of
-// group delay and a pure delay line makes up the remaining 72, for a
-// total of 96 samples at the base rate per instance.
+// gentle rolloff to Nyquist); the 47-tap FIR contributes 12 samples of
+// group delay and a pure delay line makes up the remaining 12, for a
+// total of 24 samples at the base rate per instance.
 // ---------------------------------------------------------------------------
 
 // Modified Bessel I0 (Kaiser window).
@@ -181,9 +182,8 @@ void OversampledShaper::prepare(double sampleRate) {
     (void)sampleRate;
     const int N = kTaps;
     fir_.assign(N, 0);
-    // Cutoff at the 4x Nyquist: gentle lowpass, flat through the audio band
-    // (mirrors the measured Chromium response: +0 dB to ~20 kHz).
-    const double fc = 0.125; // cycles/sample at 4x rate
+    // Cutoff at the 2x Nyquist: gentle lowpass, flat through the audio band.
+    const double fc = 0.25; // cycles/sample at 2x rate
     const double beta = 8.0;
     const double i0beta = besselI0(beta);
     const int M = N - 1;
@@ -196,7 +196,7 @@ void OversampledShaper::prepare(double sampleRate) {
         fir_[n] = float(sinc * w);
         sum += fir_[n];
     }
-    for (auto& v : fir_) v = float(v / sum * 4.0); // x4 compensates zero-stuff
+    for (auto& v : fir_) v = float(v / sum * 2.0); // x2 compensates zero-stuff
     upBuf_.assign(N, 0);
     dnBuf_.assign(N, 0);
     delayBuf_.assign(kPureDelay + 1, 0);
@@ -212,8 +212,8 @@ void OversampledShaper::reset() {
 
 float OversampledShaper::process(float x) {
     const int N = int(fir_.size());
-    float out4[4];
-    for (int k = 0; k < 4; ++k) {
+    float out2[2];
+    for (int k = 0; k < 2; ++k) {
         float in = (k == 0) ? x : 0.0f; // zero-stuff
         upBuf_[upPos_] = in;
         float acc = 0;
@@ -223,12 +223,12 @@ float OversampledShaper::process(float x) {
             if (--idx < 0) idx += N;
         }
         if (++upPos_ >= N) upPos_ = 0;
-        out4[k] = curve_ ? curve_->process(acc) : acc;
+        out2[k] = curve_ ? curve_->process(acc) : acc;
     }
     // Decimate: filter each shaped sample; take phase k=0.
     float y = 0;
-    for (int k = 0; k < 4; ++k) {
-        dnBuf_[dnPos_] = out4[k];
+    for (int k = 0; k < 2; ++k) {
+        dnBuf_[dnPos_] = out2[k];
         float acc = 0;
         int idx = dnPos_;
         for (int n = 0; n < N; ++n) {
@@ -236,10 +236,10 @@ float OversampledShaper::process(float x) {
             if (--idx < 0) idx += N;
         }
         if (++dnPos_ >= N) dnPos_ = 0;
-        if (k == 0) y = acc * 0.25f; // x0.25 compensates the x4 up-filter gain
+        if (k == 0) y = acc * 0.5f; // x0.5 compensates the x2 up-filter gain
     }
-    // Pure delay line: the two FIRs contribute 2*24 = 48 samples; pad to the
-    // measured 192 so transients land exactly where the browser puts them.
+    // Pure delay line: the two FIRs contribute 2*12 = 24 samples; pad to 24
+    // total so transients land consistently.
     delayBuf_[delayPos_] = y;
     int rp = delayPos_ + 1;
     if (rp >= int(delayBuf_.size())) rp = 0;
