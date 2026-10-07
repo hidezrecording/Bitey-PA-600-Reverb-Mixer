@@ -85,8 +85,8 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
         half_ = textR + 10.0f;
         cy_ = textR + 6.0f;
     }
-    // Height includes room for the knob label below (website: absolute positioned)
-    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 10.0f)));
+    // Height includes room for the knob label below (tight padding)
+    setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + textR + 2.0f)));
 }
 
 void BiteyKnob::resized() {
@@ -1180,10 +1180,10 @@ void ChannelStrip::resized() {
     kReverb_->setCentrePosition(cx, 60);
     kHigh_->setCentrePosition(cx, 160);
     kLow_->setCentrePosition(cx, 260);
-    kLevel_->setCentrePosition(cx, 360); // 108px knob
+    kLevel_->setCentrePosition(cx, 340); // 145px knob, tight layout
     // 96Hz/PAD toggles: below LEVEL, above CHANNEL label (no overlap)
-    lowCut_->setTopLeftPosition(18, 415);
-    pad_->setTopLeftPosition(98, 415);
+    lowCut_->setTopLeftPosition(18, 445);
+    pad_->setTopLeftPosition(98, 445);
 }
 
 // ---------------------------------------------------------------------------
@@ -1395,14 +1395,14 @@ void CenterPanel::resized() {
     ips_->setTopLeftPosition(8, 50);
     tapeSize_->setTopLeftPosition(238, 50);
     // ECHO (53px knob): center (85,65)
-    echo_->setTopLeftPosition(58, 38);
-    // DRY/WET (53px knob): center (200,65)
-    dryWet_->setTopLeftPosition(173, 38);
+    echo_->setTopLeftPosition(58, 25);
+    // DRY/WET (70px knob): center (208,60) — aligned with channel REVERB knobs
+    dryWet_->setTopLeftPosition(173, 25);
     // VU meters: 263px wide (92% of 286), 140px tall
-    vuReverb_->setTopLeftPosition(12, 100);
-    vuReverb_->setSize(263, 140);
-    vuMain_->setTopLeftPosition(12, 250);
-    vuMain_->setSize(263, 140);
+    vuReverb_->setTopLeftPosition(12, 120);
+    vuReverb_->setSize(263, 130);
+    vuMain_->setTopLeftPosition(12, 260);
+    vuMain_->setSize(263, 130);
     // Bottom row: POWER, jewel, PHASE
     power_->setTopLeftPosition(12, 445);
     jewel_->setTopLeftPosition(117, 449);
