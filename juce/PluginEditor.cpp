@@ -1313,16 +1313,25 @@ void CenterPanel::paint(juce::Graphics& g) {
     // Slight rotation for realism (-1.6 degrees like website)
     g.addTransform(juce::AffineTransform::rotation(-0.028f, tapeX + tapeW/2, tapeY + tapeH/2));
 
-    // Torn tape edges (website clip-path polygon)
+    // Torn edges: jagged rips (not cuts), no bevel — like ripped masking tape
     juce::Path tapePath;
-    tapePath.startNewSubPath(tapeX, tapeY + tapeH * 0.18f);
-    tapePath.lineTo(tapeX + tapeW * 0.02f, tapeY);
-    tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + tapeH * 0.04f);
-    tapePath.lineTo(tapeX + tapeW, tapeY + tapeH * 0.22f);
-    tapePath.lineTo(tapeX + tapeW * 0.99f, tapeY + tapeH * 0.82f);
-    tapePath.lineTo(tapeX + tapeW * 0.96f, tapeY + tapeH);
-    tapePath.lineTo(tapeX + tapeW * 0.03f, tapeY + tapeH * 0.96f);
-    tapePath.lineTo(tapeX, tapeY + tapeH * 0.78f);
+    // Left rip: jagged
+    tapePath.startNewSubPath(tapeX + 3.0f, tapeY + tapeH * 0.15f);
+    tapePath.lineTo(tapeX + 8.0f, tapeY + 2.0f);
+    tapePath.lineTo(tapeX + 2.0f, tapeY + tapeH * 0.35f);
+    tapePath.lineTo(tapeX + 7.0f, tapeY + tapeH * 0.55f);
+    tapePath.lineTo(tapeX + 1.0f, tapeY + tapeH * 0.75f);
+    tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 2.0f);
+    // Top edge (slightly wavy)
+    tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + 1.0f);
+    // Right rip: jagged
+    tapePath.lineTo(tapeX + tapeW - 2.0f, tapeY + tapeH * 0.2f);
+    tapePath.lineTo(tapeX + tapeW - 7.0f, tapeY + tapeH * 0.4f);
+    tapePath.lineTo(tapeX + tapeW - 1.0f, tapeY + tapeH * 0.6f);
+    tapePath.lineTo(tapeX + tapeW - 6.0f, tapeY + tapeH * 0.8f);
+    tapePath.lineTo(tapeX + tapeW - 3.0f, tapeY + tapeH - 1.0f);
+    // Bottom edge (slightly wavy)
+    tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 1.0f);
     tapePath.closeSubPath();
 
     // Masking tape base (website: #ead9ae to #d8bf87)
@@ -1331,8 +1340,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setGradientFill(tape);
     g.fillPath(tapePath);
 
-    // Tape text: Permanent Marker 1.55cqw (16.3px), #1c1a17, letter-spacing .07em
-    juce::Font tapeFont(BiteyFonts::permanentMarker(16.3f));
+    // Tape text: bigger Sharpie scrawl (20px), #1c1a17
+    juce::Font tapeFont(BiteyFonts::permanentMarker(20.0f));
     tapeFont.setExtraKerningFactor(0.07f);
     g.setFont(tapeFont);
     g.setColour(col(0xff2a2520));
