@@ -182,11 +182,18 @@ void OversampledShaper::prepare(double sampleRate) {
     // At 88.2kHz and above, the base sample rate already provides enough
     // bandwidth that 2x oversampling gives diminishing returns. Bypass the
     // oversampling to save CPU (critical for Luna at 96kHz).
-    bypass_ = (sampleRate >= 88200.0);
-    if (bypass_) {
-        fir_.clear(); upBuf_.clear(); dnBuf_.clear(); delayBuf_.clear();
-        return;
+    //
+    // The FIR design and buffer sizes are rate-independent, so they are
+    // built once. Re-prepare only flips the atomic bypass flag: no
+    // allocation and no vector mutation, safe while audio is running.
+    bypass_.store(sampleRate >= 88200.0);
+    bool expected = false;
+    if (designed_.compare_exchange_strong(expected, true)) {
+        designFilter();
     }
+}
+
+void OversampledShaper::designFilter() {
     const int N = kTaps;
     fir_.assign(N, 0);
     // Cutoff at the 2x Nyquist: gentle lowpass, flat through the audio band.
@@ -220,7 +227,7 @@ void OversampledShaper::reset() {
 float OversampledShaper::process(float x) {
     // Bypass mode (high sample rates): just apply the curve directly.
     // No oversampling, no latency.
-    if (bypass_) {
+    if (bypass_.load()) {
         return curve_ ? curve_->process(x) : x;
     }
     const int N = int(fir_.size());
@@ -394,6 +401,9 @@ float PartitionedConvolver::process(float x) {
 
     if (inPos_ >= kPartition) {
         inPos_ = 0;
+        // Defensive: setIR() with an empty IR leaves numParts_ == 0 and the
+        // history empty; skip the block FFT rather than indexing xHist_[0].
+        if (numParts_ > 0) {
         // FFT of input block
         for (int i = 0; i < kPartition; ++i) tmp_[i] = inBuf_[i];
         for (int i = kPartition; i < fft_.size(); ++i) tmp_[i] = 0;
@@ -415,6 +425,7 @@ float PartitionedConvolver::process(float x) {
             int idx = outPos_ + i;
             if (idx >= int(outBuf_.size())) idx -= int(outBuf_.size());
             outBuf_[idx] += acc_[i].real();
+        }
         }
     }
     return y;
@@ -608,63 +619,124 @@ SpringReverb::~SpringReverb() {
     if (worker_.joinable()) worker_.join();
 }
 
-void SpringReverb::prepare(double sampleRate, const Curves& curves) {
-    sr_ = sampleRate;
-    curves_ = &curves;
+void SpringReverb::configureFilters(double sampleRate) {
+    // No allocation here: biquad coefficient writes + smoothed setup only.
+    // Runs synchronously on first prepare; on re-prepare it is deferred to
+    // the audio thread (via beginBlock) so coefficients are never written
+    // while the render thread reads them.
     for (int c = 0; c < 2; ++c) {
-        hp_[c].setHighpass(sr_, 180, 0.5);
-        tone_[c].setLowpass(sr_, 3250, 0.4);
-        a1108In_[c].setHighpass(sr_, 50, 0.5);
-        a1108Out_[c].setLowpass(sr_, 24000, 0.5);
+        hp_[c].setHighpass(sampleRate, 180, 0.5);
+        tone_[c].setLowpass(sampleRate, 3250, 0.4);
+        a1108In_[c].setHighpass(sampleRate, 50, 0.5);
+        a1108Out_[c].setLowpass(sampleRate, 24000, 0.5);
     }
-    driver_[0].prepare(sr_); driver_[0].setCurve(&curves_->driver);
-    driver_[1].prepare(sr_); driver_[1].setCurve(&curves_->driver);
-    a1108_[0].prepare(sr_);  a1108_[0].setCurve(&curves_->c1108);
-    a1108_[1].prepare(sr_);  a1108_[1].setCurve(&curves_->c1108);
-    for (int s = 0; s < 2; ++s) { convL_[s].prepare(sr_); convR_[s].prepare(sr_); }
-    drvGain_.prepare(sr_, 0.175f);
-    toneFreq_.prepare(sr_, 3250.0f);
-    retGain_.prepare(sr_, 0.7f);
-    // Build the initial IR synchronously ONLY on first prepare (worker not
-    // running yet). On re-prepare (sample rate change during audio), use the
-    // async worker path to avoid racing the audio thread.
-    const float t0 = 0.5f + (timeParam / 10.0f) * 4.0f;
+    drvGain_.prepare(sampleRate, 0.175f);
+    toneFreq_.prepare(sampleRate, 3250.0f);
+    retGain_.prepare(sampleRate, 0.7f);
+    dirty_ = true;
+}
+
+void SpringReverb::prepare(double sampleRate, const Curves& curves) {
+    curves_ = &curves; // prepare-thread only; never dereferenced on audio
+    // Shaper (re)prepare is allocation-free after the first call: it only
+    // flips the atomic bypass flag, so this is safe while audio is running.
+    // Curves are deterministic, so setCurve() is only needed once.
+    driver_[0].prepare(sampleRate);
+    driver_[1].prepare(sampleRate);
+    a1108_[0].prepare(sampleRate);
+    a1108_[1].prepare(sampleRate);
+
+    const float t0 = 0.5f + (timeParam.load() / 10.0f) * 4.0f;
     const bool firstPrepare = !worker_.joinable();
     if (firstPrepare) {
+        // No audio thread exists yet: do everything synchronously.
+        configureFilters(sampleRate);
+        sr_.store(sampleRate);
+        driver_[0].setCurve(&curves_->driver);
+        driver_[1].setCurve(&curves_->driver);
+        a1108_[0].setCurve(&curves_->c1108);
+        a1108_[1].setCurve(&curves_->c1108);
+        for (int s = 0; s < 2; ++s) {
+            convL_[s].prepare(sampleRate);
+            convR_[s].prepare(sampleRate);
+            slotState_[s].store(SlotState::IDLE);
+        }
+        // Build the initial IR synchronously into slot 0 and activate it.
+        // setIR() ends with reset(), so the slot starts with clean state.
+        // The IR is deterministic (seeded PRNG), same as the old path.
         std::vector<float> irL, irR;
-        SpringIR::generate(t0, sr_, irL, irR);
+        SpringIR::generate(t0, sampleRate, irL, irR);
         convL_[0].setIR(irL.data(), int(irL.size()));
         convR_[0].setIR(irR.data(), int(irR.size()));
-        active_.store(0);
-        cachedActive_ = 0;
-    } else {
-        // Ask worker to rebuild at new sample rate on inactive slot
-        reqTime_.store(t0, std::memory_order_relaxed);
-        reqPending_.store(true, std::memory_order_release);
-    }
-    requestedTime_ = t0;
-    swapReady_.store(false);
-    reqPending_.store(false);
-    if (!worker_.joinable()) {
+        slotState_[0].store(SlotState::ACTIVE);
+        activeSlot_ = 0;
+        requestedTime_ = t0;
         quit_.store(false);
         worker_ = std::thread(&SpringReverb::workerMain, this);
+    } else {
+        // Audio may be running: NEVER touch convolver slots, biquad
+        // coefficients, or smoothed state here. Post atomics only:
+        //  - the audio thread applies filter reconfiguration + reset in
+        //    beginBlock();
+        //  - the worker rebuilds an IDLE slot at the new rate and the audio
+        //    thread adopts it at a block boundary.
+        // The request is intentionally left pending until the worker can
+        // CAS-claim a slot (it is NOT cancelled).
+        pendingSr_.store(sampleRate);
+        reconfigPending_.store(true);
+        reqTime_.store(t0);
+        reqSr_.store(sampleRate);
+        reqPending_.store(true);
+        reset(); // deferred: only sets resetPending_
     }
-    dirty_ = true;
-    reset();
 }
 
 void SpringReverb::workerMain() {
-    // Background synthesis + partitioning of the spring IR. Never touches the
-    // live convolver slot; the audio thread adopts it via beginBlock().
-    while (!quit_.load(std::memory_order_relaxed)) {
-        if (reqPending_.exchange(false, std::memory_order_acq_rel)) {
-            const float t = reqTime_.load(std::memory_order_relaxed);
-            const int inactive = 1 - active_.load(std::memory_order_acquire);
+    // Background synthesis + partitioning of the spring IR.
+    //
+    // The worker CAS-claims an IDLE slot (IDLE -> BUILDING) and only ever
+    // touches that slot. The audio thread adopts finished slots at block
+    // boundaries (READY -> ACTIVE, old ACTIVE -> IDLE) and only reads the
+    // ACTIVE slot in process(). If no IDLE slot is free (the audio thread
+    // hasn't adopted the last build yet), the request stays pending and we
+    // retry: we never rebuild the slot the audio thread is reading. This
+    // closes the race that crashed LUNA, where the worker's setIR()
+    // reallocated the live slot's vectors while the render thread was
+    // iterating them in PartitionedConvolver::process().
+    while (!quit_.load()) {
+        if (reqPending_.load()) {
+            int slot = -1;
+            for (int s = 0; s < 2; ++s) {
+                SlotState expected = SlotState::IDLE;
+                if (slotState_[s].compare_exchange_strong(expected, SlotState::BUILDING)) {
+                    slot = s;
+                    break;
+                }
+            }
+            if (slot < 0) {
+                // Audio hasn't adopted the previous build yet; keep the
+                // request pending and retry shortly.
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
+            }
+            // A build is definitely starting: consume the request, then read
+            // its parameters. A newer post racing this sequence either lands
+            // before the clear (we build the newest values) or re-arms the
+            // flag (we build again next iteration); the built time/rate never
+            // goes stale.
+            reqPending_.store(false);
+            const float t = reqTime_.load();
+            const double buildSr = reqSr_.load();
             std::vector<float> irL, irR;
-            SpringIR::generate(t, sr_, irL, irR);
-            convL_[inactive].setIR(irL.data(), int(irL.size()));
-            convR_[inactive].setIR(irR.data(), int(irR.size()));
-            swapReady_.store(true, std::memory_order_release);
+            SpringIR::generate(t, buildSr, irL, irR);
+            if (quit_.load()) {
+                // Teardown raced the build: release the slot, publish nothing.
+                slotState_[slot].store(SlotState::IDLE);
+                break;
+            }
+            convL_[slot].setIR(irL.data(), int(irL.size()));
+            convR_[slot].setIR(irR.data(), int(irR.size()));
+            slotState_[slot].store(SlotState::READY);
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
@@ -672,44 +744,72 @@ void SpringReverb::workerMain() {
 }
 
 void SpringReverb::reset() {
+    // Deferred: the calling thread (host prepare/release path) must not
+    // touch DSP state the render thread may be using. beginBlock() performs
+    // the actual reset on the audio thread.
+    resetPending_.store(true);
+}
+
+void SpringReverb::resetOnAudioThread() {
     for (int c = 0; c < 2; ++c) {
         hp_[c].reset(); tone_[c].reset();
         a1108In_[c].reset(); a1108Out_[c].reset();
         driver_[c].reset(); a1108_[c].reset();
     }
-    for (int s = 0; s < 2; ++s) { convL_[s].reset(); convR_[s].reset(); }
+    // Only the ACTIVE slot: the worker exclusively owns BUILDING slots, and
+    // every READY slot was already reset by setIR() when the worker built it.
+    convL_[activeSlot_].reset();
+    convR_[activeSlot_].reset();
+    dirty_ = true;
 }
 
 void SpringReverb::beginBlock() {
-    // Adopt a worker-finished IR at a block boundary (no allocation here:
-    // both slots are pre-partitioned; this just flips the active index).
-    if (swapReady_.exchange(false, std::memory_order_acq_rel)) {
-        cachedActive_ = 1 - cachedActive_;
-        active_.store(cachedActive_, std::memory_order_release);
+    // Wait-free: a handful of atomic loads/stores/CAS, no locks, no waiting,
+    // no allocation.
+    if (reconfigPending_.exchange(false)) {
+        const double sr = pendingSr_.load();
+        sr_.store(sr);
+        configureFilters(sr);
+    }
+    if (resetPending_.exchange(false)) {
+        resetOnAudioThread();
+    }
+    // Adopt a worker-finished IR at a block boundary. Retire the old ACTIVE
+    // slot to IDLE first so the worker can reclaim it; the worker can never
+    // observe a torn handoff because only this thread performs READY/ACTIVE
+    // transitions and the worker only CAS-claims IDLE slots.
+    for (int s = 0; s < 2; ++s) {
+        if (slotState_[s].load() == SlotState::READY) {
+            const int old = activeSlot_;
+            slotState_[old].store(SlotState::IDLE);
+            slotState_[s].store(SlotState::ACTIVE);
+            activeSlot_ = s;
+        }
     }
     // Post a regen request if the time knob moved. Same 0.2 s hysteresis as
     // the browser (which rebuilt its ConvolverNode when |dt| > 0.2); the
     // worker synthesizes + partitions off-thread, no audio-thread allocation.
-    const float targetTime = 0.5f + (timeParam / 10.0f) * 4.0f;
+    const float targetTime = 0.5f + (timeParam.load() / 10.0f) * 4.0f;
     if (std::fabs(targetTime - requestedTime_) > 0.2f) {
         requestedTime_ = targetTime;
-        reqTime_.store(targetTime, std::memory_order_relaxed);
-        reqPending_.store(true, std::memory_order_release);
+        reqTime_.store(targetTime);
+        reqSr_.store(sr_.load());
+        reqPending_.store(true);
     }
 }
 
 void SpringReverb::updateFromParams() {
-    drvGain_.set(0.05f + (drive / 10.0f) * 0.25f);
-    toneFreq_.set(500.0f + (contour / 10.0f) * 5500.0f);
+    drvGain_.set(0.05f + (drive.load() / 10.0f) * 0.25f);
+    toneFreq_.set(500.0f + (contour.load() / 10.0f) * 5500.0f);
     for (int c = 0; c < 2; ++c)
-        tone_[c].setLowpass(sr_, toneFreq_.target, 0.4);
-    retGain_.set((returnGain / 5.0f) * 0.7f);
+        tone_[c].setLowpass(sr_.load(), toneFreq_.target, 0.4);
+    retGain_.set((returnGain.load() / 5.0f) * 0.7f);
     dirty_ = false;
 }
 
 void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
     if (dirty_) updateFromParams();
-    const int a = cachedActive_;
+    const int a = activeSlot_; // audio thread's view; written only in beginBlock()
     float m[2] = { hp_[0].process(inL * 0.4f), hp_[1].process(inR * 0.4f) };
     float dg = drvGain_.next();
     float cL = convL_[a].process(driver_[0].process(m[0] * dg)) * makeup_;

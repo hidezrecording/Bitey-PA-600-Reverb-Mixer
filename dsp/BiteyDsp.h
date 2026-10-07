@@ -123,6 +123,10 @@ struct Curves {
 
 class OversampledShaper {
 public:
+    // First call designs the (rate-independent) FIR and allocates the fixed
+    // delay buffers. Later calls only flip the bypass flag, so re-prepare is
+    // safe while the audio thread is running: no allocation, no vector
+    // mutation, just an atomic flag the render thread reads.
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void reset();
@@ -130,17 +134,21 @@ public:
     static constexpr int latency() { return 24; }
     // At high sample rates (>=88.2kHz), the base rate already provides
     // adequate bandwidth; oversampling is bypassed to save CPU.
-    bool isBypassed() const { return bypass_; }
+    bool isBypassed() const { return bypass_.load(); }
 private:
     static constexpr int kTaps = 47;
     // FIR group delay per filter: (47-1)/2 @2x = 11.5 @1x; two filters = 23.
     static constexpr int kPureDelay = 24 - 2 * ((kTaps - 1) / 4);
+    void designFilter(); // one-time FIR design + buffer allocation
     std::vector<float> fir_;         // 47 taps
     std::vector<float> upBuf_, dnBuf_;
     std::vector<float> delayBuf_;    // pure delay padding to 96
     int upPos_ = 0, dnPos_ = 0, delayPos_ = 0;
     const Curve* curve_ = nullptr;
-    bool bypass_ = false; // true when sampleRate >= 88200
+    std::atomic<bool> bypass_{ false }; // true when sampleRate >= 88200
+    // Written on first prepare, read on later prepares (which may run on a
+    // different thread); atomic for a race-free handoff.
+    std::atomic<bool> designed_{ false };
 };
 
 // ---------------------------------------------------------------------------
@@ -293,6 +301,20 @@ private:
 // up the finished convolver at a block boundary. The browser original rebuilt
 // its ConvolverNode on the main thread; this is the native equivalent.
 //
+// THREAD SAFETY (this struct is shared by three threads):
+//   - Audio thread:  beginBlock() + process().
+//   - Worker thread: synthesizes + partitions IRs in the background.
+//   - Caller thread: prepare()/reset()/param setters (e.g. the host's
+//     prepareToPlay path, which may race the render thread).
+// The two convolver slots form a strict state machine (IDLE -> BUILDING ->
+// READY -> ACTIVE -> IDLE). The worker CAS-claims an IDLE slot and only ever
+// touches the BUILDING slot it claimed. The audio thread only reads the
+// ACTIVE slot in process() and performs all READY/ACTIVE/IDLE transitions in
+// beginBlock() at a block boundary. No slot is ever touched by two threads,
+// so setIR()'s vector reallocations can never race process()'s reads.
+// prepare() on re-prepare never touches convolver (or filter) state directly:
+// it posts atomics and the audio thread applies them in beginBlock().
+//
 // The tank is always stereo, exactly like the browser original (which builds
 // a 2-channel impulse buffer and has no mono switch).
 
@@ -304,40 +326,59 @@ struct SpringReverb {
 
     void prepare(double sampleRate, const Curves& curves);
     void reset();
-    // Audio thread, once per block before process(): adopts a finished worker
-    // IR and posts a regen request if the time knob moved (lock-free).
+    // Audio thread, once per block before process(): applies deferred
+    // prepare()/reset() work, adopts a finished worker IR, and posts a regen
+    // request if the time knob moved (lock-free, wait-free, no allocation).
     void beginBlock();
     // Stereo in (already merged L/R sends) -> stereo out
     void process(float inL, float inR, float& outL, float& outR);
-    float timeParam = 5.0f;    // 0..10 -> 0.5..4.5 s
-    float drive = 5.0f;        // 0..10 dwell
-    float contour = 5.0f;      // 0..10 -> tone 500..6000 Hz
-    float returnGain = 5.0f;   // 0..10 master reverb return
+    // Cross-thread parameters: written by the caller/UI thread, read by the
+    // audio thread. Atomic so the handoff is race-free (and TSan-clean).
+    std::atomic<float> timeParam{ 5.0f };    // 0..10 -> 0.5..4.5 s
+    std::atomic<float> drive{ 5.0f };        // 0..10 dwell
+    std::atomic<float> contour{ 5.0f };      // 0..10 -> tone 500..6000 Hz
+    std::atomic<float> returnGain{ 5.0f };   // 0..10 master reverb return
     void touch() { dirty_ = true; }
 private:
+    // Slot lifecycle. Only the audio thread assigns ACTIVE; only the worker
+    // assigns BUILDING (via CAS from IDLE) and READY.
+    enum class SlotState : int { IDLE = 0, BUILDING = 1, READY = 2, ACTIVE = 3 };
     void updateFromParams();
     void workerMain();
-    double sr_ = 44100;
+    // (Re)configures biquads + smoothed params for a sample rate. Called
+    // synchronously on first prepare; deferred to the audio thread
+    // (via beginBlock) on re-prepare so filter coefficients are never
+    // written while the render thread reads them.
+    void configureFilters(double sampleRate);
+    // Deferred reset body: runs on the audio thread inside beginBlock().
+    // Only zeroes the ACTIVE convolver slot (the worker owns BUILDING slots;
+    // a freshly built slot is already clean because setIR() resets it).
+    void resetOnAudioThread();
+    std::atomic<double> sr_{ 44100.0 };
     const Curves* curves_ = nullptr;
     Biquad hp_[2];
     Smoothed drvGain_, toneFreq_, retGain_;
     OversampledShaper driver_[2];
-    // Double-buffered convolvers: the worker builds the inactive slot.
+    // Double-buffered convolvers with the state machine above.
     ZeroLatencyConvolver convL_[2], convR_[2];
-    std::atomic<int> active_{ 0 };
-    int cachedActive_ = 0; // audio thread's per-block view of active_
+    std::atomic<SlotState> slotState_[2];
+    int activeSlot_ = 0; // audio thread's view; written only in beginBlock()
     Biquad tone_[2];
     Biquad a1108In_[2], a1108Out_[2];
     OversampledShaper a1108_[2];
     float makeup_ = 6.0f;
     float requestedTime_ = -1.0f; // audio thread's last regen request
-    // Worker handoff (all atomics; no locks on the audio thread)
+    // Worker handoff (all atomics; no locks on the audio thread).
+    // All use the default seq_cst ordering for clarity; none are hot-path.
     std::thread worker_;
     std::atomic<bool> quit_{ false };
     std::atomic<bool> reqPending_{ false };
     std::atomic<float> reqTime_{ -1.0f };
-    std::atomic<bool> swapReady_{ false };
-    bool dirty_ = true;
+    std::atomic<double> reqSr_{ -1.0 };
+    std::atomic<bool> resetPending_{ false };
+    std::atomic<bool> reconfigPending_{ false };
+    std::atomic<double> pendingSr_{ 44100.0 };
+    bool dirty_ = true; // audio-thread only (set via touch() on the audio thread)
 };
 
 // ---------------------------------------------------------------------------
