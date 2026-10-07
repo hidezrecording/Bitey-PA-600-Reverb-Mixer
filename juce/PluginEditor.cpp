@@ -812,7 +812,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         const float bulbXs[2] = { 68.0f, 132.0f };
         for (int bi = 0; bi < 2; ++bi) {
             const float bx = bulbXs[bi];
-            const float by = 112.0f;  // FURTHER below edge -> just slightest tip (Nathan 2026-10-07)
+            const float by = 110.0f;  // hair more visible (Nathan 2026-10-07)
             const float br = 7.0f;
             // Soft diffused glow (dbx-like: warm, gentle, upward)
             juce::ColourGradient glow(col(0x44ffb545), X(bx), Y(by),
