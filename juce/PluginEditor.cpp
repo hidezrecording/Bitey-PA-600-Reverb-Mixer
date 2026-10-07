@@ -572,10 +572,10 @@ void PowerJewel::paint(juce::Graphics& g) {
         g.fillEllipse(cx - 30.0f, cy - 30.0f, 60.0f, 60.0f);
     }
 
-    // Hexagon: flat-top, chrome gradient
+    // Hexagon: flat-top (matches toggle hardware), chrome gradient
     juce::Path hex;
     for (int i = 0; i < 6; ++i) {
-        float a = (60.0f * i - 90.0f) * kDeg2Rad;
+        float a = (60.0f * i) * kDeg2Rad;  // 0,60,... -> flat top/bottom
         float px = cx + hexR * std::cos(a), py = cy + hexR * std::sin(a);
         if (i == 0) hex.startNewSubPath(px, py); else hex.lineTo(px, py);
     }
@@ -591,7 +591,7 @@ void PowerJewel::paint(juce::Graphics& g) {
     juce::Path hexIn;
     const float hexInR = hexR - 3.5f;
     for (int i = 0; i < 6; ++i) {
-        float a = (60.0f * i - 90.0f) * kDeg2Rad;
+        float a = (60.0f * i) * kDeg2Rad;
         float px = cx + hexInR * std::cos(a), py = cy + hexInR * std::sin(a);
         if (i == 0) hexIn.startNewSubPath(px, py); else hexIn.lineTo(px, py);
     }
@@ -752,12 +752,15 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float bw = float(getWidth()), bh = float(getHeight());
     if (bw < 40.0f || bh < 40.0f) return;
 
-    // .vum: black housing, .28cqw border, 1.1cqw radius, .75/.9cqw padding
-    const float border = 2.9f, padV = 7.9f, padH = 9.5f;
-    juce::ColourGradient housing(col(0xff2b2b2b), 0.0f, 0.0f,
-                                 col(0xff030303), 0.0f, bh, false);
+    // .vum: black plastic housing, wider bezel, subtle top highlight
+    const float border = 4.2f, padV = 7.9f, padH = 9.5f;
+    juce::ColourGradient housing(col(0xff3a3a3a), 0.0f, 0.0f,
+                                 col(0xff0a0a0a), 0.0f, bh, false);
     g.setGradientFill(housing);
     g.fillRoundedRectangle(0.0f, 0.0f, bw, bh, 11.5f);
+    // Plastic top highlight
+    g.setColour(col(0x40ffffff));
+    g.drawRoundedRectangle(1.0f, 1.0f, bw - 2.0f, bh * 0.5f, 10.0f, 1.2f);
     g.setColour(col(0xff000000));
     g.drawRoundedRectangle(border * 0.5f, border * 0.5f,
                            bw - border, bh - border, 11.5f, border);
@@ -800,6 +803,29 @@ void VUMeterComp::paint(juce::Graphics& g) {
     auto X = [&](float x) { return ox + x * sc; };
     auto Y = [&](float y) { return oy + y * sc; };
     auto S = [&](float v) { return v * sc; };
+
+    // Incandescent bulbs: two warm bulbs at the bottom, either side of the
+    // pivot (100,88), tops poking up from behind the bezel like an old meter.
+    // They cast a warm glow onto the blue face.
+    for (float bx : { 68.0f, 132.0f }) {
+        const float by = 98.0f;  // near bottom, partially behind bezel
+        const float br = 7.0f;   // bulb radius (SVG units)
+        // Warm glow cast onto the face
+        juce::ColourGradient glow(col(0x66ffb545), X(bx), Y(by),
+                                  col(0x00ffb545), X(bx), Y(by - 28.0f), true);
+        glow.addColour(0.5, col(0x33ff9a2a));
+        g.setGradientFill(glow);
+        g.fillEllipse(X(bx - 22.0f), Y(by - 22.0f), S(44.0f), S(44.0f));
+        // Bulb glass: glowing amber, brighter at the center
+        juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br*0.4f),
+                                   col(0xffc77800), X(bx + br*0.4f), Y(by + br*0.3f), true);
+        glass.addColour(0.6, col(0xffffb545));
+        g.setGradientFill(glass);
+        g.fillEllipse(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f));
+        // Filament highlight
+        g.setColour(col(0xbfffffff));
+        g.fillEllipse(X(bx - br*0.35f), Y(by - br*0.45f), S(br*0.5f), S(br*0.35f));
+    }
 
     // Scale arc: radius 108 centered at (100,114); white -146deg..-70.2deg,
     // amber -70.2deg..-43deg (SVG y-down, JUCE angles clockwise from +x)
