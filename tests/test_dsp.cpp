@@ -139,20 +139,20 @@ int main() {
         CHECK(pkE <= 1.05f && peakAbs(R) <= 1.05f, "extreme: limiter ceiling holds");
     }
 
-    // 3. Bypass (power off) ~= dry, delayed by the dry-path latency (80).
+    // 3. Bypass (power off) = TRUE bypass: output bit-identical to input.
+    // No EQ, no delay, no processing whatsoever.
     {
         BiteyDsp dsp; dsp.prepare(sr);
         BiteyParams p; p.bypass = true; dsp.setParams(p);
         std::vector<float> L = dryL, R = dryR;
         runThrough(dsp, L, R);
-        // NB: bypass engages with a ~50 ms glide (click-free); compare after it settles.
         double err = 0; int cnt = 0;
-        for (size_t i = 70000; i + 768 < L.size() && i < 110000; ++i) {
-            err += std::fabs(L[i + 768] - dryL[i]); ++cnt;
+        for (size_t i = 0; i < L.size(); ++i) {
+            err += std::fabs(L[i] - dryL[i]); ++cnt;
         }
         err /= cnt;
-        CHECK(err < 1e-4, "bypass: output == dry delayed 768 samples");
-        printf("  (bypass mean abs err %.2e)\n", err);
+        CHECK(err < 1e-6, "bypass: output == input (true bypass, no delay)");
+        printf("  (true bypass mean abs err %.2e)\n", err);
     }
 
     // 4. Mix = 0 behaves like bypass.

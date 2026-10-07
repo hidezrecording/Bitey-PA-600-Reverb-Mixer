@@ -1014,6 +1014,14 @@ int BiteyDsp::getLatencySamples() const {
 }
 
 void BiteyDsp::process(float* left, float* right, int numSamples) {
+    // True bypass (POWER OFF): input passes through completely untouched.
+    // No EQ, no tape, no reverb — bit-transparent. (In-place processing,
+    // so we just return; the input is already in the output buffers.)
+    if (params_.bypass) {
+        revMeter_ = 0.0f;
+        mainMeter_ = 0.0f;
+        return;
+    }
     reverb_.beginBlock(); // adopt any worker-finished spring IR (block boundary)
     const float srcPad = 0.025f;
     const float mainG = master_.mainGain();

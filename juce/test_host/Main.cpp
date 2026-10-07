@@ -123,6 +123,10 @@ private:
                 if (f == juce::File{}) return;
                 if (auto* reader = formatManager.createReaderFor(f))
                 {
+                    // Stop and release the old source BEFORE destroying it:
+                    // the transport must not hold a dangling pointer.
+                    transport.stop();
+                    transport.setSource(nullptr);
                     readerSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
                     transport.setSource(readerSource.get(), 0, nullptr, reader->sampleRate);
                     transport.setPosition(0.0);
