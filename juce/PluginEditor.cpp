@@ -1378,8 +1378,8 @@ void CenterPanel::resized() {
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
     ips_->setTopLeftPosition(14, 12);
     tapeSize_->setTopLeftPosition(210, 16); // down+right, clear of DRY/WET ticks (Nathan 2026-10-07)
-    echo_->setCentrePosition(86, 48);    // small ring knob, tick-top at 12
-    dryWet_->setCentrePosition(176, 48); // clear of the TAPE toggle
+    echo_->setCentrePosition(86, 58);    // down 10, centered module-top to meter-top (Nathan 2026-10-07)
+    dryWet_->setCentrePosition(176, 58); // down 10, toggles stay put (Nathan 2026-10-07)
     // VU meters: 92% of 260 = 239px
     vuReverb_->setBounds(10, 109, 239, 138);
     vuMain_->setBounds(10, 255, 239, 138);
