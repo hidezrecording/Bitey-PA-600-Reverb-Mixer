@@ -241,7 +241,7 @@ MetalToggle::MetalToggle(BiteyProcessor& proc, const juce::String& paramID,
         labelW = juce::jmax(labelW, juce::GlyphArrangement::getStringWidth(font, l));
     if (iconMode_ == 1) labelW = 20.0f;
 
-    const float labelColH = juce::jmax(body_, float(labels_.size()) * 11.0f);
+    const float labelColH = juce::jmax(body_, float(labels_.size()) * 12.5f);
     const float w = body_ + 6.0f + labelW + 4.0f;
     const float h = (caption_.isNotEmpty() ? 12.0f : 0.0f) + labelColH +
                     (captionBelow_ ? 12.0f : 0.0f);
@@ -560,9 +560,10 @@ void PowerJewel::timerCallback() {
 }
 
 void PowerJewel::paint(juce::Graphics& g) {
-    // Silver HEXAGON surround (matches toggle hardware), amber jewel, soft halo.
+    // Round SILVER surround (Nathan 2026-10-07: no hex on power jewel),
+    // amber jewel, soft halo.
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
-    const float hexR = 21.0f, jewelR = 13.0f;
+    const float ringR = 21.0f, jewelR = 13.0f;
 
     // Soft halo when on (radial, fades fully — no hard edge)
     if (isOn_) {
@@ -572,32 +573,27 @@ void PowerJewel::paint(juce::Graphics& g) {
         g.fillEllipse(cx - 30.0f, cy - 30.0f, 60.0f, 60.0f);
     }
 
-    // Hexagon: flat-top (matches toggle hardware), chrome gradient
-    juce::Path hex;
-    for (int i = 0; i < 6; ++i) {
-        float a = (60.0f * i) * kDeg2Rad;  // 0,60,... -> flat top/bottom
-        float px = cx + hexR * std::cos(a), py = cy + hexR * std::sin(a);
-        if (i == 0) hex.startNewSubPath(px, py); else hex.lineTo(px, py);
-    }
-    hex.closeSubPath();
-    juce::ColourGradient chrome(col(0xfff0f0f0), cx - hexR, cy - hexR,
-                                col(0xff6a6a6a), cx + hexR, cy + hexR, false);
-    chrome.addColour(0.5, col(0xffb8b8b8));
+    // Silver ring: chrome radial gradient (bright top-left, dark bottom-right)
+    juce::ColourGradient chrome(col(0xfff4f4f4), cx - ringR*0.4f, cy - ringR*0.5f,
+                                col(0xff5a5a5a), cx + ringR*0.5f, cy + ringR*0.6f, true);
+    chrome.addColour(0.5, col(0xffb0b0b0));
+    chrome.addColour(0.75, col(0xff8a8a8a));
     g.setGradientFill(chrome);
-    g.fillPath(hex);
+    g.fillEllipse(cx - ringR, cy - ringR, ringR*2.0f, ringR*2.0f);
+    // Thin dark edge
     g.setColour(col(0x80000000));
-    g.strokePath(hex, juce::PathStrokeType(1.5f));
-    // Dark recessed center
-    juce::Path hexIn;
-    const float hexInR = hexR - 3.5f;
-    for (int i = 0; i < 6; ++i) {
-        float a = (60.0f * i) * kDeg2Rad;
-        float px = cx + hexInR * std::cos(a), py = cy + hexInR * std::sin(a);
-        if (i == 0) hexIn.startNewSubPath(px, py); else hexIn.lineTo(px, py);
-    }
-    hexIn.closeSubPath();
+    g.drawEllipse(cx - ringR, cy - ringR, ringR*2.0f, ringR*2.0f, 1.5f);
+    // Highlight arc (top-left)
+    g.setColour(col(0xaaffffff));
+    juce::Path hi;
+    hi.addArc(cx - ringR + 2.0f, cy - ringR + 2.0f,
+              (ringR - 2.0f)*2.0f, (ringR - 2.0f)*2.0f,
+              3.6f, 5.2f, true);
+    g.strokePath(hi, juce::PathStrokeType(2.0f));
+    // Dark recessed center (round)
     g.setColour(col(0xff0a0a0a));
-    g.fillPath(hexIn);
+    g.fillEllipse(cx - ringR + 3.5f, cy - ringR + 3.5f,
+                  (ringR - 3.5f)*2.0f, (ringR - 3.5f)*2.0f);
 
     // Jewel: radial-gradient(circle at 38% 30%, #fff8c8, #ffe066 28%,
     //   #ffb020 52%, #ff8800 74%, #c65300)
@@ -804,31 +800,28 @@ void VUMeterComp::paint(juce::Graphics& g) {
     auto Y = [&](float y) { return oy + y * sc; };
     auto S = [&](float v) { return v * sc; };
 
-    // Incandescent bulbs: half-circles poking up from behind the lower bezel,
-    // either side of the pivot (100,88). Centered ON the face bottom edge
-    // (y=104) so the clip region hides the bottom half — only the top shows.
-    // Warm glow arcs upward (bottom clipped by face edge).
+    // Incandescent bulbs: like dbx 160 — barely visible, just glowing past
+    // the bezel. Center BELOW the face edge (y=108) so only a sliver of
+    // warm glow shows. Subtle, diffused, with soft shading.
     {
         const float bulbXs[2] = { 68.0f, 132.0f };
         for (int bi = 0; bi < 2; ++bi) {
             const float bx = bulbXs[bi];
-            const float by = 104.0f;  // ON the bottom edge -> top half visible
+            const float by = 108.0f;  // BELOW edge -> barely visible (dbx style)
             const float br = 7.0f;
-            // Warm glow (radial, bottom half clipped by face edge -> arc effect)
-            juce::ColourGradient glow(col(0x55ffb545), X(bx), Y(by),
-                                      col(0x00ffb545), X(bx), Y(by - 26.0f), true);
-            glow.addColour(0.6, col(0x22ff9a2a));
+            // Soft diffused glow (dbx-like: warm, gentle, upward)
+            juce::ColourGradient glow(col(0x44ffb545), X(bx), Y(by),
+                                      col(0x00ffb545), X(bx), Y(by - 30.0f), true);
+            glow.addColour(0.4, col(0x22ff9a2a));
+            glow.addColour(0.7, col(0x11ff8a1a));
             g.setGradientFill(glow);
-            g.fillEllipse(X(bx - 24.0f), Y(by - 24.0f), S(48.0f), S(48.0f));
-            // Bulb glass: top half visible (bottom clipped)
-            juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br),
-                                       col(0xffc77800), X(bx), Y(by), true);
-            glass.addColour(0.7, col(0xffffb545));
+            g.fillEllipse(X(bx - 28.0f), Y(by - 28.0f), S(56.0f), S(56.0f));
+            // Bulb tip: just a hint peeking above the bezel
+            juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.2f), Y(by - br*0.8f),
+                                       col(0xffc77800), X(bx), Y(by - br*0.3f), true);
+            glass.addColour(0.6, col(0xffffb545));
             g.setGradientFill(glass);
             g.fillEllipse(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f));
-            // Filament highlight (top of bulb)
-            g.setColour(col(0xbfffffff));
-            g.fillEllipse(X(bx - br*0.3f), Y(by - br*0.7f), S(br*0.45f), S(br*0.3f));
         }
     }
 
@@ -1213,7 +1206,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(78, 62); // left+up, 1.4k between HIGH ticks, clear of 15 (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(88, 72); // down+right from (78,62), 1.4k clear (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
