@@ -182,17 +182,17 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
     // Doorknob sphere: website exact CSS
-    // radial-gradient(circle at 38% 30%, #4d463d, #28221b 48%, #120e0a 78%, #050403 100%)
+    // radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
     // plus top highlight: radial-gradient(circle at 34% 24%, rgba(255,242,216,.34), transparent 44%)
-    juce::ColourGradient body(col(0xff4d463d), cx - bodyR * 0.24f, cy - bodyR * 0.4f,
-                              col(0xff050403), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
-    body.addColour(0.48, col(0xff28221b));
-    body.addColour(0.78, col(0xff120e0a));
+    juce::ColourGradient body(col(0xff6b5d4d), cx - bodyR * 0.24f, cy - bodyR * 0.4f,
+                              col(0xff0a0806), cx + bodyR * 0.3f, cy + bodyR * 0.35f, true);
+    body.addColour(0.35, col(0xff3b352e));
+    body.addColour(0.58, col(0xff1a1611));
     g.setGradientFill(body);
     g.fillEllipse(cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
-    // Top highlight (warm light catching the knob)
-    juce::ColourGradient hi(col(0x57fff2d8), cx - bodyR * 0.32f, cy - bodyR * 0.52f,
+    // Top highlight (warm light catching the knob) - stronger for bronze look
+    juce::ColourGradient hi(col(0x99fff2d8), cx - bodyR * 0.32f, cy - bodyR * 0.52f,
                             col(0x00fff2d8), cx, cy, true);
     hi.addColour(0.44, col(0x00fff2d8));
     g.setGradientFill(hi);
@@ -898,13 +898,16 @@ void VUMeterComp::paint(juce::Graphics& g) {
                         0.2f * boost, 1.0f * boost, 0.25f * boost, px.getAlpha()));
                 }
             }
-            // Website: logo centered, about 35% of face width (not covering scale)
-            float lw = w * 0.35f;
+            // Website: logo subtle, about 22% of face width, tucked under scale
+            float lw = w * 0.22f;
             float lh = lw * float(greenLogo.getHeight()) / float(greenLogo.getWidth());
             float lx = fx + (w - lw) * 0.5f;
-            float ly = fy + h * 0.42f; // Centered in face, clear of bezel
+            float ly = fy + h * 0.48f; // Under the scale, above bottom
+            // Reduce brightness: website logo is subtle, not neon
+            g.setOpacity(0.7f);
             g.drawImage(greenLogo, lx, ly, lw, lh, 0, 0,
                         greenLogo.getWidth(), greenLogo.getHeight());
+            g.setOpacity(1.0f);
         }
     }
 
