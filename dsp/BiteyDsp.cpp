@@ -179,7 +179,14 @@ static double besselI0(double x) {
 }
 
 void OversampledShaper::prepare(double sampleRate) {
-    (void)sampleRate;
+    // At 88.2kHz and above, the base sample rate already provides enough
+    // bandwidth that 2x oversampling gives diminishing returns. Bypass the
+    // oversampling to save CPU (critical for Luna at 96kHz).
+    bypass_ = (sampleRate >= 88200.0);
+    if (bypass_) {
+        fir_.clear(); upBuf_.clear(); dnBuf_.clear(); delayBuf_.clear();
+        return;
+    }
     const int N = kTaps;
     fir_.assign(N, 0);
     // Cutoff at the 2x Nyquist: gentle lowpass, flat through the audio band.
@@ -211,6 +218,11 @@ void OversampledShaper::reset() {
 }
 
 float OversampledShaper::process(float x) {
+    // Bypass mode (high sample rates): just apply the curve directly.
+    // No oversampling, no latency.
+    if (bypass_) {
+        return curve_ ? curve_->process(x) : x;
+    }
     const int N = int(fir_.size());
     float out2[2];
     for (int k = 0; k < 2; ++k) {

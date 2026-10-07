@@ -126,8 +126,11 @@ public:
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void reset();
-    float process(float x);          // 24 samples latency
+    float process(float x);          // 24 samples latency (0 if bypassed)
     static constexpr int latency() { return 24; }
+    // At high sample rates (>=88.2kHz), the base rate already provides
+    // adequate bandwidth; oversampling is bypassed to save CPU.
+    bool isBypassed() const { return bypass_; }
 private:
     static constexpr int kTaps = 47;
     // FIR group delay per filter: (47-1)/2 @2x = 11.5 @1x; two filters = 23.
@@ -137,6 +140,7 @@ private:
     std::vector<float> delayBuf_;    // pure delay padding to 96
     int upPos_ = 0, dnPos_ = 0, delayPos_ = 0;
     const Curve* curve_ = nullptr;
+    bool bypass_ = false; // true when sampleRate >= 88200
 };
 
 // ---------------------------------------------------------------------------
