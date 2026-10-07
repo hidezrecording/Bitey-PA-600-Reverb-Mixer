@@ -78,6 +78,9 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
     if (scale == Scale::None) {
         half_ = r + 8.0f;
         cy_ = r + 8.0f;
+        // For Scale::None with label: need room for label below knob
+        setSize(int(std::ceil(half_ * 2.0f)), int(std::ceil(cy_ + r + 16.0f)));
+        return;
     } else {
         // Website: .pk height 9.2cqw (97px) for 66px knob, 11cqw (115px) for 86px
         // Compact layout matching website proportions
@@ -877,8 +880,8 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float cx = fx + w / 2, cy = fy + h * 0.846f;
     // Needle must stay INSIDE the face (92% of pivot-to-top distance)
     const float r = h * 0.846f * 0.92f;
-    const float startAngle = -3.14159265f * 0.75f;
-    const float endAngle = -3.14159265f * 0.25f;
+    const float startAngle = -2.70f; // Aligned to -20 on SVG scale
+    const float endAngle = -0.45f;   // Aligned to +3 on SVG scale
     const float totalAngle = endAngle - startAngle;
 
     // Website-exact VU scale: rendered from the site's own SVG
