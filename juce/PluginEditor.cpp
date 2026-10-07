@@ -815,7 +815,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         // Arc glow: semicircle above the bulb (not a full circle)
         juce::Path arcGlow;
         arcGlow.addPieSegment(X(bx - 24.0f), Y(by - 24.0f), S(48.0f), S(48.0f),
-                              float(-M_PI), 0.0f);  // top half only
+                              -3.14159265f, 0.0f);  // top half only
         juce::ColourGradient glow(col(0x55ffb545), X(bx), Y(by),
                                   col(0x00ffb545), X(bx), Y(by - 26.0f), true);
         glow.addColour(0.6, col(0x22ff9a2a));
@@ -824,7 +824,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         // Bulb: top half only (bottom hidden behind bezel via clip)
         juce::Path bulbTop;
         bulbTop.addPieSegment(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f),
-                              float(-M_PI), 0.0f);
+                              -3.14159265f, 0.0f);
         juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br*0.5f),
                                    col(0xffc77800), X(bx), Y(by), true);
         glass.addColour(0.7, col(0xffffb545));
