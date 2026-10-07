@@ -430,12 +430,15 @@ void MetalToggle::paint(juce::Graphics& g) {
     }
 
     // Caption below (96 Hz / Pad style): .pk-label 1.08cqw static
+    // When labels are on the right (PAD), left-align under the hex body
+    // so the caption doesn't crash into the number column.
     if (caption_.isNotEmpty() && captionBelow_) {
         juce::Font capFont(BiteyFonts::robotoCondensed(11.3f));
         g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
-        g.drawText(caption_, 0, int(y + labelColH), int(W), 14,
-                   juce::Justification::centred);
+        auto capJust = labelsOnRight_ ? juce::Justification::centredLeft
+                                      : juce::Justification::centred;
+        g.drawText(caption_, 0, int(y + labelColH), int(W), 14, capJust);
     }
 }
 // ---------------------------------------------------------------------------
@@ -1135,8 +1138,8 @@ void ChannelStrip::resized() {
     kLevel_->setCentrePosition(cx, 363);
     // 96Hz + PAD toggles: one row, hex bodies sharing a baseline (y=448),
     // clear of the LEVEL label chip and the CHANNEL label
-    lowCut_->setTopLeftPosition(16, 435);
-    pad_->setTopLeftPosition(94, 423);
+    lowCut_->setTopLeftPosition(16, 432);
+    pad_->setTopLeftPosition(94, 420);
 }
 
 // ---------------------------------------------------------------------------
@@ -1181,7 +1184,7 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(cx, 256);
     midFreq_->setTopLeftPosition(106, 140); // web .midrow: freq toggle beside MID
     kMain_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 442, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1220,7 +1223,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(cx, 157);
     kTime_->setCentrePosition(cx, 256);
     kReturn_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 442, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
 
 // ---------------------------------------------------------------------------
@@ -1278,7 +1281,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const float tapeW = W * 0.92f;
     const float tapeH = 28.9f; // 2.75cqw
     const float tapeX = (W - tapeW) / 2.0f;
-    const float tapeY = 404.0f;
+    const float tapeY = 401.0f;
 
     g.saveState();
     // Slight rotation for realism (-1.6 degrees like website)
@@ -1326,8 +1329,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", 0, ch - 30, 130, 26, juce::Justification::centred);
-    g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
+    g.drawText("POWER", -26, ch - 30, 130, 26, juce::Justification::centred);
+    g.drawText("PHASE", 131, ch - 30, 143, 26, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
@@ -1338,12 +1341,12 @@ void CenterPanel::resized() {
     echo_->setCentrePosition(86, 48);    // small ring knob, tick-top at 12
     dryWet_->setCentrePosition(176, 48); // clear of the TAPE toggle
     // VU meters: 92% of 260 = 239px
-    vuReverb_->setBounds(10, 112, 239, 138);
-    vuMain_->setBounds(10, 258, 239, 138);
+    vuReverb_->setBounds(10, 109, 239, 138);
+    vuMain_->setBounds(10, 255, 239, 138);
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
-    power_->setTopLeftPosition(28, 447);
-    jewel_->setBounds(106, 438, 48, 48);
-    phase_->setTopLeftPosition(192, 447);
+    power_->setTopLeftPosition(28, 444);
+    jewel_->setBounds(106, 435, 48, 48);
+    phase_->setTopLeftPosition(192, 444);
 }
 
 void CenterPanel::syncPower(bool on) {
