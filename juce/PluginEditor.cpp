@@ -386,10 +386,11 @@ void MetalToggle::paint(juce::Graphics& g) {
     const float batW = body_ * 0.16f;
     const int nStates = (int) labels_.size();
     // Map index to vertical offset: first = up, last = down
+    // Travel must be clearly visible: bat moves full up/down, not to center
     float yOffset = 0.0f;
     if (nStates > 1) {
         float t = float(index_) / float(nStates - 1); // 0..1
-        yOffset = -6.0f + t * 12.0f; // -6 (up) to +6 (down), scaled by body
+        yOffset = -10.0f + t * 20.0f; // -10 (up) to +10 (down), scaled by body
         yOffset *= (body_ / 36.0f);
     }
 
@@ -871,11 +872,13 @@ void VUMeterComp::paint(juce::Graphics& g) {
     const float totalAngle = endAngle - startAngle;
 
     // Website-exact VU scale: rendered from the site's own SVG
-    // Preserve aspect ratio (200:104 = 1.92:1), centered in face
+    // Preserve aspect ratio, centered in face with padding (not under bezel)
     if (scaleImg_.isValid()) {
         const float svgAspect = 200.0f / 104.0f;
-        float dw = w, dh = w / svgAspect;
-        if (dh > h) { dh = h; dw = h * svgAspect; }
+        // Use 85% of face to leave padding from bezel
+        const float padW = w * 0.85f, padH = h * 0.85f;
+        float dw = padW, dh = padW / svgAspect;
+        if (dh > padH) { dh = padH; dw = padH * svgAspect; }
         const float dx = fx + (w - dw) * 0.5f;
         const float dy = fy + (h - dh) * 0.5f;
         g.drawImage(scaleImg_, dx, dy, dw, dh, 0, 0,
@@ -1369,10 +1372,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setColour(col(0x0dffffff)); // white/5
     g.fillRect(6, 416, W - 12, 1);
 
-    // ON caption above the jewel
-    g.setFont(BiteyFonts::robotoCondensed(7.0f));
-    g.setColour(col(0xe6ffffff));
-    g.drawText("ON", 92, 420, 56, 12, juce::Justification::centred);
+    // (ON caption removed — was hidden under the REVERB MIXER tape)
 
     // Bottom labels: POWER and PHASE, 20pt like other strips (website: 1.9cqw)
     const int ch = getHeight();
