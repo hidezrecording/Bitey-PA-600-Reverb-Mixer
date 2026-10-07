@@ -1162,8 +1162,8 @@ void ChannelStrip::resized() {
     kLevel_->setCentrePosition(cx, 363);
     // 96Hz + PAD toggles: one row, hex bodies sharing a baseline (y=448),
     // clear of the LEVEL label chip and the CHANNEL label
-    lowCut_->setTopLeftPosition(16, 432);
-    pad_->setTopLeftPosition(94, 420);
+    lowCut_->setTopLeftPosition(16, 436); // down 4, align row (Nathan 2026-10-07)
+    pad_->setTopLeftPosition(94, 424); // down 4, align row (Nathan 2026-10-07)
 }
 
 // ---------------------------------------------------------------------------
@@ -1208,7 +1208,7 @@ void MasterStrip::resized() {
     kLow_->setCentrePosition(cx, 256);
     midFreq_->setTopLeftPosition(88, 72); // down+right from (78,62), 1.4k clear (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
 
 // ---------------------------------------------------------------------------
@@ -1247,7 +1247,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(cx, 157);
     kTime_->setCentrePosition(cx, 256);
     kReturn_->setCentrePosition(cx, 363);
-    clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
+    clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
 
 // ---------------------------------------------------------------------------
@@ -1378,9 +1378,9 @@ void CenterPanel::resized() {
     vuReverb_->setBounds(10, 109, 239, 138);
     vuMain_->setBounds(10, 255, 239, 138);
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
-    power_->setTopLeftPosition(36, 444);
+    power_->setTopLeftPosition(36, 440); // up 4, align with clips (Nathan 2026-10-07)
     jewel_->setBounds(106, 435, 48, 48);
-    phase_->setTopLeftPosition(192, 444);
+    phase_->setTopLeftPosition(192, 440); // up 4, align with clips (Nathan 2026-10-07)
 }
 
 void CenterPanel::syncPower(bool on) {
