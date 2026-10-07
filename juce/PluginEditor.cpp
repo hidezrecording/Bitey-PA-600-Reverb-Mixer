@@ -1280,8 +1280,10 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
                                              true /* labels right */);
     echo_ = std::make_unique<BiteyKnob>(proc, "tape_mix", 53, false,
                                        BiteyKnob::Scale::None);
+    echo_->setKnobLabel("ECHO");
     dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", 53, false,
                                          BiteyKnob::Scale::None);
+    dryWet_->setKnobLabel("DRY/WET");
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
     power_ = std::make_unique<MetalToggle>(proc, "power", "", true,
