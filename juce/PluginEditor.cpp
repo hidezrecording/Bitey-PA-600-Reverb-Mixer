@@ -68,12 +68,11 @@ juce::Font permanentMarker(float sizePx) {
 // ---------------------------------------------------------------------------
 
 BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
-    // compH = tickD + 8.9 (ring overflow above the .pk box) + 2px pad;
-    // label chip sits at the bottom over the tick-free zone.
+    // Shrunk ~6% so tick hashes clear adjacent labels (Nathan 2026-10-07).
     switch (s) {
-        case Size::Large: return { 115.5f, 99.75f, 86.1f, 134.0f, 126.0f };
-        case Size::Small: return { 78.75f, 64.6f, 53.0f, 92.0f, 90.0f };
-        default:          return { 96.6f, 78.75f, 66.15f, 116.0f, 108.0f };
+        case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 118.0f };
+        case Size::Small: return { 66.0f, 54.0f, 44.0f, 78.0f, 76.0f };
+        default:          return { 91.0f, 74.0f, 62.0f, 109.0f, 102.0f };
     }
 }
 
@@ -116,8 +115,8 @@ void BiteyKnob::paint(juce::Graphics& g) {
     g.setColour(col(0xffffffff));
     const float tickLen = 5.5f, tickW = 2.2f;
     const float tickMid = tickR - tickLen * 0.5f - 0.5f;
-    for (int i = 0; i <= 20; ++i) {
-        const float a = (-135.0f + i * 13.5f) * kDeg2Rad;
+    for (int i = 0; i <= 10; ++i) {
+        const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
         g.saveState();
         g.addTransform(juce::AffineTransform::rotation(a, cx, cy));
         g.fillRect(cx - tickW * 0.5f, cy - tickMid - tickLen * 0.5f, tickW, tickLen);
@@ -438,7 +437,8 @@ void MetalToggle::paint(juce::Graphics& g) {
         g.setColour(col(0xe6ffffff));
         auto capJust = labelsOnRight_ ? juce::Justification::centredLeft
                                       : juce::Justification::centred;
-        g.drawText(caption_, 0, int(y + labelColH), int(W), 14, capJust);
+        const float capY = bodyY + body + 2.0f;
+        g.drawText(caption_, 0, int(capY), int(W), 14, capJust);
     }
 }
 // ---------------------------------------------------------------------------
@@ -1208,7 +1208,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(106, 140); // web .midrow: freq toggle beside MID
+    midFreq_->setTopLeftPosition(128, 112); // clear of MID tick ring (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
@@ -1355,7 +1355,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", -26, ch - 30, 130, 26, juce::Justification::centred);
+    g.drawText("POWER", -18, ch - 30, 130, 26, juce::Justification::centred);
     g.drawText("PHASE", 131, ch - 30, 143, 26, juce::Justification::centred);
 }
 
@@ -1370,7 +1370,7 @@ void CenterPanel::resized() {
     vuReverb_->setBounds(10, 109, 239, 138);
     vuMain_->setBounds(10, 255, 239, 138);
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
-    power_->setTopLeftPosition(28, 444);
+    power_->setTopLeftPosition(36, 444);
     jewel_->setBounds(106, 435, 48, 48);
     phase_->setTopLeftPosition(192, 444);
 }
