@@ -1186,8 +1186,8 @@ void ChannelStrip::resized() {
     kLow_->setCentrePosition(cx, 245);
     kLevel_->setCentrePosition(cx, 360); // 115px LEVEL knob
     // 96Hz/PAD toggles: below LEVEL, above CHANNEL label (no overlap)
-    lowCut_->setTopLeftPosition(18, 445);
-    pad_->setTopLeftPosition(98, 445);
+    lowCut_->setTopLeftPosition(18, 430);
+    pad_->setTopLeftPosition(98, 430);
 }
 
 // ---------------------------------------------------------------------------
@@ -1234,9 +1234,9 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 60);
     kMid_->setCentrePosition(cx, 160);
     kLow_->setCentrePosition(cx, 260);
-    midFreq_->setTopLeftPosition(99, 180);
+    midFreq_->setTopLeftPosition(115, 180);
     kMain_->setCentrePosition(cx, 370); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx, 435);
+    clipBulb_->setCentrePosition(cx + 40, 415);
     clipBulb_->setSize(20, 20);
 }
 
@@ -1280,7 +1280,7 @@ void ReverbStrip::resized() {
     kContour_->setCentrePosition(cx, 160);
     kTime_->setCentrePosition(cx, 260);
     kReturn_->setCentrePosition(cx, 370); // 86px LEVEL knob
-    clipBulb_->setCentrePosition(cx, 435);
+    clipBulb_->setCentrePosition(cx + 40, 415);
     clipBulb_->setSize(20, 20);
 }
 
