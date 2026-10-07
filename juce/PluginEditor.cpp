@@ -873,10 +873,11 @@ void VUMeterComp::paint(juce::Graphics& g) {
 
     // Website-exact VU scale: rendered from the site's own SVG
     // Preserve aspect ratio, centered in face with padding (not under bezel)
+    // Bezel must completely clear all content — use 75% for safe clearance
     if (scaleImg_.isValid()) {
         const float svgAspect = 200.0f / 104.0f;
-        // Use 85% of face to leave padding from bezel
-        const float padW = w * 0.85f, padH = h * 0.85f;
+        // Use 75% of face to leave clear padding from bezel
+        const float padW = w * 0.75f, padH = h * 0.75f;
         float dw = padW, dh = padW / svgAspect;
         if (dh > padH) { dh = padH; dw = padH * svgAspect; }
         const float dx = fx + (w - dw) * 0.5f;
@@ -916,7 +917,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
 
 
     // Needle: single clean needle (no ghost shadow)
-    const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_ * 0.8f);
+    const float targetPos = juce::jlimit(-0.05f, 1.05f, smoothed_);
     const float na = startAngle + targetPos * totalAngle;
     const float nca = std::cos(na), nsa = std::sin(na);
     // (No shadow — was creating the "ghost needle")
