@@ -804,27 +804,32 @@ void VUMeterComp::paint(juce::Graphics& g) {
     auto Y = [&](float y) { return oy + y * sc; };
     auto S = [&](float v) { return v * sc; };
 
-    // Incandescent bulbs: two warm bulbs at the bottom, either side of the
-    // pivot (100,88), tops poking up from behind the bezel like an old meter.
-    // They cast a warm glow onto the blue face.
-    for (float bx : { 68.0f, 132.0f }) {
-        const float by = 98.0f;  // near bottom, partially behind bezel
-        const float br = 7.0f;   // bulb radius (SVG units)
-        // Warm glow cast onto the face
-        juce::ColourGradient glow(col(0x66ffb545), X(bx), Y(by),
-                                  col(0x00ffb545), X(bx), Y(by - 28.0f), true);
-        glow.addColour(0.5, col(0x33ff9a2a));
-        g.setGradientFill(glow);
-        g.fillEllipse(X(bx - 22.0f), Y(by - 22.0f), S(44.0f), S(44.0f));
-        // Bulb glass: glowing amber, brighter at the center
-        juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br*0.4f),
-                                   col(0xffc77800), X(bx + br*0.4f), Y(by + br*0.3f), true);
-        glass.addColour(0.6, col(0xffffb545));
-        g.setGradientFill(glass);
-        g.fillEllipse(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f));
-        // Filament highlight
-        g.setColour(col(0xbfffffff));
-        g.fillEllipse(X(bx - br*0.35f), Y(by - br*0.45f), S(br*0.5f), S(br*0.35f));
+    // Incandescent bulbs: half-circles poking up from behind the lower bezel,
+    // either side of the pivot (100,88). Centered ON the face bottom edge
+    // (y=104) so the clip region hides the bottom half — only the top shows.
+    // Warm glow arcs upward (bottom clipped by face edge).
+    {
+        const float bulbXs[2] = { 68.0f, 132.0f };
+        for (int bi = 0; bi < 2; ++bi) {
+            const float bx = bulbXs[bi];
+            const float by = 104.0f;  // ON the bottom edge -> top half visible
+            const float br = 7.0f;
+            // Warm glow (radial, bottom half clipped by face edge -> arc effect)
+            juce::ColourGradient glow(col(0x55ffb545), X(bx), Y(by),
+                                      col(0x00ffb545), X(bx), Y(by - 26.0f), true);
+            glow.addColour(0.6, col(0x22ff9a2a));
+            g.setGradientFill(glow);
+            g.fillEllipse(X(bx - 24.0f), Y(by - 24.0f), S(48.0f), S(48.0f));
+            // Bulb glass: top half visible (bottom clipped)
+            juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br),
+                                       col(0xffc77800), X(bx), Y(by), true);
+            glass.addColour(0.7, col(0xffffb545));
+            g.setGradientFill(glass);
+            g.fillEllipse(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f));
+            // Filament highlight (top of bulb)
+            g.setColour(col(0xbfffffff));
+            g.fillEllipse(X(bx - br*0.3f), Y(by - br*0.7f), S(br*0.45f), S(br*0.3f));
+        }
     }
 
     // Scale arc: radius 108 centered at (100,114); white -146deg..-70.2deg,
