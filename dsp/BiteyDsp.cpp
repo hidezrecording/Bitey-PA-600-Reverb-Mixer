@@ -87,10 +87,19 @@ void Biquad::setHighpass(double fs, double f, double q) {
 Curves Curves::build() {
     Curves c;
     c.op6 = Curve::make(8192, [](float x) {
-        // PV low-end: strong 2nd harmonic warmth (single-ended tube character).
-        // Reference (drums through PA-600): H2 ~ -10dB, H3 ~ -28dB.
+        // RCA OP-6: 1940s single-ended tube preamp. "Rich, dark and robust."
+        // "Gloriously clean" wide open, "warm overdrive" when cranked.
+        // Strong 2nd harmonic (single-ended). Reference (drums through PA-600):
+        // H2 ~ -10dB, H3 ~ -28dB.
+        // The "dark" comes from the output transformer softening highs as it
+        // saturates — modeled here as a gentle dynamic lowpass via the curve
+        // shape (asymmetric softening of positive peaks).
         float y = x < 0 ? std::tanh(x * 1.2f) : std::tanh(x * 1.05f);
-        return y + 0.30f * x * x;
+        y += 0.30f * x * x;
+        // Transformer darkening: positive peaks (where the transformer
+        // saturates first) get slightly more rounded
+        if (y > 0.5f) y = 0.5f + (y - 0.5f) * 0.92f;
+        return y;
     });
     c.tape = Curve::make(8192, [](float x) { return std::tanh(x * 1.5f); });
     c.bus = Curve::make(8192, [](float x) {
@@ -106,7 +115,20 @@ Curves Curves::build() {
         return x;
     });
     c.scully = Curve::make(8192, [](float x) {
+        // Scully 280: GERMANIUM transistors (1960s), UTC/Freed nickel transformers.
+        // "Warm, with a slight fuzzy bite when pushed just below or slightly
+        // into clipping (then it gets angry in a way that's still useful)."
+        // Germanium: lower forward voltage (~0.3V) = earlier, softer clipping
+        // than silicon. The "fuzz" is higher harmonics emerging when pushed hard.
+        // Three nickel transformers add clarity on top of the warmth.
         float y = x + 0.04f * (x * x);
+        // Germanium soft knee: starts earlier (0.5 vs 0.7), more gradual
+        if (y > 0.5f) {
+            float d = (y - 0.5f) * 1.5f;
+            y = 0.5f + (y - 0.5f) / (1.0f + d * d * 0.4f);
+            // Fuzzy bite: add slight high-order when pushed hard
+            if (y > 0.75f) y += 0.02f * std::sin(y * 25.0f) * (y - 0.75f);
+        }
         if (y > 0.7f) {
             float d = (y - 0.7f) * 2.0f;
             y = 0.7f + (y - 0.7f) / (1.0f + d * d);
@@ -128,15 +150,19 @@ Curves Curves::build() {
     // Inductor saturation: soft, with 2nd harmonic emphasis (single-ended).
     // Transformer: subtle 3rd harmonic, very gentle saturation.
     c.helios = Curve::make(8192, [](float x) {
-        // Inductor: asymmetric, 2nd harmonic rich
-        float y = x + 0.03f * x * x - 0.01f * x * x * x;
-        // Gentle saturation above 0.6 (inductor core saturation)
-        if (y > 0.6f) {
-            float d = (y - 0.6f) * 1.8f;
-            y = 0.6f + (y - 0.6f) / (1.0f + d * d * 0.5f);
-        } else if (y < -0.6f) {
-            float d = (y + 0.6f) * 1.8f;
-            y = -0.6f + (y + 0.6f) / (1.0f + d * d * 0.5f);
+        // Helios Type 69: Lustraphone transformer + inductor EQ.
+        // "Mid-range growl", "fat", "assertive". The inductor saturates
+        // aggressively when pushed — this is the "passive/aggressive" character:
+        // bold EQ moves stay musical because the inductor rounds them.
+        // Stronger 2nd harmonic than before, with 3rd emerging when driven hard.
+        float y = x + 0.06f * x * x - 0.02f * x * x * x;
+        // Inductor core saturation: more aggressive knee (the "growl")
+        if (y > 0.5f) {
+            float d = (y - 0.5f) * 2.2f;
+            y = 0.5f + (y - 0.5f) / (1.0f + d * d * 0.7f);
+        } else if (y < -0.5f) {
+            float d = (y + 0.5f) * 2.2f;
+            y = -0.5f + (y + 0.5f) / (1.0f + d * d * 0.7f);
         }
         return y;
     });
