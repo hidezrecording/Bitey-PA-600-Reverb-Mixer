@@ -29,6 +29,7 @@
 
 namespace BiteyFonts {
 juce::Font robotoCondensed(float sizePx, bool bold = true);
+juce::Font hardwareFont(float sizePx);
 juce::Font michroma(float sizePx);
 juce::Font metalMania(float sizePx);
 juce::Font permanentMarker(float sizePx);

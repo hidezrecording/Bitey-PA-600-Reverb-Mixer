@@ -29,6 +29,12 @@ juce::Font robotoCondensed(float sizePx, bool bold) {
     if (bold) opts = opts.withStyle("Bold");
     return juce::Font(opts);
 }
+// Hardware font: heavy industrial sans-serif like the physical Peavey PA-600
+// (Arial Bold style — much heavier than Roboto Condensed)
+juce::Font hardwareFont(float sizePx) {
+    juce::Font f(juce::Font::getDefaultSansSerifFontName(), sizePx, juce::Font::bold);
+    return f;
+}
 juce::Font michroma(float sizePx) {
     static juce::Typeface::Ptr tf =
         loadEmbedded(BinaryData::MichromaRegular_ttf, BinaryData::MichromaRegular_ttfSize);
@@ -133,10 +139,10 @@ void BiteyKnob::paint(juce::Graphics& g) {
         }
     }
 
-    // Knob label: website exact - Roboto Condensed Bold, 1.08cqw (11.3px), uppercase
+    // Knob label: hardware (Peavey PA-600) — heavy industrial sans, uppercase
     // Positioned at bottom of component with clear separation from scale
     if (knobLabel_.isNotEmpty()) {
-        juce::Font labelFont(BiteyFonts::robotoCondensed(11.5f));
+        juce::Font labelFont(BiteyFonts::hardwareFont(13.0f));
         labelFont.setBold(true);
         g.setFont(labelFont);
         g.setColour(col(0xffffffff));
@@ -1131,10 +1137,10 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
                            const juce::String& title, const juce::String& number)
     : PanelBox(title, col(0xff1a1a1a)), proc_(proc), number_(number) {
     const juce::String p = (index == 0) ? "ch1_" : "ch2_";
-    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 92, false, BiteyKnob::Scale::ZeroToTen);
-    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 92, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 92, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 108, false, BiteyKnob::Scale::ZeroToTen);
+    kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 130, false, BiteyKnob::Scale::ZeroToTen);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 130, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 130, false, BiteyKnob::Scale::Eq);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 145, false, BiteyKnob::Scale::ZeroToTen);
     kReverb_->setKnobLabel("REVERB");
     kHigh_->setKnobLabel("HIGH");
     kLow_->setKnobLabel("LOW");
@@ -1160,8 +1166,9 @@ void ChannelStrip::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
     // Knob labels are drawn by the knobs themselves (in the scale gap)
-    // Channel label: "CHANNEL 1" or "CHANNEL 2", centered (same size as MAIN/REVERB)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
+    // Channel label: "CHANNEL 1" or "CHANNEL 2" — hardware font (Peavey PA-600)
+    juce::Font bf(BiteyFonts::hardwareFont(22.0f));
+    g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
     g.drawText(label, 0, H - 30, W, 26, juce::Justification::centred);
@@ -1185,16 +1192,16 @@ void ChannelStrip::resized() {
 
 MasterStrip::MasterStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 92, false, BiteyKnob::Scale::Eq);
-    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 92, false, BiteyKnob::Scale::Eq);
-    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 92, false, BiteyKnob::Scale::Eq);
+    kHigh_ = std::make_unique<BiteyKnob>(proc, "m_high", 130, false, BiteyKnob::Scale::Eq);
+    kMid_  = std::make_unique<BiteyKnob>(proc, "m_mid", 130, false, BiteyKnob::Scale::Eq);
+    kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", 130, false, BiteyKnob::Scale::Eq);
     kHigh_->setKnobLabel("HIGH");
     kMid_->setKnobLabel("MID");
     kLow_->setKnobLabel("LOW");
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 108, false, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 145, false, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
@@ -1213,7 +1220,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large MAIN label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
+    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
 }
@@ -1235,10 +1242,10 @@ void MasterStrip::resized() {
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 92, false, BiteyKnob::Scale::ZeroToTen);
-    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 92, false, BiteyKnob::Scale::ZeroToTen);
-    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 92, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 108, false, BiteyKnob::Scale::ZeroToTen);
+    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 130, false, BiteyKnob::Scale::ZeroToTen);
+    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 130, false, BiteyKnob::Scale::ZeroToTen);
+    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 130, false, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 145, false, BiteyKnob::Scale::ZeroToTen);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
@@ -1258,7 +1265,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     g.setColour(col(0xe6ffffff));
     g.drawText("CLIP", 0, 395, W, 20, juce::Justification::centred);
     // Large REVERB label at bottom (same size as CHANNEL labels: 20pt)
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
+    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
 }
@@ -1376,7 +1383,7 @@ void CenterPanel::paint(juce::Graphics& g) {
 
     // Bottom labels: POWER and PHASE, 20pt like other strips (website: 1.9cqw)
     const int ch = getHeight();
-    juce::Font bf(BiteyFonts::robotoCondensed(20.0f)); bf.setBold(true); bf.setExtraKerningFactor(0.01f); g.setFont(bf);
+    juce::Font bf(BiteyFonts::hardwareFont(22.0f)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     g.drawText("POWER", 0, ch - 30, 143, 26, juce::Justification::centred);
     g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
