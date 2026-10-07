@@ -116,6 +116,9 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float tickLen = 5.5f, tickW = 2.2f;
     const float tickMid = tickR - tickLen * 0.5f - 0.5f;
     for (int i = 0; i <= 10; ++i) {
+        // Skip side ticks (3 o'clock, indices 8/9 = 81°/108°) if flagged
+        // (Nathan 2026-10-07: clear space for midfreq toggle)
+        if (skipSideTick_ && (i == 8 || i == 9)) continue;
         const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
         g.saveState();
         g.addTransform(juce::AffineTransform::rotation(a, cx, cy));
@@ -158,10 +161,11 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setColour(col(0xb8000000));
     g.fillEllipse(cx - kringR, cy - kringR + 4.7f, kringR * 2.0f, kringR * 2.0f);
 
-    // kring: radial-gradient(circle at 35% 28%, #3b352e, #1a1611 58%, #070605 100%)
-    juce::ColourGradient kring(col(0xff3b352e), cx - kringR * 0.3f, cy - kringR * 0.44f,
-                               col(0xff070605), cx + kringR * 0.4f, cy + kringR * 0.4f, true);
-    kring.addColour(0.58, col(0xff1a1611));
+    // kring: radial-gradient(circle at 35% 28%, #42372b, #1e1811 58%, #0a0705 100%)
+    // (Nathan 2026-10-07: a hair more brown)
+    juce::ColourGradient kring(col(0xff42372b), cx - kringR * 0.3f, cy - kringR * 0.44f,
+                               col(0xff0a0705), cx + kringR * 0.4f, cy + kringR * 0.4f, true);
+    kring.addColour(0.58, col(0xff1e1811));
     g.setGradientFill(kring);
     g.fillEllipse(cx - kringR, cy - kringR, kringR * 2.0f, kringR * 2.0f);
     // Inner top light + bottom shade (web inset shadows)
@@ -173,15 +177,16 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
                   (kringR - 1.0f) * 2.0f, (kringR - 1.0f) * 2.0f, 5.0f);
 
     // pknob (rotates): base radial-gradient(circle at 38% 30%,
-    //   #4d463d, #28221b 48%, #120e0a 78%, #050403 100%)
+    //   #554832, #2e241a 48%, #150f0a 78%, #080503 100%)
+    // (Nathan 2026-10-07: a hair more brown)
     g.saveState();
     g.addTransform(juce::AffineTransform::rotation(
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
 
-    juce::ColourGradient pk(col(0xff4d463d), cx - pknobR * 0.24f, cy - pknobR * 0.4f,
-                            col(0xff050403), cx + pknobR * 0.3f, cy + pknobR * 0.35f, true);
-    pk.addColour(0.48, col(0xff28221b));
-    pk.addColour(0.78, col(0xff120e0a));
+    juce::ColourGradient pk(col(0xff554832), cx - pknobR * 0.24f, cy - pknobR * 0.4f,
+                            col(0xff080503), cx + pknobR * 0.3f, cy + pknobR * 0.35f, true);
+    pk.addColour(0.48, col(0xff2e241a));
+    pk.addColour(0.78, col(0xff150f0a));
     g.setGradientFill(pk);
     g.fillEllipse(cx - pknobR, cy - pknobR, pknobR * 2.0f, pknobR * 2.0f);
 
@@ -807,7 +812,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
         const float bulbXs[2] = { 68.0f, 132.0f };
         for (int bi = 0; bi < 2; ++bi) {
             const float bx = bulbXs[bi];
-            const float by = 108.0f;  // BELOW edge -> barely visible (dbx style)
+            const float by = 112.0f;  // FURTHER below edge -> just slightest tip (Nathan 2026-10-07)
             const float br = 7.0f;
             // Soft diffused glow (dbx-like: warm, gentle, upward)
             juce::ColourGradient glow(col(0x44ffb545), X(bx), Y(by),
@@ -1177,6 +1182,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     kLow_  = std::make_unique<BiteyKnob>(proc, "m_low", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
     kHigh_->setKnobLabel("HIGH");
     kMid_->setKnobLabel("MID");
+    kMid_->setSkipSideTick(true); // clear space for midfreq toggle (Nathan 2026-10-07)
     kLow_->setKnobLabel("LOW");
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
@@ -1206,7 +1212,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(115, 138); // next to MID pot (web .midrow), clear of ticks (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(105, 138); // close to MID like Image 1, clear of knob (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }

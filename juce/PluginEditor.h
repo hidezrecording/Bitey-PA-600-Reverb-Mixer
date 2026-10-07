@@ -53,6 +53,7 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     void setKnobLabel(const juce::String& label) { knobLabel_ = label; }
+    void setSkipSideTick(bool s) { skipSideTick_ = s; } // skip 3 o'clock tick (Nathan 2026-10-07)
 
 private:
     struct Dims { float tickD, kringD, pknobD, compW, compH; };
@@ -71,6 +72,7 @@ private:
     Dims dims_;
     Scale scale_;
     juce::String knobLabel_; // label drawn in the bottom scale gap
+    bool skipSideTick_ = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BiteyKnob)
 };
