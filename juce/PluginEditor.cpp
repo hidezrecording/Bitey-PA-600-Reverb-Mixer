@@ -1133,7 +1133,7 @@ ChannelStrip::ChannelStrip(BiteyProcessor& proc, int index,
     kReverb_ = std::make_unique<BiteyKnob>(proc, p + "fx", 66, false, BiteyKnob::Scale::ZeroToTen);
     kHigh_ = std::make_unique<BiteyKnob>(proc, p + "high", 66, false, BiteyKnob::Scale::Eq);
     kLow_  = std::make_unique<BiteyKnob>(proc, p + "low", 66, false, BiteyKnob::Scale::Eq);
-    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 86, true, BiteyKnob::Scale::ZeroToTen);
+    kLevel_ = std::make_unique<BiteyKnob>(proc, p + "level", 86, false, BiteyKnob::Scale::ZeroToTen);
     kReverb_->setKnobLabel("REVERB");
     kHigh_->setKnobLabel("HIGH");
     kLow_->setKnobLabel("LOW");
@@ -1193,7 +1193,7 @@ MasterStrip::MasterStrip(BiteyProcessor& proc)
     midFreq_ = std::make_unique<MetalToggle>(proc, "m_midfreq", "", false,
                                              std::vector<juce::String>{"0.7k", "1.0k", "1.4k"},
                                              false /* labels left */);
-    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 86, true, BiteyKnob::Scale::ZeroToTen);
+    kMain_ = std::make_unique<BiteyKnob>(proc, "m_level", 86, false, BiteyKnob::Scale::ZeroToTen);
     kMain_->setKnobLabel("LEVEL");
     clipBulb_ = std::make_unique<ClipBulb>();
     addAndMakeVisible(*kHigh_); addAndMakeVisible(*kMid_); addAndMakeVisible(*kLow_);
@@ -1237,7 +1237,7 @@ ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", 66, false, BiteyKnob::Scale::ZeroToTen);
     kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", 66, false, BiteyKnob::Scale::ZeroToTen);
     kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", 66, false, BiteyKnob::Scale::ZeroToTen);
-    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 86, true, BiteyKnob::Scale::ZeroToTen);
+    kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", 86, false, BiteyKnob::Scale::ZeroToTen);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
     kTime_->setKnobLabel("TIME");
@@ -1315,12 +1315,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     PanelBox::paint(g);
     const int W = getWidth();
 
-    // Tape cluster: black strip with top/bottom seams
-    g.setColour(col(0x66000000)); // black/40
-    g.fillRect(6, 16, W - 12, 100);
-    g.setColour(col(0xff333333));
-    g.fillRect(6, 16, W - 12, 1);
-    g.fillRect(6, 115, W - 12, 1);
+    // (No black strip behind tape cluster — website doesn't have it)
 
     // ECHO/DRY/WET captions are drawn by the BiteyKnob components themselves
     // (no duplicate drawing here)
@@ -1357,10 +1352,14 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.fillPath(tapePath);
 
     // Tape text: website serif, 1.55cqw (16px), #1c1a17, letter-spacing .07em
-    juce::Font tapeFont(juce::Font::getDefaultSerifFontName(), 16.0f, juce::Font::bold);
-    tapeFont.setExtraKerningFactor(0.07f);
+    // Tape text: sharpie scribble — italic sans, slightly irregular
+    juce::Font tapeFont(juce::Font::getDefaultSansSerifFontName(), 17.0f, juce::Font::plain);
+    tapeFont.setItalic(true);
+    tapeFont.setExtraKerningFactor(0.04f);
     g.setFont(tapeFont);
-    g.setColour(col(0xff1c1a17));
+    g.setColour(col(0xff2a2520));
+    // Slight rotation for handwritten feel (on top of the tape's -1.6deg)
+    g.addTransform(juce::AffineTransform::rotation(0.015f, tapeX + tapeW/2, tapeY + tapeH/2));
     g.drawText("REVERB MIXER", tapeX, tapeY, tapeW, tapeH,
                juce::Justification::centred);
 
