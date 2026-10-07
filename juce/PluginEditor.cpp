@@ -1213,7 +1213,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(128, 112); // clear of MID tick ring (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(104, 88); // up+left, fully on MAIN strip (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
@@ -1318,25 +1318,26 @@ void CenterPanel::paint(juce::Graphics& g) {
     // Slight rotation for realism (-1.6 degrees like website)
     g.addTransform(juce::AffineTransform::rotation(-0.028f, tapeX + tapeW/2, tapeY + tapeH/2));
 
-    // Torn edges: jagged rips (not cuts), no bevel — like ripped masking tape
+    // Torn edges: jagged rips (not cuts), no bevel — like ripped masking tape.
+    // Full piece (no horizontal tear). Path goes clockwise: top-left -> right
+    // along top -> down right rip -> left along bottom -> up left rip -> close.
     juce::Path tapePath;
-    // Left rip: jagged
-    tapePath.startNewSubPath(tapeX + 3.0f, tapeY + tapeH * 0.15f);
-    tapePath.lineTo(tapeX + 8.0f, tapeY + 2.0f);
-    tapePath.lineTo(tapeX + 2.0f, tapeY + tapeH * 0.35f);
-    tapePath.lineTo(tapeX + 7.0f, tapeY + tapeH * 0.55f);
-    tapePath.lineTo(tapeX + 1.0f, tapeY + tapeH * 0.75f);
-    tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 2.0f);
-    // Top edge (slightly wavy)
+    // Top edge (slightly wavy), left to right
+    tapePath.startNewSubPath(tapeX + 8.0f, tapeY + 2.0f);
     tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + 1.0f);
-    // Right rip: jagged
+    // Right rip: jagged, top to bottom
     tapePath.lineTo(tapeX + tapeW - 2.0f, tapeY + tapeH * 0.2f);
     tapePath.lineTo(tapeX + tapeW - 7.0f, tapeY + tapeH * 0.4f);
     tapePath.lineTo(tapeX + tapeW - 1.0f, tapeY + tapeH * 0.6f);
     tapePath.lineTo(tapeX + tapeW - 6.0f, tapeY + tapeH * 0.8f);
     tapePath.lineTo(tapeX + tapeW - 3.0f, tapeY + tapeH - 1.0f);
-    // Bottom edge (slightly wavy)
+    // Bottom edge (slightly wavy), right to left
     tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 1.0f);
+    // Left rip: jagged, bottom to top
+    tapePath.lineTo(tapeX + 1.0f, tapeY + tapeH * 0.75f);
+    tapePath.lineTo(tapeX + 7.0f, tapeY + tapeH * 0.55f);
+    tapePath.lineTo(tapeX + 2.0f, tapeY + tapeH * 0.35f);
+    tapePath.lineTo(tapeX + 3.0f, tapeY + tapeH * 0.15f);
     tapePath.closeSubPath();
 
     // Masking tape base (website: #ead9ae to #d8bf87)
@@ -1377,7 +1378,7 @@ void CenterPanel::resized() {
     // 260px wide center panel (web grid)
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
     ips_->setTopLeftPosition(14, 12);
-    tapeSize_->setTopLeftPosition(206, 12);
+    tapeSize_->setTopLeftPosition(210, 16); // down+right, clear of DRY/WET ticks (Nathan 2026-10-07)
     echo_->setCentrePosition(86, 48);    // small ring knob, tick-top at 12
     dryWet_->setCentrePosition(176, 48); // clear of the TAPE toggle
     // VU meters: 92% of 260 = 239px
