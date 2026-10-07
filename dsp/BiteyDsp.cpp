@@ -444,14 +444,30 @@ float PartitionedConvolver::process(float x) {
 void SpringIR::generate(float seconds, double sampleRate,
                         std::vector<float>& outL, std::vector<float>& outR,
                         uint32_t seed) {
+    // "Rusty plate-spring": cross between EMT 140 (dense, bright) and
+    // AKG BX10 (boingy, resonant). Physical, not digital.
+    //
+    // - Dense noise diffusion (plate-like) for the body
+    // - Inharmonic spring modes (like a real tank's standing waves) for
+    //   the "boing" and physicality
+    // - Slow random wobble (rusty/old) instead of pure sine flutter
+    // - Bright, lively high end (reference: centroid 1600-3900Hz)
     int length = int(sampleRate * seconds);
     outL.assign(length, 0);
     outR.assign(length, 0);
-    const double flutterRate = 3.5, flutterDepth = 0.02, density = 2200.0;
+    const double density = 2800.0;  // denser (more plate-like)
+    // Spring modes: inharmonic, like a real tank (not harmonic series).
+    // These give the "physical" boing and metallic character.
+    const double modes[] = { 174.0, 261.0, 348.0, 522.0, 696.0 };
+    const double modeGains[] = { 0.18, 0.12, 0.10, 0.07, 0.05 };
+    const int nModes = 5;
     for (int c = 0; c < 2; ++c) {
         SeededRng rng(seed + c * 0x9E37u);
         std::vector<float>& data = (c == 0) ? outL : outR;
         float lastNoise = 0, lastVal = 0;
+        // Rusty wobble: slow random modulation (not a clean sine)
+        float wobblePhase = rng.uniform() * 6.28f;
+        float wobbleRate = 0.7f + rng.uniform() * 0.8f;  // 0.7-1.5 Hz
         for (int i = 0; i < length; ++i) {
             double t = double(i) / sampleRate;
             float noise = 0;
@@ -459,13 +475,24 @@ void SpringIR::generate(float seconds, double sampleRate,
                 noise = rng.bipolar();
                 if (t < 0.05) noise *= 2.0f;
             }
-            noise = (noise + lastNoise * 0.8f) / 1.8f;
+            // Lighter smoothing (brighter, more physical)
+            noise = (noise + lastNoise * 0.6f) / 1.6f;
             lastNoise = noise;
-            float flutter = 1.0f + float(flutterDepth *
-                std::sin(2 * kPi * flutterRate * t + c * kPi * 0.5));
+            // Rusty wobble: irregular, like an old spring
+            wobblePhase += float(2 * kPi * wobbleRate / sampleRate);
+            float wobble = 1.0f + 0.03f * std::sin(wobblePhase) +
+                           0.015f * std::sin(wobblePhase * 2.7f + 1.3f);
             float decay = float(std::exp(-t * (4.0 - seconds * 0.4)));
-            float signal = noise * decay * flutter;
-            signal = (signal + lastVal * 0.9f) / 1.9f;
+            // Spring modes: ring with the decay (physical resonance)
+            float modesSig = 0;
+            for (int m = 0; m < nModes; ++m) {
+                float md = float(std::exp(-t * (3.0 + m * 0.8)));  // higher modes decay faster
+                modesSig += float(modeGains[m] * md *
+                    std::sin(2 * kPi * modes[m] * t + c * kPi * 0.5 + m));
+            }
+            float signal = (noise * decay + modesSig * decay) * wobble;
+            // Gentler smoothing (preserve the physical HF)
+            signal = (signal + lastVal * 0.7f) / 1.7f;
             lastVal = signal;
             if (signal > 0.8f) signal = 0.8f + (signal - 0.8f) * 0.5f;
             if (signal < -0.8f) signal = -0.8f + (signal + 0.8f) * 0.5f;
