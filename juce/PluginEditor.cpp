@@ -68,12 +68,12 @@ juce::Font permanentMarker(float sizePx) {
 // ---------------------------------------------------------------------------
 
 BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
-    // Shrunk ~6% so tick hashes clear adjacent labels (Nathan 2026-10-07).
-    // compH = tickD + 8.9 (ring overflow) + 2px pad.
+    // compH = tickD + 8.9 (ring overflow above the .pk box) + 2px pad;
+    // label chip sits at the bottom over the tick-free zone.
     switch (s) {
-        case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 118.0f };
-        case Size::Small: return { 66.0f, 54.0f, 44.0f, 78.0f, 76.0f };
-        default:          return { 91.0f, 74.0f, 62.0f, 109.0f, 102.0f };
+        case Size::Large: return { 115.5f, 99.75f, 86.1f, 134.0f, 126.0f };
+        case Size::Small: return { 78.75f, 64.6f, 53.0f, 92.0f, 90.0f };
+        default:          return { 96.6f, 78.75f, 66.15f, 116.0f, 108.0f };
     }
 }
 
@@ -116,8 +116,8 @@ void BiteyKnob::paint(juce::Graphics& g) {
     g.setColour(col(0xffffffff));
     const float tickLen = 5.5f, tickW = 2.2f;
     const float tickMid = tickR - tickLen * 0.5f - 0.5f;
-    for (int i = 0; i <= 10; ++i) {
-        const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
+    for (int i = 0; i <= 20; ++i) {
+        const float a = (-135.0f + i * 13.5f) * kDeg2Rad;
         g.saveState();
         g.addTransform(juce::AffineTransform::rotation(a, cx, cy));
         g.fillRect(cx - tickW * 0.5f, cy - tickMid - tickLen * 0.5f, tickW, tickLen);
@@ -429,18 +429,16 @@ void MetalToggle::paint(juce::Graphics& g) {
         }
     }
 
-    // Caption below (96 Hz / Pad style): drawn just under the hex body
-    // (2px gap), like the 96Hz label. Not at the bottom of the component
-    // (which for PAD is far down due to the 4-row number column).
+    // Caption below (96 Hz / Pad style): .pk-label 1.08cqw static
+    // When labels are on the right (PAD), left-align under the hex body
+    // so the caption doesn't crash into the number column.
     if (caption_.isNotEmpty() && captionBelow_) {
         juce::Font capFont(BiteyFonts::robotoCondensed(11.3f));
         g.setFont(capFont);
         g.setColour(col(0xe6ffffff));
         auto capJust = labelsOnRight_ ? juce::Justification::centredLeft
                                       : juce::Justification::centred;
-        // Position under the hex body, not under the label column
-        const float capY = bodyY + body + 2.0f;
-        g.drawText(caption_, 0, int(capY), int(W), 14, capJust);
+        g.drawText(caption_, 0, int(y + labelColH), int(W), 14, capJust);
     }
 }
 // ---------------------------------------------------------------------------
@@ -806,35 +804,27 @@ void VUMeterComp::paint(juce::Graphics& g) {
     auto Y = [&](float y) { return oy + y * sc; };
     auto S = [&](float v) { return v * sc; };
 
-    // Incandescent bulbs: half-circles poking up from behind the lower bezel,
-    // either side of the pivot (100,88). Only the top half is visible — the
-    // bottom curve is hidden behind the bezel. Warm arc glow (not a circle).
-    const float bulbXs[2] = { 68.0f, 132.0f };
-    for (int bi = 0; bi < 2; ++bi) {
-        const float bx = bulbXs[bi];
-        const float by = 104.0f;  // center ON the face bottom edge -> top half visible
-        const float br = 7.0f;
-        // Arc glow: semicircle above the bulb (not a full circle)
-        juce::Path arcGlow;
-        arcGlow.addPieSegment(X(bx - 24.0f), Y(by - 24.0f), S(48.0f), S(48.0f),
-                              -3.14159265f, 0.0f);  // top half only
-        juce::ColourGradient glow(col(0x55ffb545), X(bx), Y(by),
-                                  col(0x00ffb545), X(bx), Y(by - 26.0f), true);
-        glow.addColour(0.6, col(0x22ff9a2a));
+    // Incandescent bulbs: two warm bulbs at the bottom, either side of the
+    // pivot (100,88), tops poking up from behind the bezel like an old meter.
+    // They cast a warm glow onto the blue face.
+    for (float bx : { 68.0f, 132.0f }) {
+        const float by = 98.0f;  // near bottom, partially behind bezel
+        const float br = 7.0f;   // bulb radius (SVG units)
+        // Warm glow cast onto the face
+        juce::ColourGradient glow(col(0x66ffb545), X(bx), Y(by),
+                                  col(0x00ffb545), X(bx), Y(by - 28.0f), true);
+        glow.addColour(0.5, col(0x33ff9a2a));
         g.setGradientFill(glow);
-        g.fillPath(arcGlow);
-        // Bulb: top half only (bottom hidden behind bezel via clip)
-        juce::Path bulbTop;
-        bulbTop.addPieSegment(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f),
-                              -3.14159265f, 0.0f);
-        juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br*0.5f),
-                                   col(0xffc77800), X(bx), Y(by), true);
-        glass.addColour(0.7, col(0xffffb545));
+        g.fillEllipse(X(bx - 22.0f), Y(by - 22.0f), S(44.0f), S(44.0f));
+        // Bulb glass: glowing amber, brighter at the center
+        juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.3f), Y(by - br*0.4f),
+                                   col(0xffc77800), X(bx + br*0.4f), Y(by + br*0.3f), true);
+        glass.addColour(0.6, col(0xffffb545));
         g.setGradientFill(glass);
-        g.fillPath(bulbTop);
-        // Filament highlight (top of bulb)
+        g.fillEllipse(X(bx - br), Y(by - br), S(br*2.0f), S(br*2.0f));
+        // Filament highlight
         g.setColour(col(0xbfffffff));
-        g.fillEllipse(X(bx - br*0.3f), Y(by - br*0.7f), S(br*0.45f), S(br*0.3f));
+        g.fillEllipse(X(bx - br*0.35f), Y(by - br*0.45f), S(br*0.5f), S(br*0.35f));
     }
 
     // Scale arc: radius 108 centered at (100,114); white -146deg..-70.2deg,
@@ -1218,7 +1208,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(128, 112); // clear of MID tick ring (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(106, 140); // web .midrow: freq toggle beside MID
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
@@ -1323,25 +1313,16 @@ void CenterPanel::paint(juce::Graphics& g) {
     // Slight rotation for realism (-1.6 degrees like website)
     g.addTransform(juce::AffineTransform::rotation(-0.028f, tapeX + tapeW/2, tapeY + tapeH/2));
 
-    // Torn edges: jagged rips (not cuts), no bevel — like ripped masking tape
+    // Torn tape edges (website clip-path polygon)
     juce::Path tapePath;
-    // Left rip: jagged
-    tapePath.startNewSubPath(tapeX + 3.0f, tapeY + tapeH * 0.15f);
-    tapePath.lineTo(tapeX + 8.0f, tapeY + 2.0f);
-    tapePath.lineTo(tapeX + 2.0f, tapeY + tapeH * 0.35f);
-    tapePath.lineTo(tapeX + 7.0f, tapeY + tapeH * 0.55f);
-    tapePath.lineTo(tapeX + 1.0f, tapeY + tapeH * 0.75f);
-    tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 2.0f);
-    // Top edge (slightly wavy)
-    tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + 1.0f);
-    // Right rip: jagged
-    tapePath.lineTo(tapeX + tapeW - 2.0f, tapeY + tapeH * 0.2f);
-    tapePath.lineTo(tapeX + tapeW - 7.0f, tapeY + tapeH * 0.4f);
-    tapePath.lineTo(tapeX + tapeW - 1.0f, tapeY + tapeH * 0.6f);
-    tapePath.lineTo(tapeX + tapeW - 6.0f, tapeY + tapeH * 0.8f);
-    tapePath.lineTo(tapeX + tapeW - 3.0f, tapeY + tapeH - 1.0f);
-    // Bottom edge (slightly wavy)
-    tapePath.lineTo(tapeX + 6.0f, tapeY + tapeH - 1.0f);
+    tapePath.startNewSubPath(tapeX, tapeY + tapeH * 0.18f);
+    tapePath.lineTo(tapeX + tapeW * 0.02f, tapeY);
+    tapePath.lineTo(tapeX + tapeW * 0.97f, tapeY + tapeH * 0.04f);
+    tapePath.lineTo(tapeX + tapeW, tapeY + tapeH * 0.22f);
+    tapePath.lineTo(tapeX + tapeW * 0.99f, tapeY + tapeH * 0.82f);
+    tapePath.lineTo(tapeX + tapeW * 0.96f, tapeY + tapeH);
+    tapePath.lineTo(tapeX + tapeW * 0.03f, tapeY + tapeH * 0.96f);
+    tapePath.lineTo(tapeX, tapeY + tapeH * 0.78f);
     tapePath.closeSubPath();
 
     // Masking tape base (website: #ead9ae to #d8bf87)
@@ -1350,8 +1331,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     g.setGradientFill(tape);
     g.fillPath(tapePath);
 
-    // Tape text: bigger Sharpie scrawl (20px), #1c1a17
-    juce::Font tapeFont(BiteyFonts::permanentMarker(20.0f));
+    // Tape text: Permanent Marker 1.55cqw (16.3px), #1c1a17, letter-spacing .07em
+    juce::Font tapeFont(BiteyFonts::permanentMarker(16.3f));
     tapeFont.setExtraKerningFactor(0.07f);
     g.setFont(tapeFont);
     g.setColour(col(0xff2a2520));
@@ -1374,7 +1355,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    g.drawText("POWER", -18, ch - 30, 130, 26, juce::Justification::centred);
+    g.drawText("POWER", -26, ch - 30, 130, 26, juce::Justification::centred);
     g.drawText("PHASE", 131, ch - 30, 143, 26, juce::Justification::centred);
 }
 
@@ -1389,7 +1370,7 @@ void CenterPanel::resized() {
     vuReverb_->setBounds(10, 109, 239, 138);
     vuMain_->setBounds(10, 255, 239, 138);
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
-    power_->setTopLeftPosition(36, 444);
+    power_->setTopLeftPosition(28, 444);
     jewel_->setBounds(106, 435, 48, 48);
     phase_->setTopLeftPosition(192, 444);
 }
