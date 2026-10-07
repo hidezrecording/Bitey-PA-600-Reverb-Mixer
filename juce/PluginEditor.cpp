@@ -809,7 +809,9 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // Incandescent bulbs: half-circles poking up from behind the lower bezel,
     // either side of the pivot (100,88). Only the top half is visible — the
     // bottom curve is hidden behind the bezel. Warm arc glow (not a circle).
-    for (float bx : { 68.0f, 132.0f }) {
+    const float bulbXs[2] = { 68.0f, 132.0f };
+    for (int bi = 0; bi < 2; ++bi) {
+        const float bx = bulbXs[bi];
         const float by = 104.0f;  // center ON the face bottom edge -> top half visible
         const float br = 7.0f;
         // Arc glow: semicircle above the bulb (not a full circle)
