@@ -113,7 +113,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
     // Tick ring: 21 ticks over -135..+135 deg, in the black band OUTSIDE the
     // kring (radius 43..48). Drawn as filled rotated rects so they render
     // on every backend (drawLine hairlines vanished on macOS).
-    g.setColour(col(0xffffff));
+    g.setColour(col(0xffffffff));
     const float tickLen = 5.5f, tickW = 2.2f;
     const float tickMid = tickR - tickLen * 0.5f - 0.5f;
     for (int i = 0; i <= 20; ++i) {
@@ -1123,7 +1123,7 @@ void ChannelStrip::paint(juce::Graphics& g) {
     g.setFont(bf);
     g.setColour(col(0xe6ffffff));
     juce::String label = (number_ == "1") ? "CHANNEL 1" : "CHANNEL 2";
-    drawStamped(g, label, 0, H - 30, W, 26);
+    g.drawText(label, 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void ChannelStrip::resized() {
@@ -1171,7 +1171,7 @@ void MasterStrip::paint(juce::Graphics& g) {
     // Large MAIN label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    drawStamped(g, "MAIN", 0, H - 30, W, 26);
+    g.drawText("MAIN", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void MasterStrip::resized() {
@@ -1211,7 +1211,7 @@ void ReverbStrip::paint(juce::Graphics& g) {
     // Large REVERB label at bottom (web .bigword 1.9cqw = 20px)
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    drawStamped(g, "REVERB", 0, H - 30, W, 26);
+    g.drawText("REVERB", 0, H - 30, W, 26, juce::Justification::centred);
 }
 
 void ReverbStrip::resized() {
@@ -1326,8 +1326,8 @@ void CenterPanel::paint(juce::Graphics& g) {
     const int ch = getHeight();
     juce::Font bf(BiteyFonts::robotoCondensed(20.0f, true)); g.setFont(bf);
     g.setColour(col(0xe6ffffff));
-    drawStamped(g, "POWER", 0, ch - 30, 130, 26);
-    drawStamped(g, "PHASE", 143, ch - 30, 143, 26);
+    g.drawText("POWER", 0, ch - 30, 130, 26, juce::Justification::centred);
+    g.drawText("PHASE", 143, ch - 30, 143, 26, juce::Justification::centred);
 }
 
 void CenterPanel::resized() {
@@ -1341,9 +1341,9 @@ void CenterPanel::resized() {
     vuReverb_->setBounds(10, 112, 239, 138);
     vuMain_->setBounds(10, 258, 239, 138);
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
-    power_->setTopLeftPosition(28, 442);
+    power_->setTopLeftPosition(28, 447);
     jewel_->setBounds(106, 438, 48, 48);
-    phase_->setTopLeftPosition(192, 442);
+    phase_->setTopLeftPosition(192, 447);
 }
 
 void CenterPanel::syncPower(bool on) {
