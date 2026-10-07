@@ -1213,7 +1213,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(104, 88); // up+left, fully on MAIN strip (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(78, 62); // left+up, 1.4k between HIGH ticks, clear of 15 (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 439, 70, 26); // web .clip: centered row
 }
