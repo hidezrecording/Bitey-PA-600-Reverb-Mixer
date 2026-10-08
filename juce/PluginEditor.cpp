@@ -176,13 +176,9 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.drawEllipse(cx - kringR + 1.0f, cy - kringR + 1.0f,
                   (kringR - 1.0f) * 2.0f, (kringR - 1.0f) * 2.0f, 5.0f);
 
-    // pknob (rotates): base radial-gradient(circle at 38% 30%,
-    //   #554832, #2e241a 48%, #150f0a 78%, #080503 100%)
-    // (Nathan 2026-10-07: a hair more brown)
-    g.saveState();
-    g.addTransform(juce::AffineTransform::rotation(
-        rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
-
+    // pknob body: FIXED lighting (Nathan 2026-10-07: shadows/highlights stay
+    // put like other plugins; only the pointer rotates). Base radial-gradient
+    // (circle at 38% 30%, #554832, #2e241a 48%, #150f0a 78%, #080503 100%).
     juce::ColourGradient pk(col(0xff554832), cx - pknobR * 0.24f, cy - pknobR * 0.4f,
                             col(0xff080503), cx + pknobR * 0.3f, cy + pknobR * 0.35f, true);
     pk.addColour(0.48, col(0xff2e241a));
@@ -190,15 +186,14 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.setGradientFill(pk);
     g.fillEllipse(cx - pknobR, cy - pknobR, pknobR * 2.0f, pknobR * 2.0f);
 
-    // Top highlight: radial-gradient(circle at 34% 24%, rgba(255,242,216,.34), transparent 44%)
+    // Top highlight: fixed (does not rotate with pointer)
     juce::ColourGradient hi(col(0x57fff2d8), cx - pknobR * 0.32f, cy - pknobR * 0.52f,
                             col(0x00fff2d8), cx, cy, true);
     hi.addColour(0.44, col(0x00fff2d8));
     g.setGradientFill(hi);
     g.fillEllipse(cx - pknobR, cy - pknobR, pknobR * 2.0f, pknobR * 2.0f);
 
-    // Inner shading: inset 0 .35cqw .7cqw rgba(255,240,210,.20),
-    //   inset 0 -.8cqw 1.4cqw rgba(0,0,0,.82)
+    // Inner shading: fixed inset shadows (do not rotate)
     g.setColour(col(0x33fff0d2));
     g.drawEllipse(cx - pknobR + 3.0f, cy - pknobR + 3.0f,
                   (pknobR - 3.0f) * 2.0f, (pknobR - 3.0f) * 2.0f, 3.5f);
@@ -206,14 +201,17 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     g.drawEllipse(cx - pknobR + 1.5f, cy - pknobR + 1.5f,
                   (pknobR - 1.5f) * 2.0f, (pknobR - 1.5f) * 2.0f, 7.0f);
 
-    // ::after inner dome (34% circle, subtle)
+    // ::after inner dome: fixed (does not rotate)
     const float domeR = pknobR * 0.34f;
     juce::ColourGradient dome(col(0x24ffeeCD), cx - domeR * 0.16f, cy - domeR * 0.36f,
                               col(0x57000000), cx + domeR * 0.3f, cy + domeR * 0.3f, true);
     g.setGradientFill(dome);
     g.fillEllipse(cx - domeR, cy - domeR, domeR * 2.0f, domeR * 2.0f);
 
-    // Ivory pointer: width .17cqw, top 6%, height 39% of the pknob box
+    // Ivory pointer: ONLY this rotates with the value.
+    g.saveState();
+    g.addTransform(juce::AffineTransform::rotation(
+        rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle), cx, cy));
     const float pw = 1.8f;
     const float pTop = cy - pknobR + pknobD * 0.06f;
     const float pLen = pknobD * 0.39f;
@@ -221,7 +219,6 @@ void BiteyKnob::Look::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
                              col(0xffeadfc2), cx, pTop + pLen, false);
     g.setGradientFill(ptr);
     g.fillRoundedRectangle(cx - pw * 0.5f, pTop, pw, pLen, pw * 0.5f);
-
     g.restoreState();
 }
 
