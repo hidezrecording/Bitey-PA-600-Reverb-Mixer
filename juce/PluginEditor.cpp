@@ -72,8 +72,8 @@ BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
     // (Nathan 2026-10-07). Large (bottom 4 LEVEL pots) unchanged.
     switch (s) {
         case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 126.0f };
-        case Size::Small: return { 54.0f, 43.0f, 34.0f, 78.0f, 72.0f };
-        default:          return { 79.0f, 63.0f, 51.0f, 109.0f, 98.0f };
+        case Size::Small: return { 56.0f, 45.0f, 36.0f, 78.0f, 74.0f };   // +2 (Nathan 2026-10-07)
+        default:          return { 81.0f, 65.0f, 53.0f, 109.0f, 100.0f }; // +2 (Nathan 2026-10-07)
     }
 }
 
@@ -1310,7 +1310,7 @@ CenterPanel::CenterPanel(BiteyProcessor& proc)
                                        BiteyKnob::Scale::None);
     echo_->setKnobLabel("ECHO");
     dryWet_ = std::make_unique<BiteyKnob>(proc, "m_mix", BiteyKnob::Size::Small,
-                                         BiteyKnob::Scale::None);
+                                         BiteyKnob::Scale::Eq);
     dryWet_->setKnobLabel("DRY/WET");
     vuReverb_ = std::make_unique<VUMeterComp>(proc, true);
     vuMain_ = std::make_unique<VUMeterComp>(proc, false);
@@ -1349,7 +1349,7 @@ void CenterPanel::paint(juce::Graphics& g) {
     const float tapeW = W * 0.92f;
     const float tapeH = 28.9f; // 2.75cqw
     const float tapeX = (W - tapeW) / 2.0f;
-    const float tapeY = 401.0f;
+    const float tapeY = 397.0f; // up 4 (Nathan 2026-10-07)
 
     g.saveState();
     // Slight rotation for realism (-1.6 degrees like website)
@@ -1416,11 +1416,11 @@ void CenterPanel::resized() {
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
     ips_->setTopLeftPosition(14, 12);
     tapeSize_->setTopLeftPosition(210, 16); // down+right, clear of DRY/WET ticks (Nathan 2026-10-07)
-    echo_->setCentrePosition(86, 58);    // down 10, centered module-top to meter-top (Nathan 2026-10-07)
-    dryWet_->setCentrePosition(176, 58); // down 10, toggles stay put (Nathan 2026-10-07)
+    echo_->setCentrePosition(94, 58);    // closer together (Nathan 2026-10-07)
+    dryWet_->setCentrePosition(168, 58); // closer together (Nathan 2026-10-07)
     // VU meters: 92% of 260 = 239px
-    vuReverb_->setBounds(10, 109, 239, 138);
-    vuMain_->setBounds(10, 255, 239, 138);
+    vuReverb_->setBounds(10, 105, 239, 138); // up 4 (Nathan 2026-10-07)
+    vuMain_->setBounds(10, 251, 239, 138);   // up 4 (Nathan 2026-10-07)
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
     power_->setTopLeftPosition(36, 440); // up 4, align with clips (Nathan 2026-10-07)
     jewel_->setBounds(106, 435, 48, 48);
