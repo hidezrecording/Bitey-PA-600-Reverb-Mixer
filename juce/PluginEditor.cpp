@@ -1253,7 +1253,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(108, 132); // just below 3 o'clock, clear of +4 (Nathan 2026-10-08)
+    midFreq_->setTopLeftPosition(108, 134); // down 1 click (Nathan 2026-10-08)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
