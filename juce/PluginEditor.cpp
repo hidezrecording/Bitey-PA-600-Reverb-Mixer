@@ -119,6 +119,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float numR = tickR - 1.0f; // radius for number centers
     const bool isEq = (scale_ == Scale::Eq);
     const bool isVol = (scale_ == Scale::Volume);
+    const bool isSec = (scale_ == Scale::Seconds);
     // Volume scale: ∞ at 7 o'clock through 0 at 5 o'clock (Peavey hardware)
     const char* volNums[11] = {"\u221e","45","40","30","20","15","10","7","5","2","0"};
     for (int i = 0; i <= 10; ++i) {
@@ -131,6 +132,10 @@ void BiteyKnob::paint(juce::Graphics& g) {
         juce::String txt;
         if (isVol) {
             txt = juce::String::fromUTF8(volNums[i]);
+        } else if (isSec) {
+            // TIME: 0.5s + (i/10)*4.0s (Nathan 2026-10-07: approximate seconds)
+            const float secs = 0.5f + (float(i) / 10.0f) * 4.0f;
+            txt = juce::String(secs, 1);
         } else if (isEq) {
             const int v = -10 + i * 2; // -10..+10
             txt = (v > 0 ? "+" : "") + juce::String(v);
@@ -1253,9 +1258,9 @@ void MasterStrip::resized() {
 
 ReverbStrip::ReverbStrip(BiteyProcessor& proc)
     : PanelBox("", col(0xff1a1a1a)), proc_(proc) {
-    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
-    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
-    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", BiteyKnob::Size::Standard, BiteyKnob::Scale::ZeroToTen);
+    kDrive_ = std::make_unique<BiteyKnob>(proc, "rev_drive", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kContour_ = std::make_unique<BiteyKnob>(proc, "rev_contour", BiteyKnob::Size::Standard, BiteyKnob::Scale::Eq);
+    kTime_  = std::make_unique<BiteyKnob>(proc, "rev_time", BiteyKnob::Size::Standard, BiteyKnob::Scale::Seconds);
     kReturn_   = std::make_unique<BiteyKnob>(proc, "rev_return", BiteyKnob::Size::Large, BiteyKnob::Scale::Volume);
     kDrive_->setKnobLabel("DRIVE");
     kContour_->setKnobLabel("CONTOUR");
