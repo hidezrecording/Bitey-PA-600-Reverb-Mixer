@@ -1352,7 +1352,7 @@ void CenterPanel::paint(juce::Graphics& g) {
             const float tw = juce::GlyphArrangement::getStringWidth(capFont, t);
             const float chipW = tw + 7.0f, chipH = 13.0f;
             const float chipX = 10.0f + (239.0f - chipW) * 0.5f;
-            const float chipY = meterTopY - chipH - 3.0f;
+            const float chipY = meterTopY - chipH - 1.0f; // down 1 click (Nathan 2026-10-08)
             g.setColour(col(0xff181818));
             g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
             g.setColour(col(0xffffffff));
@@ -1433,10 +1433,10 @@ void CenterPanel::paint(juce::Graphics& g) {
 void CenterPanel::resized() {
     // 260px wide center panel (web grid)
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
-    ips_->setTopLeftPosition(14, 28); // level with ECHO (Nathan 2026-10-08)
-    tapeSize_->setTopLeftPosition(210, 28); // level with IPS toggle (Nathan 2026-10-08)
-    echo_->setCentrePosition(94, 58);    // closer together (Nathan 2026-10-07)
-    dryWet_->setCentrePosition(168, 58); // closer together (Nathan 2026-10-07)
+    ips_->setTopLeftPosition(14, 24); // up 2 clicks (Nathan 2026-10-08)
+    tapeSize_->setTopLeftPosition(210, 24); // level with IPS (Nathan 2026-10-08)
+    echo_->setCentrePosition(94, 54);    // up 2 clicks (Nathan 2026-10-08)
+    dryWet_->setCentrePosition(168, 54); // up 2 clicks (Nathan 2026-10-08)
     // VU meters: 92% of 260 = 239px
     vuReverb_->setBounds(10, 105, 239, 138); // up 4 (Nathan 2026-10-07)
     vuMain_->setBounds(10, 259, 239, 138);   // +8 gap between meters (Nathan 2026-10-08)
