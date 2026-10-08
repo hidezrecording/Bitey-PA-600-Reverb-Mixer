@@ -154,7 +154,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
         const juce::String txt = knobLabel_.toUpperCase();
         const float tw = juce::GlyphArrangement::getStringWidth(labelFont, txt);
         // Wider chip for Small knobs so pot doesn't crowd the label (Nathan 2026-10-08)
-        const float chipPad = (dims_.tickD < 60.0f) ? 14.0f : 7.0f;
+        const float chipPad = (dims_.tickD < 60.0f) ? 22.0f : 7.0f;
         const float chipW = tw + chipPad, chipH = 13.0f;
         // Small knobs (ECHO/DRY/WET) keep labels low; others up 1-3/4 total (Nathan 2026-10-08)
         const float labelPad = (dims_.tickD < 60.0f) ? 2.0f : 5.5f;
@@ -782,9 +782,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
                                  col(0xff0a0a0a), 0.0f, bh, false);
     g.setGradientFill(housing);
     g.fillRoundedRectangle(0.0f, 0.0f, bw, bh, 11.5f);
-    // Plastic top highlight
-    g.setColour(col(0x40ffffff));
-    g.drawRoundedRectangle(1.0f, 1.0f, bw - 2.0f, bh * 0.5f, 10.0f, 1.2f);
+    // (Plastic top highlight removed — showed as lines on bezel, Nathan 2026-10-08)
     g.setColour(col(0xff000000));
     g.drawRoundedRectangle(border * 0.5f, border * 0.5f,
                            bw - border, bh - border, 11.5f, border);
@@ -1255,7 +1253,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(108, 134); // down 1 click (Nathan 2026-10-08)
+    midFreq_->setTopLeftPosition(108, 136); // down 1 more (Nathan 2026-10-08)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
