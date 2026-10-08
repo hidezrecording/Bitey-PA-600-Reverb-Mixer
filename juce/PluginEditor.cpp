@@ -580,17 +580,13 @@ void PowerJewel::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
     const float ringR = 21.0f, jewelR = 13.0f;
 
-    // Fender Princeton bloom when on: hot core, soft halo, clean fade
-    // (Nathan 2026-10-07). Layered ellipses avoid gradient edge artifacts.
+    // Subtle warm halo when on (Nathan 2026-10-07): keep it faint so no
+    // visible box forms around the jewel. The jewel gradient does the work.
     if (isOn_) {
-        const struct { float r; int a; } layers[] = {
-            { 48.0f, 0x0a }, { 42.0f, 0x14 }, { 36.0f, 0x22 },
-            { 30.0f, 0x33 }, { 24.0f, 0x44 },
-        };
-        for (auto& L : layers) {
-            g.setColour(col((L.a << 24) | 0xffb030));
-            g.fillEllipse(cx - L.r, cy - L.r, L.r * 2.0f, L.r * 2.0f);
-        }
+        g.setColour(col(0x14ff9a20));
+        g.fillEllipse(cx - 26.0f, cy - 26.0f, 52.0f, 52.0f);
+        g.setColour(col(0x0aff8020));
+        g.fillEllipse(cx - 32.0f, cy - 32.0f, 64.0f, 64.0f);
     }
 
     // Silver ring: chrome radial gradient (bright top-left, dark bottom-right)
