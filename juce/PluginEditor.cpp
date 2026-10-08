@@ -122,7 +122,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const bool isVol = (scale_ == Scale::Volume);
     const bool isSec = (scale_ == Scale::Seconds);
     // Volume scale: ∞ at 7 o'clock through 0 at 5 o'clock (Peavey hardware)
-    const char* volNums[11] = {"\u221e","45","40","30","20","15","10","7","5","2","0"};
+    const char* volNums[11] = {"\u221e","-45","-40","-30","-20","-15","-10","-7","-5","-2","0"}; // dB-style (Nathan 2026-10-08)
     for (int i = 0; i <= 10; ++i) {
         // Skip side numbers (3 o'clock, indices 8/9 = 81°/108°) if flagged
         // (Nathan 2026-10-07: clear space for midfreq toggle)
@@ -833,14 +833,15 @@ void VUMeterComp::paint(juce::Graphics& g) {
             const float bx = bulbXs[bi];
             const float by = 110.0f;
             const float br = 7.0f;
-            // Wide diffused warm wash (dbx-like: soft amber, gentle falloff)
-            juce::ColourGradient glow(col(0x3affc878), X(bx), Y(by),
-                                      col(0x00ffc878), X(bx), Y(by - 44.0f), true);
-            glow.addColour(0.35, col(0x22ff9a4a));
-            glow.addColour(0.65, col(0x12ff8a30));
-            glow.addColour(0.85, col(0x08ff7018));
+            // DBX-style halation: brighter core, wider jewel-like glow (Nathan 2026-10-08)
+            juce::ColourGradient glow(col(0x55ffcf80), X(bx), Y(by),
+                                      col(0x00ffcf80), X(bx), Y(by - 52.0f), true);
+            glow.addColour(0.25, col(0x38ffa050));
+            glow.addColour(0.5, col(0x22ff9038));
+            glow.addColour(0.75, col(0x12ff7820));
+            glow.addColour(0.9, col(0x08ff6010));
             g.setGradientFill(glow);
-            g.fillEllipse(X(bx - 36.0f), Y(by - 36.0f), S(72.0f), S(72.0f));
+            g.fillEllipse(X(bx - 42.0f), Y(by - 42.0f), S(84.0f), S(84.0f));
             // Bulb tip: just a hint peeking above the bezel
             juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.2f), Y(by - br*0.8f),
                                        col(0xffc77800), X(bx), Y(by - br*0.3f), true);
@@ -982,8 +983,8 @@ void VUMeterComp::paint(juce::Graphics& g) {
         vuFont.setExtraKerningFactor(0.26f);
         g.setFont(vuFont);
         g.setColour(col(0xe6ffffff));
-        g.drawText("VU", int(X(150.0f)), int(Y(82.0f)), int(S(40.0f)), int(S(14.0f)),
-                   juce::Justification::right);
+        g.drawText("VU", int(X(150.0f)), int(Y(80.0f)), int(S(40.0f)), int(S(14.0f)),
+                   juce::Justification::right); // up 2 (Nathan 2026-10-08)
     }
 
     // Diagonal glass reflection (117deg, subtle)
@@ -1250,7 +1251,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(110, 122); // 2 o'clock on MID pot (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(108, 132); // just below 3 o'clock, clear of +4 (Nathan 2026-10-08)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
@@ -1342,7 +1343,25 @@ void CenterPanel::paint(juce::Graphics& g) {
     // ECHO/DRY/WET captions are drawn by the BiteyKnob components themselves
     // (no duplicate drawing here)
 
-    // (No REVERB/MAIN captions — the website doesn't have them)
+    // REVERB/MAIN captions under VU meters (Nathan 2026-10-08)
+    {
+        juce::Font capFont(BiteyFonts::robotoCondensed(11.55f));
+        g.setFont(capFont);
+        auto drawCap = [&](const juce::String& txt, float meterBottomY) {
+            const juce::String t = txt.toUpperCase();
+            const float tw = juce::GlyphArrangement::getStringWidth(capFont, t);
+            const float chipW = tw + 7.0f, chipH = 13.0f;
+            const float chipX = 10.0f + (239.0f - chipW) * 0.5f;
+            const float chipY = meterBottomY + 3.0f;
+            g.setColour(col(0xff181818));
+            g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
+            g.setColour(col(0xffffffff));
+            g.drawText(t, int(chipX), int(chipY), int(chipW), int(chipH),
+                       juce::Justification::centred);
+        };
+        drawCap("REVERB", 105.0f + 138.0f); // under top meter
+        drawCap("MAIN", 259.0f + 138.0f);   // under bottom meter
+    }
 
     // Board tape: masking tape strip with "REVERB MIXER"
     // Website: 92% width, 2.75cqw (29px) height, torn edges via clip-path
@@ -1414,13 +1433,13 @@ void CenterPanel::paint(juce::Graphics& g) {
 void CenterPanel::resized() {
     // 260px wide center panel (web grid)
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
-    ips_->setTopLeftPosition(14, 12);
+    ips_->setTopLeftPosition(14, 28); // level with ECHO (Nathan 2026-10-08)
     tapeSize_->setTopLeftPosition(210, 16); // down+right, clear of DRY/WET ticks (Nathan 2026-10-07)
     echo_->setCentrePosition(94, 58);    // closer together (Nathan 2026-10-07)
     dryWet_->setCentrePosition(168, 58); // closer together (Nathan 2026-10-07)
     // VU meters: 92% of 260 = 239px
     vuReverb_->setBounds(10, 105, 239, 138); // up 4 (Nathan 2026-10-07)
-    vuMain_->setBounds(10, 251, 239, 138);   // up 4 (Nathan 2026-10-07)
+    vuMain_->setBounds(10, 259, 239, 138);   // +8 gap between meters (Nathan 2026-10-08)
     // Bottom row: POWER toggle, jewel, PHASE toggle (web .cbtm-top)
     power_->setTopLeftPosition(36, 440); // up 4, align with clips (Nathan 2026-10-07)
     jewel_->setBounds(106, 435, 48, 48);
