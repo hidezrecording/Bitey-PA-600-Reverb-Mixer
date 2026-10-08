@@ -1,4 +1,4 @@
-// BiteyTestHost - standalone listening rig for the Bitey PA200.
+// BiteyTestHost - standalone listening rig for the Bitey PA-200.
 // Not part of the shipped plugin: a dev/test host that loads an audio file,
 // runs it through the real BiteyProcessor + editor, and plays it out.
 //

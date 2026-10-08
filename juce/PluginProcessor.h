@@ -2,7 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "dsp/BiteyDsp.h"
 
-// Bitey PA200 — JUCE wrapper.
+// Bitey PA-200 — JUCE wrapper.
 //
 // The entire sound lives in ../dsp/BiteyDsp.{h,cpp} (framework-free C++17).
 // This class only bridges DAW parameters/audio to bitey::BiteyParams and the
