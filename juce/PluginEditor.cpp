@@ -580,16 +580,16 @@ void PowerJewel::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
     const float ringR = 21.0f, jewelR = 13.0f;
 
-    // Fender-style bloom when on: bright warm core, large soft halo,
-    // natural falloff (Nathan 2026-10-07).
+    // Fender Princeton bloom when on: hot core, big soft halo
+    // (Nathan 2026-10-07).
     if (isOn_) {
-        juce::ColourGradient halo(col(0x66ff9a20), cx, cy,
-                                  col(0x00ff9a20), cx, cy + 42.0f, true);
-        halo.addColour(0.35, col(0x44ff8a10));
-        halo.addColour(0.65, col(0x22ff7008));
-        halo.addColour(0.85, col(0x0dff5005));
+        juce::ColourGradient halo(col(0x99ffaa30), cx, cy,
+                                  col(0x00ffaa30), cx, cy + 55.0f, true);
+        halo.addColour(0.3, col(0x66ff9518));
+        halo.addColour(0.55, col(0x3dff7a0c));
+        halo.addColour(0.8, col(0x14ff5a06));
         g.setGradientFill(halo);
-        g.fillEllipse(cx - 42.0f, cy - 42.0f, 84.0f, 84.0f);
+        g.fillEllipse(cx - 55.0f, cy - 55.0f, 110.0f, 110.0f);
     }
 
     // Silver ring: chrome radial gradient (bright top-left, dark bottom-right)
