@@ -71,9 +71,9 @@ BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
     // Standard/Small shrunk a hair so number rings clear labels below
     // (Nathan 2026-10-07). Large (bottom 4 LEVEL pots) unchanged.
     switch (s) {
-        case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 118.0f };
-        case Size::Small: return { 54.0f, 43.0f, 34.0f, 78.0f, 64.0f };
-        default:          return { 79.0f, 63.0f, 51.0f, 109.0f, 90.0f };
+        case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 126.0f };
+        case Size::Small: return { 54.0f, 43.0f, 34.0f, 78.0f, 72.0f };
+        default:          return { 79.0f, 63.0f, 51.0f, 109.0f, 98.0f };
     }
 }
 
@@ -98,7 +98,7 @@ BiteyKnob::BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
 
 void BiteyKnob::resized() {
     const float cx = getWidth() * 0.5f;
-    const float cy = dims_.tickD * 0.5f; // tick ring top at 0; component sits 8.9px above the web .pk box
+    const float cy = dims_.tickD * 0.5f + 8.0f; // +8 top pad for 12 o'clock number
     const float k = dims_.kringD;
     slider_.setBounds(int(cx - k * 0.5f), int(cy - k * 0.5f),
                       int(std::ceil(k)), int(std::ceil(k)));
@@ -107,7 +107,7 @@ void BiteyKnob::resized() {
 void BiteyKnob::paint(juce::Graphics& g) {
     const float W = float(getWidth()), H = float(getHeight());
     const float cx = W * 0.5f;
-    const float cy = dims_.tickD * 0.5f;
+    const float cy = dims_.tickD * 0.5f + 8.0f; // top pad for 12 o'clock number (Nathan 2026-10-07)
     const float tickR = dims_.tickD * 0.5f;
 
     // Numbered scale around the knob (Nathan 2026-10-07: Peavey hardware
