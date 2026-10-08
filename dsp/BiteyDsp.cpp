@@ -1073,24 +1073,13 @@ void BiteyDsp::process(float* left, float* right, int numSamples) {
         if (++dryPos_ >= dryN) dryPos_ = 0;
 
         // Channel strips
-        float ch1 = ch_[0].process(inL * srcPad);
-        float ch2 = ch_[1].process(inR * srcPad);
+        float postL = ch_[0].process(inL * srcPad);
+        float postR = ch_[1].process(inR * srcPad);
 
-        // Fixed vintage-mixer panning (Nathan 2026-10-07):
-        // Channel 1 sends MORE to left, Channel 2 MORE to right.
-        // Not hard-panned — 75/25 split so mono sources track properly
-        // in LUNA and the stereo image stays musical.
-        constexpr float panMain = 0.75f, panCross = 0.25f;
-        float postL = ch1 * panMain + ch2 * panCross;
-        float postR = ch2 * panMain + ch1 * panCross;
-
-        // Reverb sends: respect channel panning, plus 0.15 cross-bleed
-        // for stereo width (as in the original merger).
+        // Reverb sends (with 0.15 cross-bleed, as in the original merger)
         float s0 = ch_[0].fxSendGain(), s1 = ch_[1].fxSendGain();
-        float sendL = ch1 * s0 * panMain + ch2 * s1 * panCross;
-        float sendR = ch2 * s1 * panMain + ch1 * s0 * panCross;
-        float revInL = sendL + sendR * 0.15f;
-        float revInR = sendR + sendL * 0.15f;
+        float revInL = postL * s0 + postR * s1 * 0.15f;
+        float revInR = postR * s1 + postL * s0 * 0.15f;
 
         // Tape slap (mono sum in the original: tapeSum sums both posts)
         float tapeIn = (postL + postR) * 0.5f;
