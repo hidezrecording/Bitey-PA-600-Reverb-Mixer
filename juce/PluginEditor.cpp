@@ -109,30 +109,24 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float cy = dims_.tickD * 0.5f;
     const float tickR = dims_.tickD * 0.5f;
 
-    // Tick ring: 21 ticks over -135..+135 deg, in the black band OUTSIDE the
-    // kring (radius 43..48). Drawn as filled rotated rects so they render
-    // on every backend (drawLine hairlines vanished on macOS).
-    g.setColour(col(0xffffffff));
-    const float tickLen = 5.5f, tickW = 2.2f;
-    const float tickMid = tickR - tickLen * 0.5f - 0.5f;
+    // Numbered scale 0-10 around the knob (Nathan 2026-10-07: like the
+    // Peavey hardware — numbers replace hash marks). 0 at -135° (7 o'clock),
+    // 10 at +135° (5 o'clock), 5 at top. Drawn upright (not rotated).
+    juce::Font numFont(BiteyFonts::robotoCondensed(8.0f));
+    g.setFont(numFont);
+    g.setColour(col(0xe8ffffff));
+    const float numR = tickR - 1.0f; // radius for number centers
     for (int i = 0; i <= 10; ++i) {
-        // Skip side ticks (3 o'clock, indices 8/9 = 81°/108°) if flagged
+        // Skip side numbers (3 o'clock, indices 8/9 = 81°/108°) if flagged
         // (Nathan 2026-10-07: clear space for midfreq toggle)
         if (skipSideTick_ && (i == 8 || i == 9)) continue;
         const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
-        g.saveState();
-        g.addTransform(juce::AffineTransform::rotation(a, cx, cy));
-        g.fillRect(cx - tickW * 0.5f, cy - tickMid - tickLen * 0.5f, tickW, tickLen);
-        g.restoreState();
+        const float nx = cx + numR * std::sin(a);
+        const float ny = cy - numR * std::cos(a);
+        const juce::String txt = juce::String(i);
+        g.drawText(txt, int(nx - 10), int(ny - 7), 20, 14,
+                   juce::Justification::centred);
     }
-
-    // End markers "0" / "15" on the label baseline (web .end-l/.end-r)
-    juce::Font endFont(BiteyFonts::robotoCondensed(8.4f));
-    g.setFont(endFont);
-    g.setColour(col(0xffffffff));
-    const int markY = int(H - 19);
-    g.drawText("0", 6, markY, 24, 13, juce::Justification::centredLeft);
-    g.drawText("15", int(W - 30), markY, 24, 13, juce::Justification::centredRight);
 
     // Knob label: uppercase chip on #181818, 1.1cqw Roboto Condensed 700
     if (knobLabel_.isNotEmpty() || scale_ != Scale::None) {
