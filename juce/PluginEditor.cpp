@@ -580,12 +580,16 @@ void PowerJewel::paint(juce::Graphics& g) {
     const float cx = getWidth() * 0.5f, cy = getHeight() * 0.5f;
     const float ringR = 21.0f, jewelR = 13.0f;
 
-    // Soft halo when on (radial, fades fully — no hard edge)
+    // Fender-style bloom when on: bright warm core, large soft halo,
+    // natural falloff (Nathan 2026-10-07).
     if (isOn_) {
-        juce::ColourGradient halo(col(0x55ffb020), cx, cy,
-                                  col(0x00ffb020), cx, cy + 30.0f, true);
+        juce::ColourGradient halo(col(0x66ff9a20), cx, cy,
+                                  col(0x00ff9a20), cx, cy + 42.0f, true);
+        halo.addColour(0.35, col(0x44ff8a10));
+        halo.addColour(0.65, col(0x22ff7008));
+        halo.addColour(0.85, col(0x0dff5005));
         g.setGradientFill(halo);
-        g.fillEllipse(cx - 30.0f, cy - 30.0f, 60.0f, 60.0f);
+        g.fillEllipse(cx - 42.0f, cy - 42.0f, 84.0f, 84.0f);
     }
 
     // Silver ring: chrome radial gradient (bright top-left, dark bottom-right)
@@ -613,14 +617,15 @@ void PowerJewel::paint(juce::Graphics& g) {
     // Jewel: radial-gradient(circle at 38% 30%, #fff8c8, #ffe066 28%,
     //   #ffb020 52%, #ff8800 74%, #c65300)
     juce::ColourGradient jewel(
-        isOn_ ? col(0xfffff8c8) : col(0xff5a3a10),
-        cx - jewelR * 0.24f, cy - jewelR * 0.4f,
-        isOn_ ? col(0xffc65300) : col(0xff1a0e00),
+        isOn_ ? col(0xfffffff0) : col(0xff5a3a10),
+        cx - jewelR * 0.2f, cy - jewelR * 0.35f,
+        isOn_ ? col(0xffd06000) : col(0xff1a0e00),
         cx + jewelR * 0.3f, cy + jewelR * 0.35f, true);
     if (isOn_) {
-        jewel.addColour(0.28, col(0xffffe066));
-        jewel.addColour(0.52, col(0xffffb020));
-        jewel.addColour(0.74, col(0xffff8800));
+        jewel.addColour(0.22, col(0xfffff0a0));
+        jewel.addColour(0.45, col(0xffffc030));
+        jewel.addColour(0.68, col(0xffff9010));
+        jewel.addColour(0.85, col(0xffe07000));
     }
     g.setGradientFill(jewel);
     g.fillEllipse(cx - jewelR, cy - jewelR, jewelR * 2.0f, jewelR * 2.0f);
