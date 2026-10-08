@@ -154,7 +154,7 @@ void BiteyKnob::paint(juce::Graphics& g) {
         const juce::String txt = knobLabel_.toUpperCase();
         const float tw = juce::GlyphArrangement::getStringWidth(labelFont, txt);
         const float chipW = tw + 7.0f, chipH = 13.0f;
-        const float chipX = cx - chipW * 0.5f, chipY = H - chipH - 5.0f;
+        const float chipX = cx - chipW * 0.5f, chipY = H - chipH - 2.0f; // clear of pot (Nathan 2026-10-07)
         g.setColour(col(0xff181818));
         g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
         g.setColour(col(0xffffffff));
