@@ -1434,7 +1434,7 @@ void CenterPanel::resized() {
     // 260px wide center panel (web grid)
     // Top row: IPS (left), ECHO, DRY/WET, TAPE (right) — web .cknobs
     ips_->setTopLeftPosition(14, 28); // level with ECHO (Nathan 2026-10-08)
-    tapeSize_->setTopLeftPosition(210, 16); // down+right, clear of DRY/WET ticks (Nathan 2026-10-07)
+    tapeSize_->setTopLeftPosition(210, 28); // level with IPS toggle (Nathan 2026-10-08)
     echo_->setCentrePosition(94, 58);    // closer together (Nathan 2026-10-07)
     dryWet_->setCentrePosition(168, 58); // closer together (Nathan 2026-10-07)
     // VU meters: 92% of 260 = 239px
