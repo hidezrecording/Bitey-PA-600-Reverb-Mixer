@@ -1343,24 +1343,24 @@ void CenterPanel::paint(juce::Graphics& g) {
     // ECHO/DRY/WET captions are drawn by the BiteyKnob components themselves
     // (no duplicate drawing here)
 
-    // REVERB/MAIN captions under VU meters (Nathan 2026-10-08)
+    // REVERB/MAIN captions above VU meters (Nathan 2026-10-08)
     {
         juce::Font capFont(BiteyFonts::robotoCondensed(11.55f));
         g.setFont(capFont);
-        auto drawCap = [&](const juce::String& txt, float meterBottomY) {
+        auto drawCap = [&](const juce::String& txt, float meterTopY) {
             const juce::String t = txt.toUpperCase();
             const float tw = juce::GlyphArrangement::getStringWidth(capFont, t);
             const float chipW = tw + 7.0f, chipH = 13.0f;
             const float chipX = 10.0f + (239.0f - chipW) * 0.5f;
-            const float chipY = meterBottomY + 3.0f;
+            const float chipY = meterTopY - chipH - 3.0f;
             g.setColour(col(0xff181818));
             g.fillRoundedRectangle(chipX, chipY, chipW, chipH, 2.0f);
             g.setColour(col(0xffffffff));
             g.drawText(t, int(chipX), int(chipY), int(chipW), int(chipH),
                        juce::Justification::centred);
         };
-        drawCap("REVERB", 105.0f + 138.0f); // under top meter
-        drawCap("MAIN", 259.0f + 138.0f);   // under bottom meter
+        drawCap("REVERB", 105.0f); // above top meter
+        drawCap("MAIN", 259.0f);   // above bottom meter
     }
 
     // Board tape: masking tape strip with "REVERB MIXER"

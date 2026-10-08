@@ -55,33 +55,33 @@ BiteyProcessor::createLayout() {
     for (int c = 1; c <= 2; ++c) {
         const juce::String pfx = "ch" + juce::String(c) + "_";
         const juce::String nm  = "Ch " + juce::String(c) + " ";
-        layout.add(knob10(pfx + "level",  nm + "Level",  7.5f));  // Nathan 2026-10-08 screenshot
+        layout.add(knob10(pfx + "level",  nm + "Level",  5.0f));  // Nathan 2026-10-08: nominal
         layout.add(choice(pfx + "pad",    nm + "Pad",
                           juce::StringArray{"+10 dB", "+4 dB", "0 dB", "-10 dB"}, 2));
         layout.add(toggle(pfx + "lowcut", nm + "96Hz Cut", false));
-        layout.add(eqDb(pfx + "low",      nm + "Low",    5.0f));   // Nathan 2026-10-08 screenshot
-        layout.add(eqDb(pfx + "high",     nm + "High",   4.0f));   // Nathan 2026-10-08 screenshot
-        layout.add(knob10(pfx + "fx",     nm + "FX Send", 5.5f));  // Nathan 2026-10-08 screenshot
+        layout.add(eqDb(pfx + "low",      nm + "Low",    0.0f));   // Nathan 2026-10-08: nominal
+        layout.add(eqDb(pfx + "high",     nm + "High",   0.0f));   // Nathan 2026-10-08: nominal
+        layout.add(knob10(pfx + "fx",     nm + "FX Send", 5.0f));  // Nathan 2026-10-08: nominal
     }
 
     layout.add(choice("tape_speed", "Tape Speed",
                       juce::StringArray{"7.5 ips", "15 ips", "30 ips"}, 0));
     layout.add(choice("tape_size", "Tape Size",
                       juce::StringArray{"1/4\"", "1/2\"", "1\""}, 0));  // Nathan v2: 1/4"
-    layout.add(knob10("tape_mix", "Tape Mix", 3.0f));  // Nathan 2026-10-08 screenshot
+    layout.add(knob10("tape_mix", "Tape Mix", 5.0f));  // Nathan 2026-10-08: nominal
 
-    layout.add(knob10("rev_drive",   "Reverb Drive",   7.5f));  // Nathan 2026-10-08 screenshot (+5)
-    layout.add(knob10("rev_contour", "Reverb Contour", 6.5f));  // Nathan 2026-10-08 screenshot (+3)
-    layout.add(knob10("rev_time",    "Reverb Time",    3.0f));  // Nathan 2026-10-08 screenshot (1.7s)
-    layout.add(knob10("rev_return",  "Reverb Return",  3.0f));  // Nathan 2026-10-08 screenshot
+    layout.add(knob10("rev_drive",   "Reverb Drive",   5.0f));  // Nathan 2026-10-08: nominal
+    layout.add(knob10("rev_contour", "Reverb Contour", 5.0f));  // Nathan 2026-10-08: nominal
+    layout.add(knob10("rev_time",    "Reverb Time",    5.0f));  // Nathan 2026-10-08: nominal (2.5s)
+    layout.add(knob10("rev_return",  "Reverb Return",  5.0f));  // Nathan 2026-10-08: nominal
 
-    layout.add(eqDb("m_low",  "Master Low",  3.0f));   // Nathan 2026-10-08 screenshot
-    layout.add(eqDb("m_mid",  "Master Mid",  0.0f));  // Nathan 2026-10-08 screenshot
-    layout.add(eqDb("m_high", "Master High", 5.0f)); // Nathan 2026-10-08 screenshot
+    layout.add(eqDb("m_low",  "Master Low",  0.0f));   // Nathan 2026-10-08: nominal
+    layout.add(eqDb("m_mid",  "Master Mid",  0.0f));  // Nathan 2026-10-08: nominal
+    layout.add(eqDb("m_high", "Master High", 0.0f)); // Nathan 2026-10-08: nominal
     layout.add(choice("m_midfreq", "Master Mid Freq",
                       juce::StringArray{"0.7 kHz", "1.0 kHz", "1.4 kHz"}, 0));  // Nathan: 0.7k
-    layout.add(knob10("m_level", "Main Level", 7.0f));  // Nathan 2026-10-08 screenshot
-    layout.add(knob10("m_mix",   "Mix",        6.5f));  // Nathan 2026-10-08 screenshot (+3)
+    layout.add(knob10("m_level", "Main Level", 5.0f));  // Nathan 2026-10-08: nominal
+    layout.add(knob10("m_mix",   "Mix",        5.0f));  // Nathan 2026-10-08: nominal
     layout.add(toggle("m_phase", "Phase Invert", false));
     layout.add(toggle("power",   "Power",        true));
 
