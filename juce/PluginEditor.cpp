@@ -72,8 +72,8 @@ BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
     // (Nathan 2026-10-07). Large (bottom 4 LEVEL pots) unchanged.
     switch (s) {
         case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 118.0f };
-        case Size::Small: return { 60.0f, 48.0f, 38.0f, 78.0f, 70.0f };
-        default:          return { 85.0f, 68.0f, 56.0f, 109.0f, 96.0f };
+        case Size::Small: return { 54.0f, 43.0f, 34.0f, 78.0f, 64.0f };
+        default:          return { 79.0f, 63.0f, 51.0f, 109.0f, 90.0f };
     }
 }
 
@@ -1253,7 +1253,7 @@ void MasterStrip::resized() {
     kHigh_->setCentrePosition(cx, 59);
     kMid_->setCentrePosition(cx, 157);
     kLow_->setCentrePosition(cx, 256);
-    midFreq_->setTopLeftPosition(105, 138); // close to MID like Image 1, clear of knob (Nathan 2026-10-07)
+    midFreq_->setTopLeftPosition(110, 122); // 2 o'clock on MID pot (Nathan 2026-10-07)
     kMain_->setCentrePosition(cx, 363);
     clipBulb_->setBounds(cx - 35, 442, 70, 26); // down 3, align row (Nathan 2026-10-07)
 }
