@@ -193,6 +193,7 @@ private:
     bool reverbMeter_;
     bool dimmed_ = false;
     float smoothed_ = 0.0f;
+    float needleVel_ = 0.0f; // for subtle overshoot (Nathan 2026-10-07)
     juce::Image noise_;
     juce::Image scaleImg_;  // Website's exact VU scale (SVG rendered to PNG)
 

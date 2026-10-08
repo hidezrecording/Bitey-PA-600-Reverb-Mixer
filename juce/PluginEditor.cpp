@@ -737,9 +737,16 @@ float VUMeterComp::readLevel() {
 }
 
 void VUMeterComp::timerCallback() {
+    // VU ballistics with subtle overshoot (Nathan 2026-10-07):
+    // underdamped spring — physical needle inertia, not digital smoothing.
     const float target = readLevel();
-    if (target > smoothed_) smoothed_ += (target - smoothed_) * 0.2f;
-    else smoothed_ += (target - smoothed_) * 0.05f;
+    const float stiffness = (target > smoothed_) ? 0.18f : 0.045f;
+    const float damping = 0.82f;
+    needleVel_ = (needleVel_ + (target - smoothed_) * stiffness) * damping;
+    smoothed_ += needleVel_;
+    // Clamp to valid range (spring can overshoot slightly)
+    if (smoothed_ < 0.0f) { smoothed_ = 0.0f; needleVel_ = 0.0f; }
+    if (smoothed_ > 1.05f) { smoothed_ = 1.05f; needleVel_ = 0.0f; }
     repaint();
 }
 
@@ -802,22 +809,23 @@ void VUMeterComp::paint(juce::Graphics& g) {
     auto Y = [&](float y) { return oy + y * sc; };
     auto S = [&](float v) { return v * sc; };
 
-    // Incandescent bulbs: like dbx 160 — barely visible, just glowing past
-    // the bezel. Center BELOW the face edge (y=108) so only a sliver of
-    // warm glow shows. Subtle, diffused, with soft shading.
+    // Incandescent bulbs: dbx 160 guide (Nathan 2026-10-07) — warm diffused
+    // wash across the face, not localized spots. Bulbs barely peek above
+    // the bezel; the glow is soft amber that gently warms the whole face.
     {
         const float bulbXs[2] = { 68.0f, 132.0f };
         for (int bi = 0; bi < 2; ++bi) {
             const float bx = bulbXs[bi];
-            const float by = 110.0f;  // hair more visible (Nathan 2026-10-07)
+            const float by = 110.0f;
             const float br = 7.0f;
-            // Soft diffused glow (dbx-like: warm, gentle, upward)
-            juce::ColourGradient glow(col(0x44ffb545), X(bx), Y(by),
-                                      col(0x00ffb545), X(bx), Y(by - 30.0f), true);
-            glow.addColour(0.4, col(0x22ff9a2a));
-            glow.addColour(0.7, col(0x11ff8a1a));
+            // Wide diffused warm wash (dbx-like: soft amber, gentle falloff)
+            juce::ColourGradient glow(col(0x3affc878), X(bx), Y(by),
+                                      col(0x00ffc878), X(bx), Y(by - 44.0f), true);
+            glow.addColour(0.35, col(0x22ff9a4a));
+            glow.addColour(0.65, col(0x12ff8a30));
+            glow.addColour(0.85, col(0x08ff7018));
             g.setGradientFill(glow);
-            g.fillEllipse(X(bx - 28.0f), Y(by - 28.0f), S(56.0f), S(56.0f));
+            g.fillEllipse(X(bx - 36.0f), Y(by - 36.0f), S(72.0f), S(72.0f));
             // Bulb tip: just a hint peeking above the bezel
             juce::ColourGradient glass(col(0xffffe8a0), X(bx - br*0.2f), Y(by - br*0.8f),
                                        col(0xffc77800), X(bx), Y(by - br*0.3f), true);
@@ -830,6 +838,8 @@ void VUMeterComp::paint(juce::Graphics& g) {
     // Scale arc: radius 108 centered at (100,114); white -146deg..-70.2deg,
     // amber -70.2deg..-43deg (SVG y-down, JUCE angles clockwise from +x)
     {
+        // Silkscreen softness: 95% opacity (Nathan 2026-10-07)
+        g.beginTransparencyLayer(0.95f);
         juce::Path white, amber;
         white.addArc(X(100.0f - 108.0f), Y(114.0f - 108.0f), S(216.0f), S(216.0f),
                      -0.977f, 0.346f, true);
@@ -839,6 +849,14 @@ void VUMeterComp::paint(juce::Graphics& g) {
         g.strokePath(white, juce::PathStrokeType(S(1.8f)));
         g.setColour(col(0xffffb020));
         g.strokePath(amber, juce::PathStrokeType(S(1.8f)));
+    }
+    // Face vignette: subtle edge falloff for depth (dbx realism, Nathan 2026-10-07)
+    {
+        juce::ColourGradient vig(col(0x00000000), X(100.0f), Y(52.0f),
+                                 col(0x33000000), X(100.0f), Y(104.0f), true);
+        vig.addColour(0.7, col(0x00000000));
+        g.setGradientFill(vig);
+        g.fillRoundedRectangle(fx, fy, fw, fh, 2.3f);
     }
     // Tick marks (exact SVG coordinates)
     auto tick = [&](float x1, float y1, float x2, float y2,
@@ -882,6 +900,7 @@ void VUMeterComp::paint(juce::Graphics& g) {
                    int(S(40.0f)), int(S(13.0f)), juce::Justification::centred);
     }
 
+        g.endTransparencyLayer();
     // Green Bitey logo with glow (web .vu-logo drop-shadows)
     {
         juce::Image logo = juce::ImageCache::getFromMemory(
@@ -910,6 +929,13 @@ void VUMeterComp::paint(juce::Graphics& g) {
         needle.lineTo(X(100.34f), Y(10.0f));
         needle.lineTo(X(99.66f), Y(10.0f));
         needle.closeSubPath();
+        // Drop shadow: faint, offset down-right (bulb light from below)
+        // (Nathan 2026-10-07: dbx realism)
+        g.saveState();
+        g.addTransform(juce::AffineTransform::translation(S(1.2f), S(1.5f)));
+        g.setColour(col(0x40000000));
+        g.fillPath(needle);
+        g.restoreState();
         g.setColour(col(0xffffffff));
         g.fillPath(needle);
         g.setColour(col(0x7300141e));
