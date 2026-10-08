@@ -45,7 +45,7 @@ juce::Font permanentMarker(float sizePx);
 // ---------------------------------------------------------------------------
 class BiteyKnob : public juce::Component {
 public:
-    enum class Scale { ZeroToTen, Eq, None };
+    enum class Scale { ZeroToTen, Eq, Volume, None };
     enum class Size { Standard, Large, Small };
 
     BiteyKnob(BiteyProcessor& proc, const juce::String& paramID,
