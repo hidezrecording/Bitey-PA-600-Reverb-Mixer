@@ -68,11 +68,12 @@ juce::Font permanentMarker(float sizePx) {
 // ---------------------------------------------------------------------------
 
 BiteyKnob::Dims BiteyKnob::dimsFor(Size s) {
-    // Shrunk ~6% so tick hashes clear adjacent labels (Nathan 2026-10-07).
+    // Standard/Small shrunk a hair so number rings clear labels below
+    // (Nathan 2026-10-07). Large (bottom 4 LEVEL pots) unchanged.
     switch (s) {
         case Size::Large: return { 108.0f, 93.0f, 80.5f, 126.0f, 118.0f };
-        case Size::Small: return { 66.0f, 54.0f, 44.0f, 78.0f, 76.0f };
-        default:          return { 91.0f, 74.0f, 62.0f, 109.0f, 102.0f };
+        case Size::Small: return { 60.0f, 48.0f, 38.0f, 78.0f, 70.0f };
+        default:          return { 85.0f, 68.0f, 56.0f, 109.0f, 96.0f };
     }
 }
 
