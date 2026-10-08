@@ -109,13 +109,15 @@ void BiteyKnob::paint(juce::Graphics& g) {
     const float cy = dims_.tickD * 0.5f;
     const float tickR = dims_.tickD * 0.5f;
 
-    // Numbered scale 0-10 around the knob (Nathan 2026-10-07: like the
-    // Peavey hardware — numbers replace hash marks). 0 at -135° (7 o'clock),
-    // 10 at +135° (5 o'clock), 5 at top. Drawn upright (not rotated).
+    // Numbered scale around the knob (Nathan 2026-10-07: Peavey hardware
+    // style — numbers replace hash marks). Drawn upright (not rotated).
+    // EQ knobs: 0 at top (12 o'clock), -10 at 7 o'clock, +10 at 5 o'clock.
+    // Others: 0 at 7 o'clock, 10 at 5 o'clock, 5 at top.
     juce::Font numFont(BiteyFonts::robotoCondensed(8.0f));
     g.setFont(numFont);
     g.setColour(col(0xe8ffffff));
     const float numR = tickR - 1.0f; // radius for number centers
+    const bool isEq = (scale_ == Scale::Eq);
     for (int i = 0; i <= 10; ++i) {
         // Skip side numbers (3 o'clock, indices 8/9 = 81°/108°) if flagged
         // (Nathan 2026-10-07: clear space for midfreq toggle)
@@ -123,8 +125,14 @@ void BiteyKnob::paint(juce::Graphics& g) {
         const float a = (-135.0f + i * 27.0f) * kDeg2Rad;
         const float nx = cx + numR * std::sin(a);
         const float ny = cy - numR * std::cos(a);
-        const juce::String txt = juce::String(i);
-        g.drawText(txt, int(nx - 10), int(ny - 7), 20, 14,
+        juce::String txt;
+        if (isEq) {
+            const int v = -10 + i * 2; // -10..+10
+            txt = (v > 0 ? "+" : "") + juce::String(v);
+        } else {
+            txt = juce::String(i);
+        }
+        g.drawText(txt, int(nx - 12), int(ny - 7), 24, 14,
                    juce::Justification::centred);
     }
 

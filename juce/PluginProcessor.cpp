@@ -16,11 +16,11 @@ ParamPtr knob10(const juce::String& id, const juce::String& name, float def) {
         juce::NormalisableRange<float>(0.0f, 10.0f, 0.01f), def);
 }
 
-// Maps a +/-15 dB EQ control.
+// Maps a +/-10 dB EQ control (Peavey hardware scale, Nathan 2026-10-07).
 ParamPtr eqDb(const juce::String& id, const juce::String& name, float def) {
     return std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{id, 1}, name,
-        juce::NormalisableRange<float>(-15.0f, 15.0f, 0.01f), def,
+        juce::NormalisableRange<float>(-10.0f, 10.0f, 0.01f), def,
         juce::AudioParameterFloatAttributes().withLabel("dB"));
 }
 

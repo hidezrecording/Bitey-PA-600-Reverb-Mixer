@@ -917,7 +917,7 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         static const float baseQ[3] = {0.40f, 0.55f, 0.67f};
         int mf = midFreq < 0 ? 0 : (midFreq > 2 ? 2 : midFreq);
         // Proportional Q: increases with boost/cut amount (Helios behavior)
-        float propQ = baseQ[mf] * (1.0f + (std::fabs(midDb) / 15.0f) * 1.2f);
+        float propQ = baseQ[mf] * (1.0f + (std::fabs(midDb) / 10.0f) * 1.2f);
         for (int c = 0; c < 2; ++c) {
             // Pultec-style low: 60Hz bump with subtle dip below for tightness
             // When boosting, the dip tightens; when cutting, it's a clean shelf
