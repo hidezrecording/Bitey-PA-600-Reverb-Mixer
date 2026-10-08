@@ -92,7 +92,7 @@ BiteyProcessor::BiteyProcessor()
     : AudioProcessor(juce::AudioProcessor::BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "BiteyPA600", createLayout()) {
+      apvts(*this, nullptr, "BiteyPA200", createLayout()) {
     setLatencySamples(64); // 4x oversampled stages on the direct path
 
     // Cache every parameter pointer once; the audio thread must not hit

@@ -1,4 +1,4 @@
-// Bitey PA-600 DSP core implementation — port of AudioEngine.ts.
+// Bitey PA200 DSP core implementation — port of AudioEngine.ts.
 #include "BiteyDsp.h"
 #include <algorithm>
 

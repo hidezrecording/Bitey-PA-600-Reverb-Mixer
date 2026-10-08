@@ -37,7 +37,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(Bitey
     COMPANY_NAME "Sabatino Audio"
     PLUGIN_NAME "Bitey"
-    DESCRIPTION "PA-600 reverb mixer: tube channel strips, tape slap, spring reverb."
+    DESCRIPTION "PA200 reverb mixer: tube channel strips, tape slap, spring reverb."
     PLUGIN_MANUFACTURER_CODE SabA
     PLUGIN_CODE BitY
     FORMATS VST3 AU Standalone

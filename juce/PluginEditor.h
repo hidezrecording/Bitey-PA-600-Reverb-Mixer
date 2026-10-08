@@ -5,7 +5,7 @@
 #include <cmath>
 #include "PluginProcessor.h"
 
-// Bitey PA-600 — visual editor.
+// Bitey PA200 — visual editor.
 //
 // Faithful port of the current browser prototype's panel artwork
 // (prototype/App.tsx, components/Knob.tsx, components/VUMeter.tsx).

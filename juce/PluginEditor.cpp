@@ -1,4 +1,4 @@
-// Bitey PA-600 — visual editor implementation.
+// Bitey PA200 — visual editor implementation.
 //
 // Faithful port of the current browser prototype's panel artwork
 // (prototype/App.tsx, components/Knob.tsx, components/VUMeter.tsx).

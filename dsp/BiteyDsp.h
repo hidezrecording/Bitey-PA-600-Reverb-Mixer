@@ -1,7 +1,7 @@
-// Bitey PA-600 — framework-free C++17 DSP core.
+// Bitey PA200 — framework-free C++17 DSP core.
 //
-// Faithful port of Nathan's Gemini Studio "Bitey PA-600 Reverb Mixer"
-// (bitey-pa-600-rev-1, AudioEngine.ts): a vintage Peavey PA-600-style
+// Faithful port of Nathan's Gemini Studio "Bitey PA200 Reverb Mixer"
+// (bitey-pa200-rev-1, AudioEngine.ts): a vintage Peavey PA-600-style
 // powered-mixer emulator — 2 channel strips with preamp/EQ/sends,
 // tape slap (7.5/15/30 ips), tube-driven spring reverb (synthesized IR,
 // 1108-style return amp), and a master section (Scully 280 line amp,
@@ -414,7 +414,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// Top level — Bitey PA-600
+// Top level — Bitey PA200
 // ---------------------------------------------------------------------------
 
 struct BiteyParams {
