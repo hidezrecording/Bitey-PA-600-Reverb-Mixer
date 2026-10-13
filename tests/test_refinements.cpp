@@ -1,4 +1,5 @@
-// Bitey PA-200 0.3.2-TEST1 refinement-round tests.
+// Bitey PA-200 0.3.2-TEST1 refinement-round tests (section 7 updated
+// for 0.3.2-TEST2: HL-A reverted, asserts the shipped 0.3.1 law).
 //
 // Targeted checks for the refinement proposals (OP6-A/B, SC-A/B,
 // SR-A/B/C, HL-A, TS-A/C, CC-A) plus the invariants they must not
@@ -265,13 +266,14 @@ int main() {
     }
 
     // ---------------------------------------------------------------
-    // 7. HL-A: with a +10 mid boost, sustained in-band level compresses
-    //    the effective boost (HL-2), and HL-A makes the detector track
-    //    the boost amount — so the settled effective boost at a
-    //    working level lands measurably BELOW what the shipped
-    //    level-only law produced at the same settings (~9.4 dB from
-    //    ~0.55 dB of compression), while the boost stays big and
-    //    musical (bounded ~2 dB of compression by design).
+    // 7. HL-A REVERTED (0.3.2-TEST2): the Helios detector law is the
+    //    shipped 0.3.1 law (band energy only — HL-2 compression from
+    //    in-band level, no boost-amount tracking). With a +10 mid
+    //    boost, the settled effective boost at a working level must
+    //    match the shipped build (~9.4 dB), i.e. measurably ABOVE
+    //    the 8.13 dB the TEST1 boost-aware law produced at the same
+    //    settings, while HL-2's bounded compression still applies
+    //    (settled boost stays below the +10 knob value).
     {
         auto settledGain = [&](float midDb) {
             MasterSection ms;
@@ -289,8 +291,8 @@ int main() {
         };
         double boostDb = 20 * std::log10(settledGain(10.0f) / settledGain(0.0f));
         info("settled effective mid boost at 0.30 amp: %.2f dB (knob +10)", boostDb);
-        check(boostDb < 9.15, "HL-A: boost-aware detector compresses the boost further");
-        check(boostDb > 6.5, "HL-A: boost remains large (compression bounded)");
+        check(boostDb > 9.15 && boostDb < 9.80, "TEST2: HL-A reverted - settled boost matches shipped 0.3.1 law (~9.4 dB)");
+        check(boostDb < 10.0, "TEST2: HL-2 bounded compression still applies (settled boost below knob value)");
     }
 
     // ---------------------------------------------------------------

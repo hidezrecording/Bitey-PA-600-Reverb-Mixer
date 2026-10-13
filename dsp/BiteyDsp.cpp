@@ -1691,15 +1691,12 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         // to transparent; the growl arrives with the band, as in the
         // hardware's inductor.
         const float bandEnv = midEnv_[c].process(midTap_[c].process(y), sr_);
-        // HL-A (0.3.2-TEST1): the detector tracks boost amount as
-        // well as band level — on the hardware a +10 dB boost puts
-        // roughly 3x the flux through the same inductor at the same
-        // playback level. Boosts only (cuts do not unload the
-        // detector), capped at +12 dB, and exactly the shipped law
-        // when the mid knob is at or below 0.
-        float boostMul = dbToGain(midDbS_ > 0.0f ? midDbS_ : 0.0f);
-        if (boostMul > 4.0f) boostMul = 4.0f;
-        float en = bandEnv * boostMul / 0.6f; if (en > 1.0f) en = 1.0f;
+        // TEST2 (0.3.2-TEST2, A/B variant): HL-A REVERTED — the
+        // detector law is exactly the shipped 0.3.1 law (band
+        // energy only, no boost-amount tracking). Nathan's ear
+        // preferred the shipped Helios mid (2026-10-13); every
+        // other TEST1 refinement is retained.
+        float en = bandEnv / 0.6f; if (en > 1.0f) en = 1.0f;
         if (en > envMax) envMax = en;
         // TEST3 rebalance: HL-1's law keeps its 0.25 rest floor but
         // the driven top end caps at 0.75 (was 1.0) — same shape,
