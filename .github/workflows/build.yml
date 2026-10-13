@@ -47,9 +47,26 @@ jobs:
           fi
           pkgbuild --root "$PKGROOT" \
             --identifier com.sabatinoaudio.bitey \
-            --version 0.1.0 \
+            --version 0.3.0 \
             --install-location / \
-            Bitey-0.1.0-macOS.pkg
+            --scripts pkg_scripts \
+            Bitey-PA200-0.3.0-TEST3-macOS.pkg
+
+      - name: Verify installer scripts embedded in PKG
+        run: |
+          rm -rf /tmp/pkgx && mkdir -p /tmp/pkgx
+          pkgutil --expand-full "Bitey-PA200-0.3.0-TEST3-macOS.pkg" /tmp/pkgx/expanded
+          echo "--- expanded pkg contents (scripts) ---"
+          find /tmp/pkgx/expanded \( -name preinstall -o -name postinstall \) -print
+          PRE=$(find /tmp/pkgx/expanded -name preinstall | head -1)
+          POST=$(find /tmp/pkgx/expanded -name postinstall | head -1)
+          test -n "$PRE" && test -n "$POST"
+          grep -q "Bitey.component" "$PRE"
+          grep -q "Bitey Test Host" "$PRE"
+          grep -q "AudioComponentRegistrar" "$POST"
+          echo "--- preinstall ---"; cat "$PRE"
+          echo "--- postinstall ---"; cat "$POST"
+          echo "SCRIPTS VERIFIED IN PKG"
 
       - name: Upload plugins
         uses: actions/upload-artifact@v4
@@ -61,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bitey-Installer-macOS-${{ github.run_number }}
-          path: Bitey-0.1.0-macOS.pkg
+          path: Bitey-PA200-0.3.0-TEST3-macOS.pkg
 
       - name: Upload test host
         uses: actions/upload-artifact@v4

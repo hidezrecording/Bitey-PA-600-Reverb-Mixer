@@ -1,0 +1,43 @@
+#!/bin/bash
+# Bitey PA-200 installer preinstall: wipe ALL previous Bitey instances
+# (DN1000-style auto-wipe, Nathan 2026-10-13). Runs before the new files
+# land, so after install only the new build exists anywhere on the system.
+# Defensive by design: missing paths are fine, and only Bitey-named
+# bundles are ever removed. Never fail the install.
+
+# System library + /Applications
+rm -rf "/Library/Audio/Plug-Ins/Components/Bitey.component" 2>/dev/null
+rm -rf "/Library/Audio/Plug-Ins/VST3/Bitey.vst3" 2>/dev/null
+rm -rf "/Applications/Bitey.app" 2>/dev/null
+rm -rf "/Applications/Bitey Test Host.app" 2>/dev/null
+# Belt-and-braces: any other Bitey-named bundle in the system plug-in dirs
+for d in "/Library/Audio/Plug-Ins/Components" "/Library/Audio/Plug-Ins/VST3" "/Applications"; do
+  if [ -d "$d" ]; then
+    for f in "$d"/Bitey*.component "$d"/Bitey*.vst3 "$d"/Bitey*.app; do
+      [ -e "$f" ] && rm -rf "$f" 2>/dev/null
+    done
+  fi
+done
+
+# User libraries: the console user ($HOME under the installer) plus every
+# real home under /Users/*, so a stale copy cannot survive in any account.
+USER_HOMES=""
+[ -n "$HOME" ] && [ "$HOME" != "/" ] && USER_HOMES="$HOME"
+for h in /Users/*; do
+  [ -d "$h/Library" ] && USER_HOMES="$USER_HOMES $h"
+done
+for h in $USER_HOMES; do
+  rm -rf "$h/Library/Audio/Plug-Ins/Components/Bitey.component" 2>/dev/null
+  rm -rf "$h/Library/Audio/Plug-Ins/VST3/Bitey.vst3" 2>/dev/null
+  rm -rf "$h/Applications/Bitey.app" 2>/dev/null
+  rm -rf "$h/Applications/Bitey Test Host.app" 2>/dev/null
+  for d in "$h/Library/Audio/Plug-Ins/Components" "$h/Library/Audio/Plug-Ins/VST3" "$h/Applications"; do
+    if [ -d "$d" ]; then
+      for f in "$d"/Bitey*.component "$d"/Bitey*.vst3 "$d"/Bitey*.app; do
+        [ -e "$f" ] && rm -rf "$f" 2>/dev/null
+      done
+    fi
+  done
+done
+
+exit 0

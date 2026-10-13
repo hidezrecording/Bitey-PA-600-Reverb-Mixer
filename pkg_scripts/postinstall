@@ -1,0 +1,21 @@
+#!/bin/bash
+# Bitey PA-200 installer postinstall: clear the Audio Unit caches and
+# restart the audio component registrar so hosts rescan and pick up the
+# new build immediately (DN1000 pattern). Defensive: never fail the install.
+
+USER_HOMES=""
+[ -n "$HOME" ] && [ "$HOME" != "/" ] && USER_HOMES="$HOME"
+for h in /Users/*; do
+  [ -d "$h/Library" ] && USER_HOMES="$USER_HOMES $h"
+done
+for h in $USER_HOMES; do
+  rm -f  "$h/Library/Caches/com.apple.audiounits.cache" 2>/dev/null
+  rm -rf "$h/Library/Caches/AudioUnitCache" 2>/dev/null
+  rm -rf "$h/Library/Caches/com.apple.audio.AudioComponentCache" 2>/dev/null
+done
+
+# Restart the registrar (TERM first, then -9 like the DN1000 installer)
+killall AudioComponentRegistrar 2>/dev/null || true
+killall -9 AudioComponentRegistrar 2>/dev/null || true
+
+exit 0

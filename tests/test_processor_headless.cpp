@@ -102,7 +102,12 @@ int main() {
     BiteyProcessor proc;
     proc.prepareToPlay(44100.0, 512);
 
-    check(proc.getLatencySamples() == 768, "host latency == 768 samples");
+    // 0.3.0-test: true measured latency is 3 oversampled stages x 25
+    // samples = 75 — the OP-6 cascade pair (OP6-1) + Scully; the
+    // Helios stage runs at base rate since the research round (brief
+    // S5 CPU lever) and adds none. (The old 768 expectation described
+    // the long-gone 4x design; the shipped 2x build never met it.)
+    check(proc.getLatencySamples() == 75, "host latency == 75 samples");
 
     // 1. Default render: finite, brickwall ceiling, meters alive.
     {
@@ -110,14 +115,19 @@ int main() {
         check(finiteBuf(out), "default render: no NaN/Inf");
         const float pk = peakBuf(out);
         std::printf("  (default peak %.4f)\n", pk);
-        check(pk <= 0.991f, "default render: true +/-0.99 ceiling");
+        // 0.3.0-test: the brickwall limiter was REMOVED on Nathan's
+        // order, so there is no +/-0.99 ceiling anymore. The default
+        // render must stay finite and bounded (no blowup).
+        check(pk <= 4.0f, "default render: bounded (no limiter, no blowup)");
         check(proc.getMainMeter() > 0.05f, "main VU meter alive");
         std::printf("  (main meter %.3f, reverb meter %.3f)\n",
                     proc.getMainMeter(), proc.getReverbMeter());
         check(proc.getReverbMeter() >= 0.0f, "reverb VU meter sane");
     }
 
-    // 2. Bypass (power off): output == input delayed by exactly 768 samples.
+    // 2. Bypass (power off): output == input delayed by exactly 75 samples
+    // (DN1000 semantics: ~300 ms crossfade to latency-matched dry; the
+    // warm-up blocks below let the fade settle before measuring).
     {
         setParam(proc, "power", 0.0f);
         const double sr = 44100.0;
@@ -151,11 +161,11 @@ int main() {
         for (int c = 0; c < 2; ++c) {
             const float* o = out.getReadPointer(c);
             const float* ii = in.getReadPointer(c);
-            for (int n = 2000; n < total; ++n) { err += std::fabs(o[n] - ii[n - 768]); ++cnt; }
+            for (int n = 2000; n < total; ++n) { err += std::fabs(o[n] - ii[n - 75]); ++cnt; }
         }
         err /= cnt;
         std::printf("  (bypass mean abs err %.2e)\n", err);
-        check(err < 1e-4, "bypass: output == dry delayed 768 samples");
+        check(err < 1e-4, "bypass: output == dry delayed 75 samples");
         setParam(proc, "power", 1.0f);
     }
 
@@ -270,13 +280,20 @@ int main() {
     {
         auto out = render(proc, 0.5, 440.0f, 0.5f, 8192);
         check(finiteBuf(out), "8192-sample blocks: finite");
-        check(peakBuf(out) <= 0.991f, "8192-sample blocks: ceiling holds");
+        check(peakBuf(out) <= 4.0f, "8192-sample blocks: bounded (limiter removed)");
     }
 
     // 9. Channel PAD switch changes gain staging as labeled. Measured with a
-    //    quiet input and low channel level so the tube drive + limiter don't
+    //    quiet input and low channel level so the tube drive doesn't
     //    compress the 20 dB pad difference away; ch2 muted for isolation.
+    //    0.3.0-test research round: the reverb return is ALSO killed for
+    //    this check (same discipline as test 10) — with SR-1's longer
+    //    LF ring and SR-4's hotter driver, the spring tail left over
+    //    from the +10 dB render otherwise rings into the -10 dB render
+    //    and floors its RMS (pad-independent bleed, not pad staging;
+    //    isolated DSP measurements show an 8-10x pad ratio either way).
     {
+        setParamNatural(proc, "rev_return", 0.0f);
         setParamNatural(proc, "ch1_level", 2.0f);
         setParamNatural(proc, "ch2_level", 0.0f);
         setParam(proc, "ch1_pad", 0.0f); // +10 dB
@@ -289,6 +306,7 @@ int main() {
         setParam(proc, "ch1_pad", 2.0f / 3.0f); // back to 0 dB
         setParamNatural(proc, "ch1_level", 5.0f);
         setParamNatural(proc, "ch2_level", 5.0f);
+        setParamNatural(proc, "rev_return", 5.0f);
     }
 
     // 10. Phase invert flips output polarity. Reverb return + tape killed so
@@ -335,9 +353,9 @@ int main() {
             setParamNatural(proc, "rev_drive", float(i % 11));
             setParamNatural(proc, "m_level", 2.0f + float(i % 7));
             auto out = render(proc, 0.1);
-            ok = finiteBuf(out) && peakBuf(out) <= 0.991f;
+            ok = finiteBuf(out) && peakBuf(out) <= 8.0f; // bounded; limiter removed (0.3.0-test)
         }
-        check(ok, "automation sweep: finite, ceiling holds");
+        check(ok, "automation sweep: finite, bounded (limiter removed)");
         setParamNatural(proc, "rev_drive", 5.0f);
         setParamNatural(proc, "m_level", 5.0f);
     }
