@@ -200,17 +200,36 @@ Curves Curves::build() {
         // asymmetry: BiasedShaper adds up to +0.03 to this x^2
         // coefficient under sustained level near the knee (0.045 -> 0.075),
         // exactly the level window users describe for germanium 280s.
-        if (y > 0.5f) {
-            float d = (y - 0.5f) * 1.5f;
-            y = 0.5f + (y - 0.5f) / (1.0f + d * d * 0.4f);
+        // SC-B (0.3.2-TEST1): the single germanium stage becomes a
+        // two-segment composite, as the hardware's distortion actually
+        // arrives — segment 1 is the output TRANSFORMER (an earlier,
+        // gentler knee, symmetric), segment 2 the line AMP (a later,
+        // softer pair of knees). Knee corners and rates are calibrated
+        // so the composite's small-signal gain and THD at nominal
+        // drive match the shipped single-stage curve (measured:
+        // sine gain 1.1764 at a=0.01; THD 0.56% at a=0.25, 1.13% at
+        // a=0.5, 6.15% at a=1.0 — the composite lands within ~3% of
+        // each) — the change is in HOW the distortion accumulates
+        // toward the extremes, not in the calibrated operating point.
+        {
+            const float av = std::fabs(y);
+            if (av > 0.55f) {
+                const float d = av - 0.55f;
+                const float r = 0.55f + d / (1.0f + d * 0.90f);
+                y = y < 0 ? -r : r;
+            }
         }
-        if (y > 0.7f) {
-            float d = (y - 0.7f) * 2.0f;
-            y = 0.7f + (y - 0.7f) / (1.0f + d * d);
+        if (y > 0.60f) {
+            float d = (y - 0.60f) * 1.2f;
+            y = 0.60f + (y - 0.60f) / (1.0f + d * d * 0.40f);
         }
-        if (y < -0.7f) {
-            float d = (y + 0.7f) * 2.0f;
-            y = -0.7f + (y + 0.7f) / (1.0f + d * d);
+        if (y > 0.80f) {
+            float d = (y - 0.80f) * 1.6f;
+            y = 0.80f + (y - 0.80f) / (1.0f + d * d);
+        }
+        if (y < -0.80f) {
+            float d = (y + 0.80f) * 1.6f;
+            y = -0.80f + (y + 0.80f) / (1.0f + d * d);
         }
         y /= 0.85f;
         return std::max(-1.0f, std::min(1.0f, y));
@@ -286,10 +305,15 @@ void OversampledShaper::prepare(double sampleRate) {
 
 void OversampledShaper::designFilter() {
     const int N = taps_;
-    pureDelay_ = 24 - 2 * ((N - 1) / 4);
+    const int F = osFactor_;
+    // CC-A (0.3.2-TEST1): per-instance latency stays exactly 25
+    // base-rate samples at either factor — FIR pair group delay is
+    // (N-1)/F base samples, padded by the pure delay to 25.
+    // 47@2x -> 23+2, 27@2x -> 13+12, 61@4x -> 15+10.
+    pureDelay_ = 25 - (N - 1) / F;
     fir_.assign(N, 0);
-    // Cutoff at the 2x Nyquist: gentle lowpass, flat through the audio band.
-    const double fc = 0.25; // cycles/sample at 2x rate
+    // Cutoff at the OS Nyquist: gentle lowpass, flat through the audio band.
+    const double fc = 0.5 / F; // cycles/sample at the OS rate
     const double beta = 8.0;
     const double i0beta = besselI0(beta);
     const int M = N - 1;
@@ -302,7 +326,7 @@ void OversampledShaper::designFilter() {
         fir_[n] = float(sinc * w);
         sum += fir_[n];
     }
-    for (auto& v : fir_) v = float(v / sum * 2.0); // x2 compensates zero-stuff
+    for (auto& v : fir_) v = float(v / sum * F); // xF compensates zero-stuff
     upBuf_.assign(N, 0);
     dnBuf_.assign(N, 0);
     delayBuf_.assign(pureDelay_ + 1, 0);
@@ -323,8 +347,9 @@ float OversampledShaper::process(float x) {
         return curve_ ? curve_->process(x) : x;
     }
     const int N = int(fir_.size());
-    float out2[2];
-    for (int k = 0; k < 2; ++k) {
+    const int F = osFactor_;
+    float out2[4];
+    for (int k = 0; k < F; ++k) {
         float in = (k == 0) ? x : 0.0f; // zero-stuff
         upBuf_[upPos_] = in;
         float acc = 0;
@@ -338,7 +363,7 @@ float OversampledShaper::process(float x) {
     }
     // Decimate: filter each shaped sample; take phase k=0.
     float y = 0;
-    for (int k = 0; k < 2; ++k) {
+    for (int k = 0; k < F; ++k) {
         dnBuf_[dnPos_] = out2[k];
         float acc = 0;
         int idx = dnPos_;
@@ -347,10 +372,10 @@ float OversampledShaper::process(float x) {
             if (--idx < 0) idx += N;
         }
         if (++dnPos_ >= N) dnPos_ = 0;
-        if (k == 0) y = acc * 0.5f; // x0.5 compensates the x2 up-filter gain
+        if (k == 0) y = acc * (1.0f / float(F)); // x(1/F) compensates the xF up-filter gain
     }
-    // Pure delay line: the two FIRs contribute 2*12 = 24 samples; pad to 24
-    // total so transients land consistently.
+    // Pure delay line pads the FIR pair's group delay to exactly 25
+    // base-rate samples total (see designFilter).
     delayBuf_[delayPos_] = y;
     int rp = delayPos_ + 1;
     if (rp >= int(delayBuf_.size())) rp = 0;
@@ -652,7 +677,7 @@ float GardnerConvolver::process(float x) {
 
 void SpringIR::generate(float seconds, double sampleRate,
                         std::vector<float>& outL, std::vector<float>& outR,
-                        uint32_t seed) {
+                        uint32_t seed, bool hard) {
     int length = int(sampleRate * seconds);
     outL.assign(length, 0);
     outR.assign(length, 0);
@@ -682,32 +707,110 @@ void SpringIR::generate(float seconds, double sampleRate,
         double u = (t - t0) / (t1 - t0);
         return float(0.5 - 0.5 * std::cos(kPi * u));
     };
-    for (int c = 0; c < 2; ++c) {
+    auto genChannel = [&](int c) {
         SeededRng rng(seed + c * 0x9E37u);
         std::vector<float>& data = (c == 0) ? outL : outR;
         float lastNoise = 0, lastVal = 0;
         float lp250 = 0, lp2500 = 0; // band-split states (SR-1)
+        // SR-A (0.3.2-TEST1): dispersive chirp voices. A real spring
+        // is dispersive — HF travels faster than LF — so each
+        // reflection reaches the pickup as a short DOWNWARD chirp,
+        // not a click. Voice bank: each seeded density trigger starts
+        // a Hann-windowed exponential sweep; start frequency and
+        // sweep width grow with reflection order (elapsed time).
+        // SR-B: the hard set sweeps wider/longer at higher density.
+        struct Chirp { int pos = 0, len = 0; float phase = 0, f0 = 0, logRatio = 0, freq = 0, win = 0; float sign = 1, gain = 1; };
+        Chirp voices[24];
+        int vNext = 0;
+        // Table-based synthesis with the sweep frequency updated in
+        // 8-sample steps: the worker rebuilds these IRs on TIME-knob
+        // changes and must stay fast (the shipped noise generator's
+        // build time is the contract the slot machine was tuned to).
+        static const std::vector<float>& sineTbl = [] {
+            static std::vector<float> t(16384);
+            for (int i = 0; i < 16384; ++i)
+                t[i] = float(std::sin(2 * kPi * i / 16384.0));
+            return t;
+        }();
+        auto sinT = [&](float cycles) { // cycles >= 0
+            const float u = cycles - int(cycles);
+            const float pos = u * 16384.0f;
+            const int i0 = int(pos) & 16383;
+            const float fr = pos - int(pos);
+            return sineTbl[i0] + fr * (sineTbl[(i0 + 1) & 16383] - sineTbl[i0]);
+        };
+        const float chirpAmp = 0.052f; // calibrated vs shipped IR (RMS +-0.5 dB, same tail)
+        // Band decays by recurrence (one multiply per band per sample
+        // instead of three exp() calls); double precision keeps the
+        // drift over a 4.5 s IR below 1e-10 relative.
+        double eLf = 1.0, eMid = 1.0, eHf = 1.0;
+        const double dLf = std::exp(-lamLf / sampleRate);
+        const double dMid = std::exp(-lambda / sampleRate);
+        const double dHf = std::exp(-lamHf / sampleRate);
+        float flutPh = c * 0.25f; // flutter phase, cycles
+        const float flutInc = float(flutterRate / sampleRate);
         for (int i = 0; i < length; ++i) {
             double t = double(i) / sampleRate;
-            float noise = 0;
             // SR-2: density RAMPS 45% -> 100% over the first 80 ms (a
             // spring arriving), replacing the old front-loaded x2
             // density burst in the first 50 ms.
             const double ramp = t < 0.08 ? 0.45 + 0.55 * (t / 0.08) : 1.0;
-            if (rng.uniform() < float(density * ramp / sampleRate))
-                noise = rng.bipolar();
+            const double dens = density * (hard ? (t < 0.35 ? 1.7 : 1.15) : 1.0);
+            if (rng.uniform() < float(dens * ramp / sampleRate)) {
+                Chirp& v = voices[vNext];
+                vNext = (vNext + 1) % 24;
+                const double ord = std::min(t / 1.2, 1.0); // reflection order proxy
+                v.len = std::max(8, int(sampleRate * (0.0035 + 0.0095 * ord)
+                                        * (hard ? 1.6 : 1.0)));
+                v.pos = 0;
+                v.phase = 0;
+                // Every sweep traverses the full band down to ~190 Hz
+                // (a spring's LF genuinely arrives, just late); what
+                // grows with order is the sweep LENGTH and how low
+                // the START sits. Keeping the low end fixed holds the
+                // per-band feed ratios — and so the calibrated
+                // per-band RT60s — where SR-1 put them. Voice gain
+                // falls with order (concurrency grows with sweep
+                // length; the sum stays level-stationary, so the
+                // band envelopes track the SR-1 lambdas).
+                v.f0 = float(5200.0 - 900.0 * ord);
+                v.logRatio = float(std::log((150.0 * (hard ? 0.85 : 1.0)) / v.f0));
+                v.gain = float(1.0 / std::sqrt(1.0 + 2.71 * ord));
+                v.sign = rng.bipolar() >= 0 ? 1.0f : -1.0f;
+            }
+            float src = 0;
+            for (auto& v : voices) {
+                if (v.pos >= v.len) continue;
+                const float u = float(v.pos) / float(v.len);
+                if ((v.pos & 7) == 0) {
+                    // Sweep law u^1.5: HF-weighted dwell (dispersive
+                    // lines shed their HF fast and linger low), while
+                    // still traversing to the fixed low end. Written
+                    // as exp(logRatio * u * sqrt(u)).
+                    v.freq = v.f0 * std::exp(v.logRatio * u * std::sqrt(u));
+                }
+                v.phase += v.freq / float(sampleRate);
+                if ((v.pos & 3) == 0) // Hann window, refreshed every 4 samples
+                    v.win = 0.5f - 0.5f * sinT(u + 0.25f);
+                src += v.sign * v.gain * v.win * sinT(v.phase);
+                ++v.pos;
+            }
+            float noise = src * chirpAmp;
             noise = (noise + lastNoise * 0.8f) / 1.8f;
             lastNoise = noise;
-            float flutter = 1.0f + float(flutterDepth *
-                std::sin(2 * kPi * flutterRate * t + c * kPi * 0.5));
+            flutPh += flutInc;
+            const float flutter = 1.0f + float(flutterDepth) * sinT(flutPh);
             lp250 += (noise - lp250) * a250;
             lp2500 += (noise - lp2500) * a2500;
             const float bandLf = lp250;
             const float bandMid = lp2500 - lp250;
-            const float bandHf = noise - lp2500;
-            float signal = bandLf * float(std::exp(-t * lamLf)) * attack(t, 0.012, 0.024)
-                         + bandMid * float(std::exp(-t * lambda)) * attack(t, 0.006, 0.018)
-                         + bandHf * float(std::exp(-t * lamHf));
+            const float bandHf = (noise - lp2500) * (hard ? 1.3f : 1.0f); // SR-B brightness
+            const float atkLf = t < 0.024 ? attack(t, 0.012, 0.024) : 1.0f;
+            const float atkMid = t < 0.018 ? attack(t, 0.006, 0.018) : 1.0f;
+            float signal = bandLf * float(eLf) * atkLf
+                         + bandMid * float(eMid) * atkMid
+                         + bandHf * float(eHf);
+            eLf *= dLf; eMid *= dMid; eHf *= dHf;
             signal *= flutter;
             signal = (signal + lastVal * 0.9f) / 1.9f;
             lastVal = signal;
@@ -715,6 +818,18 @@ void SpringIR::generate(float seconds, double sampleRate,
             if (signal < -0.8f) signal = -0.8f + (signal + 0.8f) * 0.5f;
             data[i] = signal * 1.5f;
         }
+    };
+    // The two channels are independent (own seeds, own vectors):
+    // build them in parallel — with the chirp synthesis a stereo IR
+    // costs a few hundred ms serially, and the worker's build time
+    // is the TIME knob's adoption latency.
+    if (length > 8192) {
+        std::thread th([&] { genChannel(1); });
+        genChannel(0);
+        th.join();
+    } else {
+        genChannel(0);
+        genChannel(1);
     }
 }
 
@@ -745,6 +860,23 @@ void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
     // (S 0.5) and only its corner moves down, 12 -> 10 kHz.
     low_.setLowShelf(sr_, 110, 0.9, 0);
     high_.setHighShelf(sr_, 10000, 0.5, 0);
+    // CC-A (0.3.2-TEST1): the OP-6 cascade — the ladder's protected
+    // stage — oversamples at 4x with a 61-tap FIR (Nathan's trade-off
+    // rule spends CPU here first). Stage latency stays exactly 25
+    // samples (see OversampledShaper::designFilter), so the reported
+    // total is unchanged. Must be set before the first prepare().
+    // 61 taps at 4x: the Kaiser transition (~3.7 kHz wide around the
+    // 22 kHz corner) keeps the audio band flat and the foldback
+    // products in the deep stopband, at ~2/3 the cost of a 93-tap
+    // design — measured foldback energy is still roughly half the
+    // shipped 2x stage's (test_refinements check 2).
+    shaper_.shaper.setOsFactor(4);
+    shaper_.shaper.setTaps(61);
+    shaper2_.shaper.setOsFactor(4);
+    shaper2_.shaper.setTaps(61);
+    // OP6-B (0.3.2-TEST1): stage A also carries the slow bias time
+    // constant (phrase-level glow); stage B keeps no bias of its own.
+    shaper_.slowBias = true;
     shaper_.prepare(sr_);
     shaper_.setCurve(&curves_->op6a); // OP6R-1 slot A = pentode stages 1 o 2
     shaper_.lfDetect = true;          // OP6-3 LF-weighted knee
@@ -793,6 +925,23 @@ void ChannelStrip::updateGains() {
     float drive = std::pow(nl, 2.4f) * 10.0f;
     preAmpGain_.set(drive * padFactor_);
     postGain_.set(4.0f * tolPostGain_);
+    // OP6-A (0.3.2-TEST1): LEVEL-to-feedback coupling. On the
+    // hardware the gain control sits inside stage 1's feedback loop,
+    // so the knob moves the operating point, not just the drive:
+    // past 5 the effective feedback falls — stage A's bias deepen
+    // deepens (0.60 -> 0.84 at Level 10) and the OP6-2 darkening
+    // swing narrows (transformer works less hard per dB of drive);
+    // below 5 the stage runs a touch cleaner (0.36 at Level 0).
+    // Exactly the shipped values at Level 5, and small-signal gain
+    // is untouched at every position (the bias envelope is zero at
+    // rest, so rest behaviour is bit-exact).
+    {
+        float knobN = (level - 5.0f) * 0.2f;
+        if (knobN > 1.0f) knobN = 1.0f;
+        if (knobN < -1.0f) knobN = -1.0f;
+        shaper_.biasDepth = 0.6f * (1.0f + 0.4f * knobN);
+        darkenSwing_ = 10000.0f * (1.0f - 0.25f * (knobN > 0.0f ? knobN : 0.0f));
+    }
     lowDbT_ = lowDb;
     highDbT_ = highDb;
     lowCutFreqT_ = lowCut ? 96.0f : 10.0f;
@@ -848,7 +997,7 @@ float ChannelStrip::process(float x) {
     // refresh (every 16 samples), only while moving.
     {
         float en = shaper_.lastEnv() / 1.2f; if (en > 1.0f) en = 1.0f;
-        const float corner = 24000.0f - 10000.0f * en;
+        const float corner = 24000.0f - darkenSwing_ * en;
         if (++bwCtr_ >= 16) {
             bwCtr_ = 0;
             if (std::fabs(corner - bwWritten_) > 25.0f) {
@@ -880,7 +1029,10 @@ void TapeSlap::prepare(double sampleRate, const Curves& curves) {
     // last to be protected; every other shaper keeps 47 taps). The
     // slap's model, curve and voicing are otherwise byte-untouched,
     // and the per-stage delay stays exactly 25 samples.
-    shaper_.setTaps(31);
+    // 0.3.2-TEST1: trimmed a touch further, 31 -> 27 taps, as the
+    // first CPU lever for the refinement round (same ladder rule;
+    // (27-1)/2 = 13 FIR samples + 12 pure delay = the same 25).
+    shaper_.setTaps(27);
     shaper_.prepare(sr_);
     shaper_.setCurve(&curves_->tape);
     wet_.prepare(sr_, 0.0f);
@@ -888,6 +1040,12 @@ void TapeSlap::prepare(double sampleRate, const Curves& curves) {
     delayTime_.prepare(sr_, 0.134f);
     flutFreq_.prepare(sr_, 0.8f);
     flutDepth_.prepare(sr_, 0.0004f);
+    // TS-A one-pole band coefficients (band = LP-fast minus LP-slow
+    // of the same seeded white source).
+    aFlt20_ = 1.0f - poleForCorner(20.0f, sr_);
+    aFlt5_ = 1.0f - poleForCorner(5.0f, sr_);
+    aScr120_ = 1.0f - poleForCorner(120.0f, sr_);
+    aScr25_ = 1.0f - poleForCorner(25.0f, sr_);
     dirty_ = true;
     reset();
 }
@@ -897,6 +1055,11 @@ void TapeSlap::reset() {
     writePos_ = 0; phase_ = 0; lastOut_ = 0;
     lp_.reset(); body_.reset(); outLp_.reset();
     shaper_.reset();
+    // TS-A/TS-C state: re-seed for cross-instance determinism.
+    modRng_.s = 0x51A9u;
+    fltLp20_ = fltLp5_ = scrLp120_ = scrLp25_ = 0;
+    gateEnv_ = 0;
+    hyst_ = 0;
 }
 
 void TapeSlap::updateFromParams() {
@@ -929,7 +1092,27 @@ float TapeSlap::process(float x) {
     double fd = flutDepth_.next();
     phase_ += 2 * kPi * ff / sr_;
     if (phase_ > 2 * kPi) phase_ -= 2 * kPi;
-    double readPos = double(writePos_) - (dt + std::sin(phase_) * fd) * sr_;
+    // TS-A (0.3.2-TEST1): the wow sine above is joined by two
+    // band-limited noise components from the seeded transport RNG —
+    // flutter (5-20 Hz band, fixed gains normalize the one-pole
+    // band RMS to ~sine scale, depth 12% of wow) and scrape
+    // (25-120 Hz band, 3% of wow, gated by the input level: tape
+    // friction jitter exists only while signal moves). All three
+    // add into the same read-position modulation; the slap's delay
+    // calibration (dt) is untouched.
+    const float ax = std::fabs(x);
+    gateEnv_ += (ax - gateEnv_) * ((ax > gateEnv_) ? tauCoef(0.005f, sr_)
+                                                   : tauCoef(0.120f, sr_));
+    const float wn = modRng_.bipolar();
+    fltLp20_ += (wn - fltLp20_) * aFlt20_;
+    fltLp5_ += (wn - fltLp5_) * aFlt5_;
+    scrLp120_ += (wn - scrLp120_) * aScr120_;
+    scrLp25_ += (wn - scrLp25_) * aScr25_;
+    const float gate = gateEnv_ * 5.0f > 1.0f ? 1.0f : gateEnv_ * 5.0f;
+    const double mod = std::sin(phase_) * fd
+        + double((fltLp20_ - fltLp5_) * 30.0f) * fd * 0.12
+        + double((scrLp120_ - scrLp25_) * 12.0f) * fd * 0.03 * double(gate);
+    double readPos = double(writePos_) - (dt + mod) * sr_;
     int N = int(delay_.size());
     while (readPos < 0) readPos += N;
     int i0 = int(readPos) % N;
@@ -939,6 +1122,17 @@ float TapeSlap::process(float x) {
     if (++writePos_ >= N) writePos_ = 0;
 
     float y = d * driveGain_.next();
+    // TS-C (0.3.2-TEST1): hysteresis-lite around the tape curve.
+    // The state charges quickly under loud signal and discharges
+    // slowly (~45 ms); the shaper input is pulled 30% toward it, so
+    // a loud passage briefly biases what follows — core-memory
+    // behaviour in miniature. At steady state state == input and
+    // the curve's static transfer is exact.
+    {
+        const float rate = (std::fabs(y) > std::fabs(hyst_)) ? 0.03f : 0.0006f;
+        hyst_ += (y - hyst_) * rate;
+        y += 0.30f * (hyst_ - y);
+    }
     y = shaper_.process(y);
     y = lp_.process(y);
     y = body_.process(y);
@@ -968,6 +1162,11 @@ void SpringReverb::configureFilters(double sampleRate) {
         tone_[c].setLowpass(sampleRate, 3250, 0.4);
         a1108In_[c].setHighpass(sampleRate, 50, 0.5);
         a1108Out_[c].setLowpass(sampleRate, 24000, 0.5);
+        // SR-C (0.3.2-TEST1): driver pre/de-emphasis pair. Identical
+        // corner/slope, reciprocal gains — exact inverses, so the
+        // low-level path is net flat by construction.
+        preEmph_[c].setHighShelf(sampleRate, 2800, 0.8, 5.0f);
+        deEmph_[c].setHighShelf(sampleRate, 2800, 0.8, -5.0f);
     }
     drvGain_.prepare(sampleRate, 0.175f);
     toneFreq_.prepare(sampleRate, 3250.0f);
@@ -1000,18 +1199,28 @@ void SpringReverb::prepare(double sampleRate, const Curves& curves) {
         for (int s = 0; s < 2; ++s) {
             convL_[s].prepare(sampleRate);
             convR_[s].prepare(sampleRate);
+            convHardL_[s].prepare(sampleRate); // SR-B companion set
+            convHardR_[s].prepare(sampleRate);
             slotState_[s].store(SlotState::IDLE);
         }
         // Build the initial IR synchronously into slot 0 and activate it.
         // setIR() ends with reset(), so the slot starts with clean state.
         // The IR is deterministic (seeded PRNG), same as the old path.
-        std::vector<float> irL, irR;
+        std::vector<float> irL, irR, hL, hR;
         SpringIR::generate(t0, sampleRate, irL, irR);
+        SpringIR::generate(t0, sampleRate, hL, hR, 0xBA600u, true);
         convL_[0].setIR(irL.data(), int(irL.size()));
         convR_[0].setIR(irR.data(), int(irR.size()));
+        // SR-B: the hard-hit companion IR for slot 0 (same decay
+        // calibration, denser/brighter — see SpringIR::generate).
+        convHardL_[0].setIR(hL.data(), int(hL.size()));
+        convHardR_[0].setIR(hR.data(), int(hR.size()));
+        hardReady_[0].store(true);
+        hardReady_[1].store(false);
         slotState_[0].store(SlotState::ACTIVE);
         activeSlot_ = 0;
         requestedTime_ = t0;
+        lastBuiltTime_ = t0; // worker starts from the synchronous build
         quit_.store(false);
         worker_ = std::thread(&SpringReverb::workerMain, this);
     } else {
@@ -1067,8 +1276,12 @@ void SpringReverb::workerMain() {
             // goes stale.
             reqPending_.store(false);
             const float t = reqTime_.load();
+            lastBuiltTime_ = t; // worker-local record (see worker watch below)
             const double buildSr = reqSr_.load();
-            std::vector<float> irL, irR;
+            std::vector<float> irL, irR, hL, hR;
+            // From here the slot is exclusively ours: the hard set
+            // for it is by definition not ready.
+            hardReady_[slot].store(false);
             SpringIR::generate(t, buildSr, irL, irR);
             if (quit_.load()) {
                 // Teardown raced the build: release the slot, publish nothing.
@@ -1077,8 +1290,35 @@ void SpringReverb::workerMain() {
             }
             convL_[slot].setIR(irL.data(), int(irL.size()));
             convR_[slot].setIR(irR.data(), int(irR.size()));
+            // Publish on the SOFT pair: adoption latency matches the
+            // shipped build's. The hard pair completes below.
             slotState_[slot].store(SlotState::READY);
+            // SR-B: build the hard-hit companion into the same slot
+            // and publish hardReady (release) only when its setIR
+            // has landed — the audio thread's gate stays closed for
+            // this slot until then (see beginBlock/process).
+            SpringIR::generate(t, buildSr, hL, hR, 0xBA600u, true);
+            convHardL_[slot].setIR(hL.data(), int(hL.size()));
+            convHardR_[slot].setIR(hR.data(), int(hR.size()));
+            hardReady_[slot].store(true);
         } else {
+            // Worker watch (0.3.2-TEST1): the chirp IR builds take a
+            // few hundred ms, long enough that waiting for the audio
+            // thread to post a regen request at the next block (the
+            // shipped path, kept as a redundant post) would start the
+            // build a render late — e.g. a host that changes TIME
+            // while transport is stopped. The worker therefore also
+            // watches the knob itself, with the same 0.2 s hysteresis
+            // as beginBlock(); the consumed values still come from
+            // the shared atomics, so a racing audio post simply makes
+            // this build carry the newest values.
+            const float targetTime = 0.5f + (timeParam.load() / 10.0f) * 4.0f;
+            if (std::fabs(targetTime - lastBuiltTime_) > 0.2f) {
+                reqTime_.store(targetTime);
+                reqSr_.store(sr_.load());
+                reqPending_.store(true);
+                continue;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     }
@@ -1096,11 +1336,20 @@ void SpringReverb::resetOnAudioThread() {
         hp_[c].reset(); tone_[c].reset();
         a1108In_[c].reset(); a1108Out_[c].reset();
         driver_[c].reset(); a1108_[c].reset();
+        preEmph_[c].reset(); deEmph_[c].reset(); // SR-C
     }
+    hitEnv_ = 0.0f; hitMix_ = 0.0f; // SR-B
+    hardGateOn_ = false; hardGate_ = 0.0f;
     // Only the ACTIVE slot: the worker exclusively owns BUILDING slots, and
     // every READY slot was already reset by setIR() when the worker built it.
     convL_[activeSlot_].reset();
     convR_[activeSlot_].reset();
+    // SR-B: reset the hard pair only if it has landed; if the worker
+    // is still building it, its setIR() performs the reset on arrival.
+    if (audioHardReady_) {
+        convHardL_[activeSlot_].reset();
+        convHardR_[activeSlot_].reset();
+    }
     dirty_ = true;
 }
 
@@ -1127,6 +1376,9 @@ void SpringReverb::beginBlock() {
             activeSlot_ = s;
         }
     }
+    // SR-B split lifecycle: snapshot the active slot's hard-set
+    // readiness for this block's process() calls.
+    audioHardReady_ = hardReady_[activeSlot_].load();
     // Post a regen request if the time knob moved. Same 0.2 s hysteresis as
     // the browser (which rebuilt its ConvolverNode when |dt| > 0.2); the
     // worker synthesizes + partitions off-thread, no audio-thread allocation.
@@ -1176,8 +1428,47 @@ void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
     const int a = activeSlot_; // audio thread's view; written only in beginBlock()
     float m[2] = { hp_[0].process(inL * 0.4f), hp_[1].process(inR * 0.4f) };
     float dg = drvGain_.next() * railDrive; // shared PSU sags the driver
-    float cL = convL_[a].process(driver_[0].process(m[0] * dg)) * makeup_;
-    float cR = convR_[a].process(driver_[1].process(m[1] * dg)) * makeup_;
+    // SR-C (0.3.2-TEST1): pre-emphasis ahead of the 12AT7 driver, so
+    // the driver clips HF transients harder than LF body (the spring
+    // driver's own frequency-dependent saturation); the complementary
+    // de-emphasis after the convolver restores the balance, making
+    // the pair net-flat at low level by construction.
+    const float p0 = preEmph_[0].process(m[0]);
+    const float p1 = preEmph_[1].process(m[1]);
+    const float d0 = driver_[0].process(p0 * dg);
+    const float d1 = driver_[1].process(p1 * dg);
+    // SR-B (0.3.2-TEST1): hard-hit crossfade. A slow envelope of the
+    // driver INPUT (fast 8 ms attack, 250 ms release — the tank's own
+    // mechanical settle time) crossfades between the soft and hard
+    // IR sets: soft hits read exactly as the shipped build (mix 0,
+    // bit-identical), hard hits excite the denser, brighter tank.
+    // The window sits on the driver-input scale measured for the
+    // DRIVER knob's working range.
+    {
+        const float inPk = std::max(std::fabs(p0 * dg), std::fabs(p1 * dg));
+        const float cA = (inPk > hitEnv_) ? tauCoef(0.008f, sr_.load())
+                                          : tauCoef(0.250f, sr_.load());
+        hitEnv_ += (inPk - hitEnv_) * cA;
+        float hm = (hitEnv_ - 0.02f) / 0.13f;
+        if (!audioHardReady_) hm = 0.0f; // hard set not landed yet: stay soft
+        hitMix_ = hm < 0.0f ? 0.0f : (hm > 1.0f ? 1.0f : hm);
+    }
+    const float sL = convL_[a].process(d0);
+    const float sR = convR_[a].process(d1);
+    // Hard pair runs only while the hit gate is open (see header),
+    // and only once this slot's hard set has actually landed.
+    if (!audioHardReady_) hardGateOn_ = false;
+    else if (hitEnv_ > 0.016f) hardGateOn_ = true;
+    else if (hitEnv_ < 0.008f) hardGateOn_ = false;
+    hardGate_ += ((hardGateOn_ ? 1.0f : 0.0f) - hardGate_)
+               * tauCoef(0.002f, sr_.load());
+    float hL = 0.0f, hR = 0.0f;
+    if (hardGate_ > 0.001f) {
+        hL = convHardL_[a].process(d0 * hardGate_);
+        hR = convHardR_[a].process(d1 * hardGate_);
+    }
+    float cL = deEmph_[0].process((sL + hitMix_ * (hL - sL)) * makeup_);
+    float cR = deEmph_[1].process((sR + hitMix_ * (hR - sR)) * makeup_);
     float rg = retGain_.next();
     // Browser order: makeup -> tone -> returnGain -> 1108 chain.
     // SR-5: +4 dB of the return gain now sits BEFORE the 1108 and is
@@ -1258,6 +1549,7 @@ void MasterSection::reset() {
     for (int c = 0; c < 2; ++c) {
         scullyIn_[c].reset(); scullyOut_[c].reset();
         scully_[c].reset(); scullyLf_[c].reset(); scLp_[c] = 0.0f;
+        fluxLp_[c] = 0.0f; fluxFc_[c] = 6.0f; // SC-A rest state
         midTap_[c].reset(); midEnv_[c].reset();
         bus_[c].reset(); helios_[c].reset();
         low_[c].reset(); mid_[c].reset(); high_[c].reset(); subCut_[c].reset();
@@ -1373,6 +1665,23 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         const float lf = scLp_[c];
         y = scullyLf_[c].process(lf) + scully_[c].process(y - lf);
         y = scullyOut_[c].process(y);
+        // SC-A (0.3.2-TEST1): output-transformer flux. A one-pole
+        // high-pass whose corner tracks the LF band's bias envelope
+        // (the SC-1 split's existing flux proxy): resting at ~6 Hz,
+        // rising toward ~30 Hz only while LF flux is high — the
+        // power-tracking LF slope reduction (and its phase rotation)
+        // that a memoryless curve cannot express. At rest it costs
+        // -0.06 dB at 50 Hz; the corner is smoothed (30 ms) so the
+        // motion itself is inaudible.
+        {
+            const float env = scullyLf_[c].lastEnv();
+            float flux = env / 1.2f; if (flux > 1.0f) flux = 1.0f;
+            const float fcT = 6.0f + 24.0f * flux;
+            fluxFc_[c] += (fcT - fluxFc_[c]) * tauCoef(0.030f, sr_);
+            fluxLp_[c] += (y - fluxLp_[c])
+                        * (1.0f - poleForCorner(double(fluxFc_[c]), sr_));
+            y -= fluxLp_[c];
+        }
         if (phaseInvert) y = -y;
         y = low_[c].process(y);
         y = pultecDip_[c].process(y); // Pultec-style tightness below the bump
@@ -1382,7 +1691,15 @@ void MasterSection::process(float inL, float inR, float& outL, float& outR) {
         // to transparent; the growl arrives with the band, as in the
         // hardware's inductor.
         const float bandEnv = midEnv_[c].process(midTap_[c].process(y), sr_);
-        float en = bandEnv / 0.6f; if (en > 1.0f) en = 1.0f;
+        // HL-A (0.3.2-TEST1): the detector tracks boost amount as
+        // well as band level — on the hardware a +10 dB boost puts
+        // roughly 3x the flux through the same inductor at the same
+        // playback level. Boosts only (cuts do not unload the
+        // detector), capped at +12 dB, and exactly the shipped law
+        // when the mid knob is at or below 0.
+        float boostMul = dbToGain(midDbS_ > 0.0f ? midDbS_ : 0.0f);
+        if (boostMul > 4.0f) boostMul = 4.0f;
+        float en = bandEnv * boostMul / 0.6f; if (en > 1.0f) en = 1.0f;
         if (en > envMax) envMax = en;
         // TEST3 rebalance: HL-1's law keeps its 0.25 rest floor but
         // the driven top end caps at 0.75 (was 1.0) — same shape,

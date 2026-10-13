@@ -7,6 +7,21 @@
 // 1108-style return amp), and a master section (Scully 280 line amp,
 // Pultec/Helios/Baxandall EQ, bus saturation).
 //
+// TEST BUILD 0.3.2-TEST1 (2026-10-13, private — NOT the public
+// release): the refinement-research round on top of 0.3.1, all
+// proposals from bitey-refinement-research-2026-10-13.md except the
+// three flagged not-recommended (TS-B, HL-B, CC-B — excluded).
+// OP6-A LEVEL-knob feedback coupling, OP6-B slow bias time constant,
+// SC-A Scully transformer flux (level-tracking LF corner), SC-B
+// two-segment Scully composite (same calibrated gain/THD), SR-A
+// dispersive chirp spring IRs, SR-B hard-hit IR set with driver-
+// envelope crossfade, SR-C driver pre/de-emphasis pair, HL-A Helios
+// detector tracks boost amount, TS-A three-component transport
+// modulation, TS-C slap hysteresis-lite, CC-A 4x oversampling on the
+// OP-6 cascade (latency unchanged at 75 samples). Every dynamic is
+// smooth, deterministic, level-monotonic and transparent at rest,
+// per Nathan's predictable-pro-gear directive.
+//
 // TEST BUILD 0.3.0-test (2026-10-13, private — NOT the public release):
 // authenticity pass per the 2026-10-12 audit, DN1000-style. Nathan's
 // explicit removals: the master Scully tape stage (tape280 + tape EQ)
@@ -157,11 +172,13 @@ struct Curves {
 };
 
 // ---------------------------------------------------------------------------
-// OversampledShaper — 2x zero-stuff + Kaiser FIR (47 taps; the
-// tape-slap instance is trimmed to 31 in 0.3.0-test — see below).
-// Reduced from 4x/95-tap for CPU (4x was 92% of real-time, needed <50%).
-// 2x provides adequate aliasing suppression for the saturation curves used.
-// Latency: 25 samples at the base rate per instance (measured).
+// OversampledShaper — zero-stuff + Kaiser FIR oversampling (47 taps at
+// 2x by default; the tape-slap instance is trimmed to 27 — see below).
+// 0.3.2-TEST1 (CC-A): the factor is per-instance — the OP-6 cascade
+// slots run 4x with a 61-tap FIR, which keeps the stage latency at
+// exactly 25 samples ((61-1)/4 = 15 FIR samples + 10 pure delay), so
+// the total reported latency is unchanged. Latency: 25 samples at the
+// base rate per instance (measured) at either factor.
 // ---------------------------------------------------------------------------
 
 class OversampledShaper {
@@ -173,6 +190,10 @@ public:
     void prepare(double sampleRate);
     void setCurve(const Curve* c) { curve_ = c; }
     void setTaps(int t) { taps_ = t; } // call before first prepare()
+    // Oversampling factor (2 or 4). Call before first prepare().
+    // (taps-1) must be divisible by the factor for the stage latency
+    // to stay exactly 25 samples: 47@2x, 27@2x and 61@4x all qualify.
+    void setOsFactor(int f) { osFactor_ = f; }
     // Run the curve at base rate (no oversampling, no latency). Used
     // for the Helios stage (research brief S5: the EQ-associated amp
     // is the designated CPU sacrifice; after HL-1 its saturation is
@@ -195,6 +216,7 @@ private:
     static constexpr int kTaps = 47;
     void designFilter(); // one-time FIR design + buffer allocation
     int taps_ = kTaps;
+    int osFactor_ = 2;
     int pureDelay_ = 24 - 2 * ((kTaps - 1) / 4);
     std::vector<float> fir_;         // taps_ taps
     std::vector<float> upBuf_, dnBuf_;
@@ -281,6 +303,13 @@ struct BiasedShaper {
     // stages use less per stage so the COMPOSITE level-history effect
     // stays in the same gentle family instead of compounding.
     float biasDepth = 0.6f;
+    // OP6-B (0.3.2-TEST1): a second, slower bias time constant — the
+    // phrase-level "glow" timescale of a real pentode stage (fast
+    // attack ~50 ms, slow ~2 s release), depth capped at a fifth of
+    // the fast envelope's contribution, feeding the same deepen path.
+    // Enabled on OP-6 stage A only. Zero at rest, like the fast env.
+    bool slowBias = false;
+    float slowDepth = 0.2f;
 
     void prepare(double sampleRate) {
         sr = sampleRate;
@@ -288,7 +317,7 @@ struct BiasedShaper {
         shaper.prepare(sampleRate);
     }
     void setCurve(const Curve* c) { shaper.setCurve(c); }
-    void reset() { shaper.reset(); bias.reset(); lfSig_ = 0; lfEnv_ = 0; env_ = 0; }
+    void reset() { shaper.reset(); bias.reset(); lfSig_ = 0; lfEnv_ = 0; env_ = 0; slowEnv_ = 0; }
     bool isBypassed() const { return shaper.isBypassed(); }
     // The effective bias envelope from the most recent process() call
     // (0 at rest). Used by OP6-2's dynamic transformer darkening.
@@ -311,7 +340,19 @@ struct BiasedShaper {
         }
         env_ = e;
         float b = e > 1.2f ? 1.2f : e;
-        float deepen = 1.0f + biasDepth * b;
+        // OP6-B: the slow envelope deepens the same path, bounded so
+        // fast + slow together never exceed the fast env's own clamp.
+        float bd = b;
+        if (slowBias) {
+            const float a = std::fabs(x);
+            const float c = (a > slowEnv_) ? tauCoef(0.050f, sr)
+                                           : tauCoef(2.0f, sr);
+            slowEnv_ += (a - slowEnv_) * c;
+            const float se = slowEnv_ > 1.2f ? 1.2f : slowEnv_;
+            bd = b + slowDepth * se;
+            if (bd > 1.2f) bd = 1.2f;
+        }
+        float deepen = 1.0f + biasDepth * bd;
         float in = x * driveMul;
         float v = in * deepen * railDrive / widen;
         if (quadCoef != 0.0f) {
@@ -323,6 +364,7 @@ struct BiasedShaper {
     }
 private:
     float lfSig_ = 0, lfEnv_ = 0, lfA_ = 0, env_ = 0;
+    float slowEnv_ = 0; // OP6-B slow bias envelope
 };
 
 // ---------------------------------------------------------------------------
@@ -513,9 +555,18 @@ private:
 
 struct SpringIR {
     // Generates a stereo spring-tank-ish impulse. Deterministic.
+    // 0.3.2-TEST1 (SR-A): each reflection burst is synthesized as a
+    // short downward-frequency chirp (dispersive spring behaviour),
+    // not a filtered noise burst; sweep width grows with reflection
+    // order. Decay calibration (band lambdas, density, seeds) is
+    // unchanged from the shipped generator.
+    // SR-B: hard=true generates the "hard-hit" companion set — same
+    // per-band decay times (the TIME knob's calibrated meaning is
+    // fenced), but higher early density, wider chirp spread and a
+    // brighter HF band, for the driver-envelope crossfade.
     static void generate(float seconds, double sampleRate,
                          std::vector<float>& outL, std::vector<float>& outR,
-                         uint32_t seed = 0xBA600u);
+                         uint32_t seed = 0xBA600u, bool hard = false);
 };
 
 // ---------------------------------------------------------------------------
@@ -579,6 +630,14 @@ private:
     // refresh every 16 samples and only while the corner is moving.
     float bwWritten_ = 24000.0f;
     int bwCtr_ = 0;
+    // OP6-A (0.3.2-TEST1): the LEVEL knob also moves the cascade's
+    // operating point, as on the hardware where the gain control sits
+    // inside stage 1's feedback loop — past 5 the effective feedback
+    // falls (bias deepen deepens; the darkening swing narrows), below
+    // 5 the stage runs a touch cleaner. darkenSwing_ is the current
+    // OP6-2 swing (10 kHz at Level <= 5). Small-signal gain at every
+    // knob position is untouched (bias env is 0 at rest).
+    float darkenSwing_ = 10000.0f;
     Smoothed preAmpGain_, postGain_;
     float padFactor_ = 1.0f;
     bool dirty_ = true;
@@ -621,6 +680,22 @@ private:
     float lastOut_ = 0;
     bool dirty_ = true;
     void updateFromParams();
+    // TS-A (0.3.2-TEST1): three-component transport modulation. The
+    // shipped wow sine stays; added are a band-limited noise flutter
+    // (5-20 Hz, ~1/10 of wow's depth) and a scrape component
+    // (25-120 Hz, ~3% of wow's depth, gated by signal level — tape
+    // friction jitter exists only while signal moves against the
+    // head). Seeded/deterministic, re-seeded on reset.
+    SeededRng modRng_{0x51A9u};
+    float fltLp20_ = 0, fltLp5_ = 0, scrLp120_ = 0, scrLp25_ = 0;
+    float aFlt20_ = 0, aFlt5_ = 0, aScr120_ = 0, aScr25_ = 0;
+    float gateEnv_ = 0;
+    // TS-C (0.3.2-TEST1): hysteresis-lite on the slap saturation —
+    // a one-state level-history integrator around the tape curve.
+    // Charges fast under loud signal, discharges slowly (~45 ms), and
+    // pulls the shaper input 30% toward its state; at steady state
+    // state == input and the curve's static shape is exact.
+    float hyst_ = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -694,6 +769,38 @@ private:
     BiasedShaper driver_[2]; // 12AT7 driver with bias memory (audit F1)
     // Double-buffered convolvers with the state machine above.
     ZeroLatencyConvolver convL_[2], convR_[2];
+    // SR-B (0.3.2-TEST1): the hard-hit IR set, built alongside the
+    // soft set in the SAME slot (same lifecycle, same worker build),
+    // crossfaded in process() by a slow envelope of the driver input.
+    // At the bottom of the envelope the output is the soft path alone,
+    // bit-identical to the shipped build.
+    ZeroLatencyConvolver convHardL_[2], convHardR_[2];
+    // Split lifecycle for the hard set: a slot goes READY on its
+    // SOFT pair alone (adoption latency stays at the shipped
+    // build's), and the worker completes the hard pair afterwards,
+    // publishing hardReady_[slot] (release) when its setIR lands.
+    // The audio thread snapshots that flag in beginBlock() and only
+    // ever calls the hard convolvers under a true snapshot, so the
+    // worker's late setIR can never race a process() call. Same
+    // ownership discipline as the slot machine itself.
+    std::atomic<bool> hardReady_[2];
+    bool audioHardReady_ = false; // audio thread's beginBlock snapshot
+    float hitEnv_ = 0.0f;  // driver-input envelope (audio thread)
+    float hitMix_ = 0.0f;  // 0 = soft set only, 1 = hard set only
+    // CPU gate for the hard pair: the convolvers only run while the
+    // hit envelope is anywhere near the crossfade window (hysteresis
+    // 0.016 on / 0.008 off, 2 ms send fade). Below the window the
+    // crossfade is 0 by definition, so an idle hard pair changes
+    // nothing audible; the first hit re-opens the gate in ~1 ms,
+    // inside the IR's own attack ramps.
+    bool hardGateOn_ = false;
+    float hardGate_ = 0.0f;
+    // SR-C (0.3.2-TEST1): fixed pre/de-emphasis pair around the 12AT7
+    // driver (+5 dB HF shelf in, complementary -5 dB after the
+    // convolver) so driver saturation is frequency-dependent while
+    // the low-level response stays net flat by construction (RBJ
+    // shelves with reciprocal gains are exact inverses).
+    Biquad preEmph_[2], deEmph_[2];
     std::atomic<SlotState> slotState_[2];
     int activeSlot_ = 0; // audio thread's view; written only in beginBlock()
     Biquad tone_[2];
@@ -706,6 +813,12 @@ private:
     float toneFreqWritten_ = -1.0f;
     int toneCtr_ = 0;
     float requestedTime_ = -1.0f; // audio thread's last regen request
+    // Worker thread's record of the tank time it last built (or is
+    // building). The worker also WATCHES timeParam itself (see
+    // workerMain): with the 0.3.2 chirp IRs a build takes a few
+    // hundred ms, so waiting for the audio thread to post the
+    // request at the next block would start the build a render late.
+    float lastBuiltTime_ = -1.0f;
     // Worker handoff (all atomics; no locks on the audio thread).
     // All use the default seq_cst ordering for clarity; none are hot-path.
     std::thread worker_;
@@ -763,6 +876,17 @@ private:
     BiasedShaper scullyLf_[2];
     float scLp_[2] = {0.0f, 0.0f};
     float scLpA_ = 0.0f;
+    // SC-A (0.3.2-TEST1): output-transformer flux behaviour. A
+    // one-pole high-pass in the Scully path whose corner tracks the
+    // LF band's bias envelope (the existing LF flux proxy): resting
+    // ~6 Hz, rising toward ~30 Hz only while LF flux is high. One
+    // mechanism produces both the power-tracking LF slope reduction
+    // and the associated phase rotation the transformer literature
+    // describes — behaviour the amplitude-only model missed. At rest
+    // (env == 0) the corner sits at 6 Hz: -0.06 dB at 50 Hz, inside
+    // the staging tolerance the TEST3 round measured (-0.82 dB @ 50).
+    float fluxLp_[2] = {0.0f, 0.0f};
+    float fluxFc_[2] = {6.0f, 6.0f};
     // HL-1/2/3: mid-band energy detector (bandpass tap at the selected
     // mid frequency + bias-family envelope). Drives the Helios stage
     // depth (HL-1), bounded mid boost compression (HL-2) and a <=3%

@@ -47,15 +47,15 @@ jobs:
           fi
           pkgbuild --root "$PKGROOT" \
             --identifier com.sabatinoaudio.bitey \
-            --version 0.3.1 \
+            --version 0.3.2 \
             --install-location / \
             --scripts pkg_scripts \
-            Bitey-PA200-0.3.1-macOS.pkg
+            Bitey-PA200-0.3.2-TEST1-macOS.pkg
 
       - name: Verify installer scripts embedded in PKG
         run: |
           rm -rf /tmp/pkgx && mkdir -p /tmp/pkgx
-          pkgutil --expand-full "Bitey-PA200-0.3.1-macOS.pkg" /tmp/pkgx/expanded
+          pkgutil --expand-full "Bitey-PA200-0.3.2-TEST1-macOS.pkg" /tmp/pkgx/expanded
           echo "--- expanded pkg contents (scripts) ---"
           find /tmp/pkgx/expanded \( -name preinstall -o -name postinstall \) -print
           PRE=$(find /tmp/pkgx/expanded -name preinstall | head -1)
@@ -78,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bitey-Installer-macOS-${{ github.run_number }}
-          path: Bitey-PA200-0.3.1-macOS.pkg
+          path: Bitey-PA200-0.3.2-TEST1-macOS.pkg
 
       - name: Upload test host
         uses: actions/upload-artifact@v4
