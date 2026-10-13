@@ -430,6 +430,49 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Gardner non-uniform partitioned convolver (0.3.1 hotfix).
+//
+// Drop-in replacement for the uniform tail above. The uniform engine's
+// cost is proportional to the IR length (every 128 samples it sweeps
+// every partition), so long spring tails (TIME past ~3.3 s) overran the
+// audio thread and crackled. Gardner's scheme keeps the convolution sum
+// mathematically identical but splits the IR into sections whose
+// partition size doubles along the tail (128, 256, 512, ... capped):
+// each section is an independent uniform partitioned convolver fed by
+// the input delayed by (base + segStart - B), which aligns its block
+// latency with its segment. Per-sample cost is then ~log(IR length)
+// instead of linear, so the tail cost is essentially flat vs TIME.
+// Total latency is still exactly one base partition, like the uniform
+// engine it replaces — only the float summation order changes.
+// ---------------------------------------------------------------------------
+
+class GardnerConvolver {
+public:
+    static constexpr int kMaxPart = 16384;   // largest partition size
+    static constexpr int kPartsPerSize = 4;  // partitions per size class
+    void prepare(double sampleRate, int basePartition);
+    void setIR(const float* ir, int len); // copies + partitions
+    void reset();
+    float process(float x);
+    int latency() const { return base_; } // one base partition of block delay
+private:
+    struct Section {
+        FFT fft;
+        std::vector<std::vector<std::complex<float>>> h;     // partitions, freq domain
+        std::vector<std::vector<std::complex<float>>> xHist; // input spectra ring
+        std::vector<float> outBuf;                           // 2*B overlap-add ring
+        std::vector<std::complex<float>> tmp, acc;
+        int B = 0, numParts = 0, delay = 0, fftSize = 0;
+        int outPos = 0, histPos = 0;
+    };
+    std::vector<Section> sections_;
+    std::vector<float> hist_; // shared input history ring (power of two)
+    int histMask_ = 0;
+    int base_ = 128;
+    long t_ = 0; // absolute index of the current sample
+};
+
+// ---------------------------------------------------------------------------
 // Zero-latency hybrid convolver.
 //
 // Chromium's ConvolverNode measures 0 samples of latency. A uniform
@@ -440,9 +483,12 @@ private:
 // zero-latency convolution.
 //
 // 0.3.0-test (audit F2): the direct head shrank 512 -> 128 taps and the
-// tail runs at 128-sample partitions (its block delay must equal the head
-// length for the split to align). The convolution sum is mathematically
-// identical — only the float summation order changes.
+// tail's block delay equals the head length so the split aligns. The
+// convolution sum is mathematically identical — only the float
+// summation order changes.
+// 0.3.1: the tail engine is Gardner non-uniform partitioning (see
+// GardnerConvolver above) instead of uniform 128-sample partitions, so
+// long tails no longer cost proportionally to their length.
 // ---------------------------------------------------------------------------
 
 class ZeroLatencyConvolver {
@@ -458,7 +504,7 @@ private:
     std::vector<float> headIR_;   // first kHead taps
     std::vector<float> headBuf_;  // input history for the direct head
     int headPos_ = 0;
-    PartitionedConvolver tail_;   // IR[kHead..], kHead-sized partitions
+    GardnerConvolver tail_;       // IR[kHead..], Gardner non-uniform partitions
 };
 
 // ---------------------------------------------------------------------------

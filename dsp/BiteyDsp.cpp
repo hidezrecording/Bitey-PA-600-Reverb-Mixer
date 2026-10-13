@@ -525,6 +525,128 @@ float PartitionedConvolver::process(float x) {
 }
 
 // ---------------------------------------------------------------------------
+// GardnerConvolver — non-uniform partitioned overlap-add (0.3.1).
+//
+// Sections tile the IR from segStart = 0 with partition sizes base,
+// 2*base, 4*base, ... (capped at kMaxPart; the capped size takes all
+// remaining partitions). A section covering IR[seg .. seg+P*B) with
+// partition size B is fed the input delayed by D = base + seg - B, so
+// its intrinsic one-partition block delay lands its first tap exactly
+// at base + seg — the same alignment the uniform engine produced.
+// All sections read their input blocks from one shared history ring;
+// each fires on its own real-time cadence (every B samples).
+// ---------------------------------------------------------------------------
+
+void GardnerConvolver::prepare(double sampleRate, int basePartition) {
+    (void)sampleRate;
+    base_ = basePartition;
+    sections_.clear();
+    hist_.assign(1024, 0.0f);
+    histMask_ = 1023;
+    t_ = 0;
+}
+
+void GardnerConvolver::setIR(const float* ir, int len) {
+    sections_.clear();
+    if (len > 0) {
+        int seg = 0, B = base_;
+        while (seg < len) {
+            const int remain = len - seg;
+            const int partsHere = (B >= kMaxPart)
+                ? (remain + B - 1) / B
+                : std::min(kPartsPerSize, (remain + B - 1) / B);
+            Section s;
+            s.B = B;
+            s.numParts = partsHere;
+            s.delay = base_ + seg - B;
+            s.fftSize = B * 2;
+            s.fft.init(s.fftSize);
+            s.h.assign(partsHere, std::vector<std::complex<float>>(s.fftSize));
+            for (int p = 0; p < partsHere; ++p) {
+                auto& H = s.h[p];
+                std::fill(H.begin(), H.end(), std::complex<float>(0, 0));
+                const int off = seg + p * B;
+                const int cnt = std::min(B, len - off);
+                for (int i = 0; i < cnt; ++i) H[i] = ir[off + i];
+                s.fft.forward(H);
+            }
+            s.xHist.assign(partsHere,
+                           std::vector<std::complex<float>>(s.fftSize, {0, 0}));
+            s.outBuf.assign(B * 2, 0.0f);
+            s.tmp.assign(s.fftSize, {});
+            s.acc.assign(s.fftSize, {});
+            sections_.push_back(std::move(s));
+            seg += partsHere * B;
+            B = std::min(B * 2, kMaxPart);
+        }
+    }
+    // The shared history ring must reach back D + B <= base + len from
+    // the current sample (see the alignment note above); size with
+    // generous margin, power of two for mask indexing.
+    const long need = long(len) + base_ + kMaxPart + 64;
+    int sz = 1024;
+    while (sz < need) sz <<= 1;
+    hist_.assign(sz, 0.0f);
+    histMask_ = sz - 1;
+    reset();
+}
+
+void GardnerConvolver::reset() {
+    std::fill(hist_.begin(), hist_.end(), 0.0f);
+    for (auto& s : sections_) {
+        std::fill(s.outBuf.begin(), s.outBuf.end(), 0.0f);
+        for (auto& xh : s.xHist)
+            std::fill(xh.begin(), xh.end(), std::complex<float>(0, 0));
+        s.outPos = 0;
+        s.histPos = 0;
+    }
+    t_ = 0;
+}
+
+float GardnerConvolver::process(float x) {
+    if (hist_.empty()) return 0.0f;
+    hist_[size_t(t_ & histMask_)] = x;
+    float y = 0.0f;
+    for (auto& s : sections_) {
+        // Consume this sample's output (written by earlier firings).
+        y += s.outBuf[s.outPos];
+        s.outBuf[s.outPos] = 0.0f;
+        if (++s.outPos >= int(s.outBuf.size())) s.outPos = 0;
+        // A delayed-stream block completes on the real-time cadence,
+        // exactly as in the uniform engine.
+        if (((t_ + 1) % s.B) == 0) {
+            // Block = delayed-stream samples [t_+1-B, t_+1), i.e.
+            // original input times shifted back by the section delay.
+            const long t0 = t_ + 1 - s.B - s.delay;
+            for (int i = 0; i < s.B; ++i) {
+                const long tt = t0 + i;
+                s.tmp[i] = (tt >= 0) ? hist_[size_t(tt & histMask_)] : 0.0f;
+            }
+            for (int i = s.B; i < s.fftSize; ++i) s.tmp[i] = 0;
+            s.fft.forward(s.tmp);
+            s.xHist[s.histPos] = s.tmp;
+            std::fill(s.acc.begin(), s.acc.end(), std::complex<float>(0, 0));
+            for (int p = 0; p < s.numParts; ++p) {
+                int hb = s.histPos - p;
+                if (hb < 0) hb += s.numParts;
+                const auto& X = s.xHist[hb];
+                const auto& H = s.h[p];
+                for (int i = 0; i < s.fftSize; ++i) s.acc[i] += X[i] * H[i];
+            }
+            if (++s.histPos >= s.numParts) s.histPos = 0;
+            s.fft.inverse(s.acc);
+            for (int i = 0; i < s.fftSize; ++i) {
+                int idx = s.outPos + i;
+                if (idx >= int(s.outBuf.size())) idx -= int(s.outBuf.size());
+                s.outBuf[idx] += s.acc[i].real();
+            }
+        }
+    }
+    ++t_;
+    return y;
+}
+
+// ---------------------------------------------------------------------------
 // SpringIR — port of loadSpringReverb()
 // ---------------------------------------------------------------------------
 

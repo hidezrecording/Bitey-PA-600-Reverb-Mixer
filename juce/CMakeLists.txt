@@ -21,7 +21,7 @@
 # dependency, so the wrapper can be re-targeted at iPlug2/CLAP later.
 
 cmake_minimum_required(VERSION 3.22)
-project(Bitey VERSION 0.3.0)
+project(Bitey VERSION 0.3.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
