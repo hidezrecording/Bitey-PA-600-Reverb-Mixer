@@ -7,11 +7,13 @@
 // 1108-style return amp), and a master section (Scully 280 line amp,
 // Pultec/Helios/Baxandall EQ, bus saturation).
 //
-// TEST BUILD 0.3.2-TEST2 (2026-10-13, private — NOT the public
-// release): A/B variant of 0.3.2-TEST1 with ONE change reverted —
-// HL-A (Helios detector tracks boost amount) is back to the shipped
-// 0.3.1 detector law (band energy only), per Nathan's ear. Every
-// other TEST1 item described below is retained unchanged.
+// RELEASE 0.3.2 (2026-10-13): the refinement-research round on
+// top of 0.3.1 (built privately as 0.3.2-TEST1) with ONE item
+// reverted per Nathan's ear — HL-A (Helios detector tracks boost
+// amount) is back to the shipped 0.3.1 detector law (band energy
+// only). That A/B variant (private 0.3.2-TEST2) was approved by
+// Nathan on 2026-10-13 and is released unchanged. Every other
+// TEST1 item described below is retained.
 //
 // TEST BUILD 0.3.2-TEST1 (2026-10-13, private — NOT the public
 // release): the refinement-research round on top of 0.3.1, all
