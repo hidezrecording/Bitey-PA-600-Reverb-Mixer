@@ -145,9 +145,26 @@ Curves Curves::build() {
     // Calibrated stage set (static-composite harness, 2026-10-13):
     // nominal THD 0.58%, H3 ~-9.6 dB rel H2, +10 dB ratio ~2.0x,
     // 0 dBFS-in THD 3.5% with a smooth bounded peak.
+    // TT2-WS1 (TruthTest-2, 2026-10-21): harmonic-order voicing of
+    // the composite's top end. The shipped set flips H3-LED at
+    // full-scale drive (composite harness, Level 5: at 0 dBFS-in
+    // H3 -31.9 dB vs H2 -38.8 dB rel fund) — an odd-order ladder
+    // that lands in the presence band and that no downstream EQ
+    // can remove, because the master stages regenerate it. The
+    // OP6R-2 recipe is H2-led; this retune holds that at every
+    // level: stage 3's cubic coefficient 0.1852 -> 0.10, its knee
+    // rate 1.05 -> 0.80 (softer ceiling), its linear reach
+    // 0.85 -> 0.95, and stage 2's cubic 0.1108 -> 0.08. Measured
+    // on the same harness: nominal (-18 dBFS) THD 0.59 -> 0.57%,
+    // H2 -46.2 -> -46.3 (the ear-approved operating point is
+    // untouched); 0 dBFS-in: THD 3.09 -> 1.94%, H3 -31.9 -> -42.0
+    // (now 6 dB BELOW H2's -35.9), H5 -38.5 -> -44.2. The level
+    // that goes away is odd-order grit at the top of the drive
+    // range, not body: small-signal gain still recalibrates
+    // against op6Prev below, so channel unity is exact.
     const Op6Stage op6S1{0.510f, 1.000f, 1.014f, 0.0238f, 0.0217f, 0.80f, 1.20f};
-    const Op6Stage op6S2{0.789f, 1.004f, 1.022f, 0.0486f, 0.1108f, 0.80f, 1.20f};
-    const Op6Stage op6S3{1.070f, 1.008f, 1.039f, 0.0687f, 0.1852f, 0.85f, 1.05f};
+    const Op6Stage op6S2{0.789f, 1.004f, 1.022f, 0.0486f, 0.0800f, 0.80f, 1.20f};
+    const Op6Stage op6S3{1.070f, 1.008f, 1.039f, 0.0687f, 0.1000f, 0.95f, 0.80f};
     const float op6G1 = 2.7f, op6G2 = 2.15f; // interstage gains
     auto op6S1f = op6Stage(op6S1), op6S2f = op6Stage(op6S2), op6S3f = op6Stage(op6S3);
     auto op6Raw = [&](float u) { return op6S3f(op6G2 * op6S2f(op6G1 * op6S1f(u))); };
@@ -678,6 +695,21 @@ float GardnerConvolver::process(float x) {
 void SpringIR::generate(float seconds, double sampleRate,
                         std::vector<float>& outL, std::vector<float>& outR,
                         uint32_t seed, bool hard) {
+    // SPR-5 (Truth test build, 2026-10-21) added a fixed 25 ms
+    // onset gap (a BX 20 hardware trait). TT2 (TruthTest-2,
+    // 2026-10-21) REMOVES it on Nathan's direct evidence: his own
+    // capture of the physical PV PA-900 (dry vocal L / wet R)
+    // shows the Peavey return glued to the source — the wet
+    // envelope rises with the dry within a few ms at every phrase
+    // start, bulk lag ~1 ms. The BX gap was the wrong reference
+    // for this unit. gapSec is now exactly 0: the IR's own band
+    // attack ramps (SR-3: HF immediate, mid +6 ms, LF +12 ms)
+    // remain the only onset shaping, as in the shipped build.
+    // Reported latency is unchanged (75 samples): the gap was
+    // never throughput latency, and neither is its removal.
+    const double gapSec = 0.0;
+    const int gapSamples = int(gapSec * sampleRate);
+    const double activeSec = seconds - gapSec; // decaying part of the IR
     int length = int(sampleRate * seconds);
     outL.assign(length, 0);
     outR.assign(length, 0);
@@ -689,14 +721,42 @@ void SpringIR::generate(float seconds, double sampleRate,
     // LF lambda x0.75 (rings ~33% longer), mid as before, HF x1.5
     // (dies ~33% sooner). IR-side only: zero runtime CPU, architecture
     // and per-channel decorrelation (seeds) untouched.
-    const double lambda = 4.0 - seconds * 0.4;
-    // Design RT60s at knob 5 (lambda = 3.0): LF 3.07 s / mid 2.30 s /
-    // HF 1.54 s — the BX published shape. (A single-number RT60
-    // measurement of the finished IR reads HF longer, ~2.2 s, because
-    // the generator's own soft clip regenerates HF following the mid
-    // envelope while the IR is hot; the band's own decay is as
-    // designed and the tail's top audibly dies first.)
-    const double lamLf = lambda * 0.75, lamHf = lambda * 1.5;
+    // SPR-2 (Truth test build, 2026-10-21): band-decay retune on the
+    // measured "The Truth" (Dr. Dog, PA-900) profile, replacing the
+    // BX-shape targets: the LOW-MIDS are the longest-decaying region,
+    // LF ends up SHORTER than the low-mids, and the top octave must
+    // not sustain audibly. The base law is also trimmed x0.9125
+    // (4.0/0.4 -> 3.65/0.365): SPR-1's steeper split reassigned
+    // crossover-region energy to faster envelopes and pulled the
+    // delivered broadband RT at knob 5 from 2.44 to 2.19 s; this
+    // restores the shipped build's measured broadband law
+    // (2.10 / 2.44 / 2.82 s at knobs 2.5 / 5 / 7.5) — the knob's
+    // meaning to the user is unchanged.
+    const double lambda = 3.65 - seconds * 0.365;
+    // Design RT60s at knob 5 (lambda = 2.74): mid 2.52 s (reference),
+    // LF 2.21 s (x0.875 of mid — SR-1's +33% LF lengthening reversed
+    // and then some, per the record's ordering), HF 0.80 s
+    // (lambda x3.15; the multiplier form keeps the effective HF cap
+    // at ~0.7 s / 0.8 s / 0.92 s / 1.10 s across knobs 2.5/5/7.5/10).
+    // SPR-1 (Truth test build, 2026-10-21): the finished IR did NOT
+    // deliver SR-1's HF decay — measured 8 kHz RT 2.62 s and an
+    // 8 kHz/125 Hz ratio of ~0.9 at knob 5 against the 1.54 s / 0.50
+    // design. The research brief blamed the generator's +-0.8 soft
+    // clip; instrumenting the generator shows the pre-clip signal
+    // peaks at 0.30, so the knee NEVER engages — the clip is inert.
+    // The actual mechanism is the band split itself: a one-pole
+    // crossover leaks ~30% of the 8 kHz content into the MID band
+    // (and ~3% into LF), where it decays at the mid/LF rates and
+    // dominates the top octave late. Fix, below: (a) the split is now
+    // two cascaded one-poles per crossover (12 dB/oct), cutting the
+    // 8 kHz leak into mid ~4x; (b) the smoothing + soft clip move
+    // ahead of the split, so any nonlinearity products are generated
+    // pre-split and thereafter obey their own band's envelope —
+    // correct by construction even if levels are ever recalibrated
+    // hot enough for the knee to engage. The split still partitions
+    // the source exactly (bands sum to the input), so at t=0 the IR
+    // is unchanged in level and spectrum.
+    const double lamLf = lambda * 1.1429, lamHf = lambda * 3.15;
     const float a250 = 1.0f - poleForCorner(250.0f, sampleRate);
     const float a2500 = 1.0f - poleForCorner(2500.0f, sampleRate);
     // SR-3: a whisper of the spring's HF-leads-LF dispersion — band
@@ -712,6 +772,7 @@ void SpringIR::generate(float seconds, double sampleRate,
         std::vector<float>& data = (c == 0) ? outL : outR;
         float lastNoise = 0, lastVal = 0;
         float lp250 = 0, lp2500 = 0; // band-split states (SR-1)
+        float lp250b = 0, lp2500b = 0; // SPR-1: second cascade pole per crossover
         // SR-A (0.3.2-TEST1): dispersive chirp voices. A real spring
         // is dispersive — HF travels faster than LF — so each
         // reflection reaches the pickup as a short DOWNWARD chirp,
@@ -747,10 +808,35 @@ void SpringIR::generate(float seconds, double sampleRate,
         const double dLf = std::exp(-lamLf / sampleRate);
         const double dMid = std::exp(-lambda / sampleRate);
         const double dHf = std::exp(-lamHf / sampleRate);
+        // SPR-3 (Truth test build, 2026-10-21): two-stage decay —
+        // front-load and THIN. The shipped tail's late slope was
+        // SHALLOWER than its early slope (broadband 2.36 -> 2.59 s at
+        // knob 5), the reverse of every classic reference and of the
+        // Truth print. Past the mid envelope's -30 dB point every
+        // band's decay rate steepens x1.5, so the residue that pokes
+        // into phrase gaps thins out instead of sustaining, while
+        // the level-setting first stage (and with it the TIME law's
+        // delivered broadband RT, ~2.4 s at knob 5) is untouched.
+        // (A -20 dB knee was tried first: it pulled the -5..-35 dB
+        // broadband figure to 2.05 s — a TIME-law change, which is
+        // explicitly not the complaint. The -30 dB knee keeps the
+        // headline number and still lands the late slope <= early.)
+        const double tKnee = 3.453878 / lambda; // mid envelope -30 dB time
+        const double dLf2 = std::exp(-lamLf * 1.5 / sampleRate);
+        const double dMid2 = std::exp(-lambda * 1.5 / sampleRate);
+        const double dHf2 = std::exp(-lamHf * 1.5 / sampleRate);
+        // SPR-3b: short-TIME integrity. At knob 2.5 the shipped IR
+        // ended at ~-50 dB instantaneous — truncated, not decayed.
+        // A raised-cosine fade over the final 12% of the ACTIVE IR
+        // (after the SPR-5 gap) brings every setting to the floor
+        // smoothly; at long settings the envelope is already below
+        // -80 dB there, so the fade is a no-op except as a guarantee.
+        const double tFade = activeSec * 0.88;
         float flutPh = c * 0.25f; // flutter phase, cycles
         const float flutInc = float(flutterRate / sampleRate);
         for (int i = 0; i < length; ++i) {
-            double t = double(i) / sampleRate;
+            if (i < gapSamples) { data[i] = 0.0f; continue; } // SPR-5 gap
+            double t = double(i - gapSamples) / sampleRate; // active time
             // SR-2: density RAMPS 45% -> 100% over the first 80 ms (a
             // spring arriving), replacing the old front-loaded x2
             // density burst in the first 50 ms.
@@ -800,22 +886,34 @@ void SpringIR::generate(float seconds, double sampleRate,
             lastNoise = noise;
             flutPh += flutInc;
             const float flutter = 1.0f + float(flutterDepth) * sinT(flutPh);
-            lp250 += (noise - lp250) * a250;
-            lp2500 += (noise - lp2500) * a2500;
-            const float bandLf = lp250;
-            const float bandMid = lp2500 - lp250;
-            const float bandHf = (noise - lp2500) * (hard ? 1.3f : 1.0f); // SR-B brightness
+            // SPR-1: the one-pole smoothing and the +-0.8 soft clip
+            // now run on the broadband source BEFORE the band split
+            // (they used to run on the envelope-summed signal, after
+            // the envelopes). Any products they create are therefore
+            // split and envelope-governed like everything else.
+            float shaped = (noise + lastVal * 0.9f) / 1.9f;
+            lastVal = shaped;
+            if (shaped > 0.8f) shaped = 0.8f + (shaped - 0.8f) * 0.5f;
+            if (shaped < -0.8f) shaped = -0.8f + (shaped + 0.8f) * 0.5f;
+            lp250 += (shaped - lp250) * a250;
+            lp2500 += (shaped - lp2500) * a2500;
+            lp250b += (lp250 - lp250b) * a250;
+            lp2500b += (lp2500 - lp2500b) * a2500;
+            const float bandLf = lp250b;
+            const float bandMid = lp2500b - lp250b;
+            const float bandHf = (shaped - lp2500b) * (hard ? 1.3f : 1.0f); // SR-B brightness
             const float atkLf = t < 0.024 ? attack(t, 0.012, 0.024) : 1.0f;
             const float atkMid = t < 0.018 ? attack(t, 0.006, 0.018) : 1.0f;
             float signal = bandLf * float(eLf) * atkLf
                          + bandMid * float(eMid) * atkMid
                          + bandHf * float(eHf);
-            eLf *= dLf; eMid *= dMid; eHf *= dHf;
+            if (t > tKnee) { eLf *= dLf2; eMid *= dMid2; eHf *= dHf2; }
+            else { eLf *= dLf; eMid *= dMid; eHf *= dHf; }
             signal *= flutter;
-            signal = (signal + lastVal * 0.9f) / 1.9f;
-            lastVal = signal;
-            if (signal > 0.8f) signal = 0.8f + (signal - 0.8f) * 0.5f;
-            if (signal < -0.8f) signal = -0.8f + (signal + 0.8f) * 0.5f;
+            if (t > tFade) { // SPR-3b end fade (see above)
+                const double u = (t - tFade) / (activeSec * 0.12);
+                signal *= float(0.5 + 0.5 * std::cos(kPi * u));
+            }
             data[i] = signal * 1.5f;
         }
     };
@@ -840,8 +938,17 @@ void SpringIR::generate(float seconds, double sampleRate,
 void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
     sr_ = sampleRate;
     curves_ = &curves;
-    preEmp_.setLowShelf(sr_, 100, 1.0, 0.5);
-    deEmp_.setLowShelf(sr_, 100, 1.0, -0.5);
+    // TT3-B (TruthTest-3, 2026-10-21): the LF pre/de-emphasis pair
+    // around the OP-6 cascade deepens (+/-0.5 -> +/-1.5 dB). The pair
+    // is an exact inverse at low level, so the small-signal response
+    // is bit-identical; under drive, LF/low-mid content reaches the
+    // cascade hotter and generates its harmonic weight (H2 in the
+    // girth band) exactly where the RCA reference carries its body —
+    // wool that scales with programme LF energy and vanishes at rest,
+    // complementing TT3-A's static plateau. Guardrail: H3 must stay
+    // below H2 at full drive (the WS1 edge fix is not reopened).
+    preEmp_.setLowShelf(sr_, 100, 1.0, 1.5);
+    deEmp_.setLowShelf(sr_, 100, 1.0, -1.5);
     // OP6R-4: a gentle static lowpass in the INPUT-transformer
     // position, ahead of stage A — extreme HF is band-limited
     // before any waveshaping can multiply it (era program band;
@@ -850,15 +957,53 @@ void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
     // Butterworth Q: measured -0.06 dB at 12 kHz (rest response
     // preserved) with real band-limiting at 19 kHz and above.
     inLp_.setLowpass(sr_, 18000, 0.707);
-    rumble_.setHighpass(sr_, 20, 0.5);
-    lowCut_.setHighpass(sr_, 10, 0.5);
+    // TT2-WS3 (TruthTest-2, 2026-10-21): the strip's subsonic
+    // high-passes go from Q 0.5 to Butterworth Q 0.707. A Q-0.5
+    // high-pass has a long shallow skirt that reaches up two-plus
+    // octaves: the 20 Hz rumble filter alone cost -1.29 dB at
+    // 50 Hz and the 10 Hz low-cut another -0.34 dB, and stacked
+    // with the master's own pair the full dry path measured
+    // -2.15 dB @ 50 Hz / -3.28 @ 40 / -0.55 @ 100 (stepped-sine
+    // audit, -36 dBFS) — outside the RCA OP-6's documented
+    // +/-1 dB, 30 Hz-15 kHz response, and the low/low-mid sag
+    // behind the missing front-end girth. Butterworth skirts keep
+    // subsonic protection (still -12 dB @ 10 Hz for the pair,
+    // -3 dB at the 20 Hz corner) while leaving 40-250 Hz alone:
+    // post-change full path measures ~-0.2 dB @ 50, ~-0.35 @ 40.
+    rumble_.setHighpass(sr_, 20, 0.707);
+    lowCut_.setHighpass(sr_, 10, 0.707);
     bandwidth_.setLowpass(sr_, 24000, 0.5);
-    // Neve 1073-style: low shelving at 110Hz, high shelving at 10kHz.
+    // TT3 (TruthTest-3, 2026-10-21): front-end voicing stack.
+    // Nathan's TT2 ear verdict: the reverb direction is approved,
+    // but the input channel is still short of the RCA reference —
+    // "a fair amount more low-mid girth and wool". TT2 restored the
+    // response to flat; flat is not the reference's identity. The
+    // OP-6 video reference (chain LTAS of speech, rel 1 kHz) is a
+    // pronounced low-mid plateau (+15 @250, +10.5 @400-500) with a
+    // soft top (-4.9 @2k, -9.5 @4k, -16 @8k). The voice/mic inside
+    // that print means its absolute values are not copied; the stack
+    // closes most of the SHAPE distance in the strip's own probe
+    // terms: a broad bell centred 260 Hz (the girth band; it rolls
+    // off toward the subsonics, so LF extension stays clean — no
+    // sub shelf, no pile-up under the rumble filter) and a gentle
+    // high shelf (the wool). Small-signal 1 kHz gain is untouched,
+    // so unity-at-12-o'clock staging is preserved; the shape is
+    // relative to the 1 kHz anchor, exactly as the audit reports it.
+    girth_.setPeaking(sr_, 260, 0.45, 6.4);
+    wool_.setHighShelf(sr_, 3400, 0.7, -3.2);
+    // Neve 1073-style: low shelving, high shelving at 10kHz.
     // TEST3 rebalance (Nathan, 2026-10-13): the LOW shelf slope
     // steepens (S 0.5 -> 0.9) so a +10 boost actually lands in the
     // audible lows; the HIGH shelf keeps its gentle shipped slope
     // (S 0.5) and only its corner moves down, 12 -> 10 kHz.
-    low_.setLowShelf(sr_, 110, 0.9, 0);
+    // TT3-EQ (Nathan, 2026-10-21, overrides the frozen 110 Hz corner):
+    // the low boost sat too low — corner lifted 110 -> 220 Hz, slope
+    // eased 0.9 -> 0.85, so the curve reaches well into the 200s and
+    // pushes 80-200 Hz harder: weight in the low-mids (Radiator
+    // comparison), not a sub shelf. The EQ keeps its shipped
+    // post-cascade position; the boosted lows push the post-gain /
+    // master stages harder (the boost-into-push interaction).
+    low_.setLowShelf(sr_, 220, 0.85, 0);
     high_.setHighShelf(sr_, 10000, 0.5, 0);
     // CC-A (0.3.2-TEST1): the OP-6 cascade — the ladder's protected
     // stage — oversamples at 4x with a 61-tap FIR (Nathan's trade-off
@@ -893,7 +1038,8 @@ void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
     bwWritten_ = 24000.0f;
     bwCtr_ = 0;
     preAmpGain_.prepare(sr_, 1.0f);
-    postGain_.prepare(sr_, 4.0f); // TEST3 rebalance (was 2.0)
+    // TT3-A2: makeup starts at the trimmed value (see updateGains).
+    postGain_.prepare(sr_, 3.30f); // TEST3 rebalance (was 2.0)
     glideA_ = tauCoef(0.015f, sr_); // 15 ms EQ glide (DN1000 item 5)
     eqSnap_ = true;
     dirty_ = true;
@@ -903,6 +1049,7 @@ void ChannelStrip::prepare(double sampleRate, const Curves& curves) {
 void ChannelStrip::reset() {
     preEmp_.reset(); deEmp_.reset(); inLp_.reset(); rumble_.reset(); lowCut_.reset();
     bandwidth_.reset(); low_.reset(); high_.reset();
+    girth_.reset(); wool_.reset();
     shaper_.reset();
     shaper2_.reset();
 }
@@ -924,7 +1071,10 @@ void ChannelStrip::updateGains() {
     // tables have the room).
     float drive = std::pow(nl, 2.4f) * 10.0f;
     preAmpGain_.set(drive * padFactor_);
-    postGain_.set(4.0f * tolPostGain_);
+    // TT3-A2: the voicing stack (girth bell + wool shelf) inserts
+    // +1.68 dB at the 1 kHz anchor; trim makeup 4.0 -> 3.30 so the
+    // voicing changes tone, not staging (unity at Level 5 restored).
+    postGain_.set(3.30f * tolPostGain_);
     // OP6-A (0.3.2-TEST1): LEVEL-to-feedback coupling. On the
     // hardware the gain control sits inside stage 1's feedback loop,
     // so the knob moves the operating point, not just the drive:
@@ -940,7 +1090,9 @@ void ChannelStrip::updateGains() {
         if (knobN > 1.0f) knobN = 1.0f;
         if (knobN < -1.0f) knobN = -1.0f;
         shaper_.biasDepth = 0.6f * (1.0f + 0.4f * knobN);
-        darkenSwing_ = 10000.0f * (1.0f - 0.25f * (knobN > 0.0f ? knobN : 0.0f));
+        // TT3-C: swing deepened 34000 -> 47000 (floor 5500 -> 4600)
+        // so the top retreats further under push; OP6-A coupling kept.
+        darkenSwing_ = 47000.0f * (1.0f - 0.25f * (knobN > 0.0f ? knobN : 0.0f));
     }
     lowDbT_ = lowDb;
     highDbT_ = highDb;
@@ -956,9 +1108,9 @@ void ChannelStrip::updateGains() {
 void ChannelStrip::writeEqCoeffs() {
     // Frequencies are the nominal EQ points, scaled only by the fixed
     // per-channel tolerance offsets (audit F6).
-    low_.setLowShelf(sr_, 110.0 * tolLowFreq_, 0.9, lowDbS_);
+    low_.setLowShelf(sr_, 220.0 * tolLowFreq_, 0.85, lowDbS_); // TT3-EQ: 110->220 Hz, S 0.9->0.85
     high_.setHighShelf(sr_, 10000.0 * tolHighFreq_, 0.5, highDbS_);
-    lowCut_.setHighpass(sr_, lowCutFreqS_, 0.5);
+    lowCut_.setHighpass(sr_, lowCutFreqS_, 0.707); // TT2-WS3: see prepare()
 }
 
 float ChannelStrip::fxSendGain() const {
@@ -991,13 +1143,20 @@ float ChannelStrip::process(float x) {
     // OP6-2: dynamic transformer darkening — the bandwidth lowpass
     // corner follows the OP-6 bias envelope (stage A): exactly 24 kHz
     // at rest (the shipped static filter, bit-identical coefficients)
-    // down to ~14 kHz under sustained heavy drive (OP6R-4 narrowed
-    // the swing from 24->9 kHz: the hardware's darkening is a driven
-    // seasoning, not a 15 kHz tone swing). Decimated coefficient
+    // down to a 4.6 kHz floor under full envelope (TT3-C; was 5.5 kHz).
+    // TT2-WS3b widened
+    // the swing from OP6R-4's 24->~14 kHz on Nathan's measured RCA
+    // reference (speech through a real RCA preamp: loudest-third
+    // phrases sit ~4 dB darker at 5-10 kHz rel 1 kHz than the
+    // quietest third, 200-350 Hz constant — drive darkens the top
+    // without thinning the body). The audit had shown the old swing
+    // produced NO measurable retreat at level (8 kHz rel 1 kHz +0.06
+    // dB at -3 dBFS vs -0.05 small-signal). Decimated coefficient
     // refresh (every 16 samples), only while moving.
     {
         float en = shaper_.lastEnv() / 1.2f; if (en > 1.0f) en = 1.0f;
-        const float corner = 24000.0f - darkenSwing_ * en;
+        float corner = 24000.0f - darkenSwing_ * en;
+        if (corner < 4600.0f) corner = 4600.0f; // TT3-C floor (was 5500)
         if (++bwCtr_ >= 16) {
             bwCtr_ = 0;
             if (std::fabs(corner - bwWritten_) > 25.0f) {
@@ -1007,6 +1166,8 @@ float ChannelStrip::process(float x) {
         }
     }
     y = bandwidth_.process(y);
+    y = girth_.process(y); // TT3: low-mid girth (pre-EQ baseline voicing)
+    y = wool_.process(y);   // TT3: soft top (pre-EQ baseline voicing)
     y = low_.process(y);
     y = high_.process(y);
     y *= postGain_.next();
@@ -1158,20 +1319,49 @@ void SpringReverb::configureFilters(double sampleRate) {
     // the audio thread (via beginBlock) so coefficients are never written
     // while the render thread reads them.
     for (int c = 0; c < 2; ++c) {
-        hp_[c].setHighpass(sampleRate, 180, 0.5);
-        tone_[c].setLowpass(sampleRate, 3250, 0.4);
+        // SPR-7 (Truth test build, 2026-10-21) moved the send
+        // high-pass 180 -> 300 Hz. TT2-WS2 (TruthTest-2) walks it
+        // back to 140 Hz on Nathan's capture evidence: the PV wet
+        // is LF-FAT (+11 dB @ 125 Hz rel dry), and a 300 Hz send
+        // high-pass starves the tank's excitation exactly there
+        // (-16.6 dB @ 125 Hz) — no return EQ can restore what the
+        // tank never received. 140 Hz keeps subsonic protection
+        // and the SPR-7 principle (filter the excitation) while
+        // passing the capture's body band. The IR's decay ORDERS
+        // (SPR-2) are properties of the IR and are untouched.
+        hp_[c].setHighpass(sampleRate, 140, 0.5);
+        // TT2-WS2 voicing stack initialisation (gains: see header).
+        voiceShelf_[c].setLowShelf(sampleRate, 140, 1.0, 10.5f);
+        voiceLow_[c].setPeaking(sampleRate, 135, 1.1, 11.5f);
+        voicePeak_[c].setPeaking(sampleRate, 230, 1.0, 4.8f);
+        voiceDip_[c].setPeaking(sampleRate, 760, 1.8, -12.0f);
+        voiceScoop_[c].setPeaking(sampleRate, 1700, 1.0, -8.0f);
+        voiceHi_[c].setHighShelf(sampleRate, 3400, 1.2, 12.0f);
+        voiceCeil_[c].setLowpass(sampleRate, 5600, 0.707);
+        voiceCeil2_[c].setLowpass(sampleRate, 5800, 0.707);
+        tone_[c].setLowpass(sampleRate, 5200, 0.6);
         a1108In_[c].setHighpass(sampleRate, 50, 0.5);
         a1108Out_[c].setLowpass(sampleRate, 24000, 0.5);
         // SR-C (0.3.2-TEST1): driver pre/de-emphasis pair. Identical
         // corner/slope, reciprocal gains — exact inverses, so the
         // low-level path is net flat by construction.
-        preEmph_[c].setHighShelf(sampleRate, 2800, 0.8, 5.0f);
-        deEmph_[c].setHighShelf(sampleRate, 2800, 0.8, -5.0f);
+        // TT2-WS1 (TruthTest-2, 2026-10-21): emphasis trimmed
+        // +5 -> +3 dB. The pair is net-flat only at LOW level; at
+        // working drive the +5 dB shelf pushed HF transients
+        // ~1.8x deeper into the 12AT7 knee than the body, and the
+        // resulting odd-order wet content is baked into the tank
+        // excitation where CONTOUR (post-convolver) cannot reach
+        // it. +3 dB keeps the frequency-dependent driver saturation
+        // (the SR-C concept) with ~40% less excess HF drive; the
+        // de-emphasis follows, so the low-level response is still
+        // exact-inverse flat. LF/mid driver behaviour unchanged.
+        preEmph_[c].setHighShelf(sampleRate, 2800, 0.8, 3.0f);
+        deEmph_[c].setHighShelf(sampleRate, 2800, 0.8, -3.0f);
     }
     drvGain_.prepare(sampleRate, 0.175f);
-    toneFreq_.prepare(sampleRate, 3250.0f);
+    toneFreq_.prepare(sampleRate, 5200.0f);
     retGain_.prepare(sampleRate, 0.7f);
-    toneFreqWritten_ = 3250.0f; // matches the tone_ writes above
+    toneFreqWritten_ = 5200.0f; // matches the tone_ writes above
     toneCtr_ = 0;
     dirty_ = true;
 }
@@ -1334,12 +1524,17 @@ void SpringReverb::reset() {
 void SpringReverb::resetOnAudioThread() {
     for (int c = 0; c < 2; ++c) {
         hp_[c].reset(); tone_[c].reset();
+        voiceShelf_[c].reset(); voiceLow_[c].reset(); voicePeak_[c].reset(); // TT2-WS2
+        voiceDip_[c].reset(); voiceScoop_[c].reset(); voiceHi_[c].reset(); voiceCeil_[c].reset(); voiceCeil2_[c].reset();
         a1108In_[c].reset(); a1108Out_[c].reset();
         driver_[c].reset(); a1108_[c].reset();
         preEmph_[c].reset(); deEmph_[c].reset(); // SR-C
     }
     hitEnv_ = 0.0f; hitMix_ = 0.0f; // SR-B
     hardGateOn_ = false; hardGate_ = 0.0f;
+    for (int c = 0; c < 2; ++c) { // SPR-4 limiter state
+        limAvg_[c] = 0.0f; limGain_[c] = 1.0f; limRel_[c] = 0.0f;
+    }
     // Only the ACTIVE slot: the worker exclusively owns BUILDING slots, and
     // every READY slot was already reset by setIR() when the worker built it.
     convL_[activeSlot_].reset();
@@ -1401,7 +1596,18 @@ void SpringReverb::updateFromParams() {
         drvGain_.set(k <= 0.6f ? 0.05f + k * 0.25f
                                : 0.20f + (k - 0.6f) * 0.625f);
     }
-    toneFreq_.set(500.0f + (contour.load() / 10.0f) * 5500.0f);
+    // TT2-WS2: CONTOUR is now a deviation around the capture
+    // centre. Knob 5 = 5200 Hz tone lowpass, i.e. the capture's
+    // ~5 kHz ceiling with the voicing stack = the PV profile.
+    // Below 5 the lowpass closes toward 1400 Hz (darker than the
+    // capture); above 5 it opens toward 12000 Hz (brighter/more
+    // open than the capture). Piecewise-linear in the knob, so
+    // the centre is exact and both halves stay musical.
+    {
+        const float cn = contour.load() / 10.0f; // 0..1
+        toneFreq_.set(cn <= 0.5f ? 1400.0f + (cn / 0.5f) * 3800.0f
+                                 : 5200.0f + ((cn - 0.5f) / 0.5f) * 6800.0f);
+    }
     // Audit F5 fix: the tone biquads are NOT written here anymore. They
     // used to be written from toneFreq_.target while toneFreq_.next()
     // was never called — the contour's smoothing was dead code and every
@@ -1422,7 +1628,7 @@ void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
         if (std::fabs(tf - toneFreqWritten_) > 0.5f) {
             toneFreqWritten_ = tf;
             for (int c = 0; c < 2; ++c)
-                tone_[c].setLowpass(sr_.load(), tf, 0.4);
+                tone_[c].setLowpass(sr_.load(), tf, 0.6); // TT2-WS2 (was 0.4)
         }
     }
     const int a = activeSlot_; // audio thread's view; written only in beginBlock()
@@ -1435,8 +1641,34 @@ void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
     // the pair net-flat at low level by construction.
     const float p0 = preEmph_[0].process(m[0]);
     const float p1 = preEmph_[1].process(m[1]);
-    const float d0 = driver_[0].process(p0 * dg);
-    const float d1 = driver_[1].process(p1 * dg);
+    float d0 = driver_[0].process(p0 * dg);
+    float d1 = driver_[1].process(p1 * dg);
+    // SPR-4: floating-threshold soft limiter (see header). Acts on
+    // the driver output feeding BOTH convolver pairs, so the soft
+    // and hard sets see the same tamed excitation; the SR-B hit
+    // envelope below still reads the un-limited driver input, so
+    // the crossfade's sense of "how hard was that hit" is unchanged.
+    {
+        const double srL = sr_.load();
+        for (int c = 0; c < 2; ++c) {
+            float& x = (c == 0) ? d0 : d1;
+            const float ax = std::fabs(x);
+            const float cA = tauCoef(ax > limAvg_[c] ? 0.080f : 0.800f, srL);
+            limAvg_[c] += (ax - limAvg_[c]) * cA;
+            const float thr = (limAvg_[c] < 0.01f ? 0.01f : limAvg_[c]) * 2.2f;
+            float g = 1.0f;
+            if (ax > thr) {
+                g = std::pow(thr / ax, 0.9f); // 10:1 above threshold
+                if (g < 0.501f) g = 0.501f;   // depth capped at 6 dB
+            }
+            limRel_[c] += ((1.0f - g) - limRel_[c]) * tauCoef(0.500f, srL);
+            const float relBlend = limRel_[c] * 2.0f < 1.0f ? limRel_[c] * 2.0f : 1.0f;
+            const float tau = (g < limGain_[c]) ? 0.0003f
+                                                : 0.050f + 0.250f * relBlend;
+            limGain_[c] += (g - limGain_[c]) * tauCoef(tau, srL);
+            x *= limGain_[c];
+        }
+    }
     // SR-B (0.3.2-TEST1): hard-hit crossfade. A slow envelope of the
     // driver INPUT (fast 8 ms attack, 250 ms release — the tank's own
     // mechanical settle time) crossfades between the soft and hard
@@ -1477,10 +1709,19 @@ void SpringReverb::process(float inL, float inR, float& outL, float& outR) {
     // 1108's FET knee (previously ~0.7x, nearly decorative).
     const float kPre1108 = 1.5849f;  // +4 dB
     const float kPost1108 = 0.6310f; // -4 dB
+    // TT2-WS2: the SPR-6 house dip is gone (see header); CONTOUR's
+    // tone lowpass now runs directly on the de-emphasised return.
     float tL = tone_[0].process(cL) * rg * kPre1108;
     float tR = tone_[1].process(cR) * rg * kPre1108;
-    outL = a1108Out_[0].process(a1108_[0].process(a1108In_[0].process(tL))) * kPost1108;
-    outR = a1108Out_[1].process(a1108_[1].process(a1108In_[1].process(tR))) * kPost1108;
+    float oL = a1108Out_[0].process(a1108_[0].process(a1108In_[0].process(tL))) * kPost1108;
+    float oR = a1108Out_[1].process(a1108_[1].process(a1108In_[1].process(tR))) * kPost1108;
+    // TT2-WS2 voicing stack: clean EQ after the return amp (no
+    // staging interaction) — the capture's frequency response as
+    // the CONTOUR-centre baseline. See the header for the brief.
+    outL = voiceCeil2_[0].process(voiceCeil_[0].process(voiceHi_[0].process(voiceScoop_[0].process(voiceDip_[0].process(
+               voicePeak_[0].process(voiceLow_[0].process(voiceShelf_[0].process(oL))))))));
+    outR = voiceCeil2_[1].process(voiceCeil_[1].process(voiceHi_[1].process(voiceScoop_[1].process(voiceDip_[1].process(
+               voicePeak_[1].process(voiceLow_[1].process(voiceShelf_[1].process(oR))))))));
 }
 
 // ---------------------------------------------------------------------------
@@ -1492,7 +1733,8 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
     curves_ = &curves;
     scLpA_ = 1.0f - poleForCorner(150.0f, sr_); // SC-1 crossover pole
     for (int c = 0; c < 2; ++c) {
-        scullyIn_[c].setHighpass(sr_, 10, 0.6);
+        // TT2-WS3: input HP Q 0.6 -> 0.707 (skirt, see ChannelStrip).
+        scullyIn_[c].setHighpass(sr_, 10, 0.707);
         scullyOut_[c].setLowpass(sr_, 22000, 0.5);
         scully_[c].prepare(sr_); scully_[c].setCurve(&curves_->scully);
         scully_[c].quadCoef = 0.03f;    // SC-2 bias-coupled asymmetry
@@ -1533,7 +1775,7 @@ void MasterSection::prepare(double sampleRate, const Curves& curves) {
         // all unchanged. The 35 Hz Pultec peaking dip in
         // writeEqCoeffs is unchanged.)
         pultecDip_[c].setHighpass(sr_, 8, 0.7);
-        subCut_[c].setHighpass(sr_, 10, 0.5);
+        subCut_[c].setHighpass(sr_, 10, 0.707); // TT2-WS3: skirt (was Q 0.5)
         // Decorrelated hiss: independent seed per channel (audit F3).
         noise_[c].prepare(sr_, c == 0 ? 0x9015Eu : 0x3D7A9u);
     }

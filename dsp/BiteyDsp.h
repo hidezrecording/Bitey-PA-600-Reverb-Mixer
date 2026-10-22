@@ -7,6 +7,13 @@
 // 1108-style return amp), and a master section (Scully 280 line amp,
 // Pultec/Helios/Baxandall EQ, bus saturation).
 //
+// RELEASE 0.3.3 (2026-10-22): public release of the private
+// TruthTest-3 build (0.3.2.3), approved by Nathan's ear
+// 2026-10-22. Audio-identical to TruthTest-3 — release identity
+// only: version metadata (workflow + CMake project version),
+// installer name Bitey-PA200-0.3.3-macOS.pkg, and this banner.
+// No DSP code changes vs TruthTest-3.
+//
 // RELEASE 0.3.2 (2026-10-13): the refinement-research round on
 // top of 0.3.1 (built privately as 0.3.2-TEST1) with ONE item
 // reverted per Nathan's ear — HL-A (Helios detector tracks boost
@@ -628,12 +635,23 @@ private:
     double sr_ = 44100;
     const Curves* curves_ = nullptr;
     Biquad preEmp_, deEmp_, inLp_, rumble_, lowCut_, bandwidth_, low_, high_;
+    // TT3 (TruthTest-3, 2026-10-21): the front-end voicing stack —
+    // girth_ (broad low-mid bell) and wool_ (soft high shelf) sit
+    // after the OP6-2 bandwidth stage and before the channel EQ, so
+    // they form the channel's baseline (pre-EQ) tone: the RCA OP-6
+    // reference's low-mid plateau + retreating top as static
+    // character, with the EQ controls deviating around it (the same
+    // centre-baseline logic as TT2's CONTOUR centre). Static and
+    // level-independent; the dynamic part of the wool is OP6-2's
+    // driven darkening (strengthened in TT3-C).
+    Biquad girth_, wool_;
     BiasedShaper shaper_;    // OP-6 stage A (input pentode) + bias memory
     BiasedShaper shaper2_;   // OP-6 stage B (output pentode/transformer)
     // OP6-2: the bandwidth_ lowpass corner is modulated by the OP-6
-    // bias envelope (stage A) (24 kHz at rest -> ~14 kHz under
-    // sustained heavy drive; swing narrowed by OP6R-4) — dynamic
-    // transformer darkening.
+    // bias envelope (stage A) (24 kHz at rest -> 5.5 kHz floor under
+    // full envelope; swing widened by TT2-WS3b on Nathan's RCA-video
+    // evidence: loud phrases darken ~4 dB at 5-10 kHz while the
+    // 200-350 Hz body stays constant) — dynamic transformer darkening.
     // bwWritten_ tracks the last written corner; coefficients
     // refresh every 16 samples and only while the corner is moving.
     float bwWritten_ = 24000.0f;
@@ -643,9 +661,10 @@ private:
     // inside stage 1's feedback loop — past 5 the effective feedback
     // falls (bias deepen deepens; the darkening swing narrows), below
     // 5 the stage runs a touch cleaner. darkenSwing_ is the current
-    // OP6-2 swing (10 kHz at Level <= 5). Small-signal gain at every
-    // knob position is untouched (bias env is 0 at rest).
-    float darkenSwing_ = 10000.0f;
+    // OP6-2 swing (34 kHz at Level <= 5, floored at a 5.5 kHz corner
+    // in process()). Small-signal gain at every knob position is
+    // untouched (bias env is 0 at rest).
+    float darkenSwing_ = 47000.0f; // TT3-C (was 34000 TT2-WS3b)
     Smoothed preAmpGain_, postGain_;
     float padFactor_ = 1.0f;
     bool dirty_ = true;
@@ -809,8 +828,48 @@ private:
     // the low-level response stays net flat by construction (RBJ
     // shelves with reciprocal gains are exact inverses).
     Biquad preEmph_[2], deEmph_[2];
+    // SPR-4 (Truth test build, 2026-10-21): Orban-pattern
+    // floating-threshold soft limiter in the driver path, after the
+    // 12AT7 shaper and before both convolver pairs. The threshold
+    // floats at 2.2x a slow average of the driver output (150 ms
+    // attack / 800 ms release), so steady programme is untouched
+    // and only transient overshoot relative to the surrounding
+    // programme is ducked, 10:1, depth capped at 6 dB; release is
+    // program-dependent (50 ms for brief dips, up to 300 ms under
+    // sustained reduction). No user control — this is the level-
+    // domain complement to SR-B's brightness-domain reaction.
+    // Per-channel, like the hardware's per-channel limiters.
+    float limAvg_[2] = { 0.0f, 0.0f };   // slow |driver out| average
+    float limGain_[2] = { 1.0f, 1.0f };  // smoothed limiter gain
+    float limRel_[2] = { 0.0f, 0.0f };   // sustained-depth follower (release blend)
     std::atomic<SlotState> slotState_[2];
     int activeSlot_ = 0; // audio thread's view; written only in beginBlock()
+    // SPR-6 (Truth test build) put a fixed -2.5 dB house dip at
+    // 300 Hz in the return. TT2 (TruthTest-2, 2026-10-21) REMOVES
+    // it: Nathan's PV capture — the superior evidence, his own
+    // hardware — shows the 315 Hz region EMPHASISED (+5.4 dB rel
+    // dry in the wet LTAS), the opposite direction in level. The
+    // Orban dip was a decay-management claim imported from another
+    // unit; against the capture it does not survive. (Decay in
+    // that region is the IR's business, and the TruthTest decay
+    // table stands.)
+    // TT2-WS2 return voicing stack (TruthTest-2, 2026-10-21):
+    // clean EQ only, applied AFTER the 1108 return amp so it has
+    // no staging side-effects — Nathan's ruling: the PV capture's
+    // speaker is an equaliser, not a sound source (no smearing, no
+    // cone/room modelling). The stack voices the wet return so
+    // that at CONTOUR 5 the wet path's long-term spectrum matches
+    // the capture's wet-vs-dry profile (broad low-mid lift centred
+    // ~200-250 Hz, effective bandwidth ceiling ~5 kHz); CONTOUR
+    // deviates around that centre via the tone_ lowpass (see
+    // updateFromParams). Members: low shelf + low bell + girth
+    // bell (the capture's low-mid hump), 760 Hz dip (the capture's
+    // own notch), 1.7 kHz scoop (its presence dip), HF shoulder
+    // shelf, and two ceiling lowpasses (its no-tweeter cliff).
+    // Gains fitted against the capture LTAS over four measured
+    // rounds — see the TruthTest-2 report for the fit table.
+    Biquad voiceShelf_[2], voiceLow_[2], voicePeak_[2];
+    Biquad voiceDip_[2], voiceScoop_[2], voiceHi_[2], voiceCeil_[2], voiceCeil2_[2];
     Biquad tone_[2];
     Biquad a1108In_[2], a1108Out_[2];
     BiasedShaper a1108_[2]; // 1108 return amp with bias memory (audit F1)

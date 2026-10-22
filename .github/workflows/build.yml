@@ -45,17 +45,40 @@ jobs:
           if [ -d "build/BiteyTestHost_artefacts/Release/Bitey Test Host.app" ]; then
             cp -R "build/BiteyTestHost_artefacts/Release/Bitey Test Host.app" "$PKGROOT/Applications/"
           fi
+          pkgbuild --analyze --root "$PKGROOT" components.plist
+          # Suppress bundle relocation. pkgbuild's default analysis
+          # marks bundles relocatable (BundleIsRelocatable), which
+          # compiles into a <relocate> entry in PackageInfo: the
+          # Installer then 'upgrades' any pre-existing copy of the
+          # bundle it finds ANYWHERE on disk (any mounted volume)
+          # instead of writing to the PKGROOT paths above. Our
+          # bundles share bundle ids (com.Sabatino Audio.Bitey / com.Sabatino Audio.BiteyTestHost), so a single stray copy
+          # can capture them all while the preinstall wipes the
+          # /Library copies first - successful installs can leave
+          # no component in /Library at all (the Western Compressor
+          # 1.1.x Luna disappearance; fixed there in 1.1.6).
+          # Force BundleIsRelocatable=false on every bundle and
+          # build with the component plist.
+          i=0
+          while /usr/libexec/PlistBuddy -c "Print :$i" components.plist >/dev/null 2>&1; do
+            /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" components.plist 2>/dev/null || \
+              /usr/libexec/PlistBuddy -c "Add :$i:BundleIsRelocatable bool false" components.plist
+            i=$((i + 1))
+          done
+          echo "BundleIsRelocatable forced false on $i bundle(s)"
+          cat components.plist
           pkgbuild --root "$PKGROOT" \
+            --component-plist components.plist \
             --identifier com.sabatinoaudio.bitey \
-            --version 0.3.2 \
+            --version 0.3.3 \
             --install-location / \
             --scripts pkg_scripts \
-            Bitey-PA200-0.3.2-macOS.pkg
+            Bitey-PA200-0.3.3-macOS.pkg
 
       - name: Verify installer scripts embedded in PKG
         run: |
           rm -rf /tmp/pkgx && mkdir -p /tmp/pkgx
-          pkgutil --expand-full "Bitey-PA200-0.3.2-macOS.pkg" /tmp/pkgx/expanded
+          pkgutil --expand-full "Bitey-PA200-0.3.3-macOS.pkg" /tmp/pkgx/expanded
           echo "--- expanded pkg contents (scripts) ---"
           find /tmp/pkgx/expanded \( -name preinstall -o -name postinstall \) -print
           PRE=$(find /tmp/pkgx/expanded -name preinstall | head -1)
@@ -78,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bitey-Installer-macOS-${{ github.run_number }}
-          path: Bitey-PA200-0.3.2-macOS.pkg
+          path: Bitey-PA200-0.3.3-macOS.pkg
 
       - name: Upload test host
         uses: actions/upload-artifact@v4
